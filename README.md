@@ -8,50 +8,65 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![v0.0.01](https://img.shields.io/badge/release-v0.0.01-orange)](CHANGELOG.md)
-[![status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-red)](#what-this-is)
+[![status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-red)](CHANGELOG.md)
 
-<sub><i>Local web tool at <code>http://127.0.0.1:18890/</code> — CAPTCHA-style labeler over your own Claude Code sessions, with reconstruction-QA gate.</i></sub>
+<sub><i>Local web tool at <code>http://127.0.0.1:18890/</code> — labeler over your own Claude Code sessions, with a reconstruction-QA gate.</i></sub>
 
 </div>
 
 ---
 
-<p align="center">
-  <img src="docs/img/labeler-help-open.png" alt="weighted-compact labeler with help panel open — English UI, span-level annotations visible (KEEP / MAYBE / SKIP / THINK), anti-drift sidebar" width="100%">
-</p>
+Every long Claude Code session reaches the same moment.
 
-<sub><i>The labeler with the cheat-sheet open (top). Span-level annotations on the correction text: <strong style="color:#9ece6a">KEEP</strong> (load-bearing, preserve verbatim), <strong style="color:#e0af68">MAYBE</strong> (keep if budget permits), <strong style="color:#6b7280">SKIP</strong> (drop with confidence), <strong style="color:#b39df0">THINK</strong> (preserve and flag for re-examination). Anti-drift sidebar on the right shows the four cosine-nearest prior labeled pairs with their tier decisions, so future labels stay consistent with past ones. Language selector top-right — UI ships in English, Russian, and Ukrainian.</i></sub>
+The context window fills up. The auto-summarizer runs. Somewhere in the
+conversation you had a brittle constraint — an SLA number, a path, the
+edge case a colleague mentioned on the third day — and the summary cannot
+tell which of yesterday's exchanges carried weight and which were padding.
+It guesses. Sometimes it guesses right. Sometimes the next turn opens
+with the model insisting on a default you spent an hour overriding,
+because the line where you overrode it was deemed not load-bearing
+enough to keep verbatim.
 
-<p align="center">
-  <img src="docs/img/labeler-annotations.png" alt="weighted-compact labeler — annotations focus view (help collapsed)" width="100%">
-</p>
+The mechanism producing that summary is a single forward pass with no
+memory of you. It reads the transcript fresh, decides what looks
+important by general heuristics, and writes a paragraph. Run it twice on
+the same conversation and you get two different paragraphs. The
+compression isn't stable, and it isn't yours.
 
-<sub><i>Same labeler with the cheat-sheet collapsed for a closer look at the annotated content. All four tier underlines are visible on the correction; the small "K / M / S / X" buttons map to keyboard shortcuts.</i></sub>
+This is a workbench for a different mechanism.
 
-<p align="center">
-  <img src="docs/img/reconstruction-tab.png" alt="Reconstruction-QA tab with help panel open — tunable k_drop, ranker, topic_decay" width="100%">
-</p>
+Instead of asking a model to summarize, weighted-compact keeps a
+substrate. Every conversational turn becomes a vector, and a continuous
+importance score sits over the top, composed from six independent signals
+— your own labels, your span-level annotations, density of named entities
+and numbers, the corpus-wide predictor for moments where you stopped
+pushing back, recency, and a topic-segmentation decay so unrelated topics
+don't bleed into each other when budget runs short. When the window
+fills, the compactor doesn't write a paragraph. It picks the spans that
+matter, verbatim, and gists the rest.
 
-<sub><i>The reconstruction-QA tab with its cheat-sheet open. Build a Q&A set against the source pair, then run eval with three knobs: <code>k_drop</code> (selection threshold), <code>ranker</code> (importance Phase 4C vs density legacy A/B), <code>topic_decay</code> (cross-topic distance penalty).</i></sub>
+The score is tunable because you are the only person it should match.
+The labeler sits at `http://127.0.0.1:18890/` and surfaces pairs from
+your own session history one at a time — usually triggered by an inline
+marker you typed during a live session (`(mark)`, `(подумать)`), or a
+pair the classifier disagrees on. You sit down for twenty minutes, label
+a couple of dozen, walk away. The substrate grows. The next compaction
+reflects what you actually meant when you said *this part matters*.
 
----
+There's a smaller part of it that's the whole point.
 
-## What this is
+When the auto-compact happens to a Claude Code session today, you have
+no agency in the decision. The mechanism is a black box that runs at a
+moment you don't choose, on criteria you can't inspect, with results you
+have to live with. weighted-compact turns that around: the person being
+compressed is also the person designing the compression. The labels are
+yours, the mixture weights are visible, and the reconstruction-QA loop
+returns measurable scores telling you whether a chosen weighting
+actually preserves what you'd want preserved.
 
-A personal compaction tool that learns from **your** Claude Code sessions to
-decide what to keep, what to drop, and what to flag for re-examination —
-instead of asking an LLM to summarize on the fly.
-
-It is **not** another agent-memory framework. It does not promise zero-config,
-it does not run unattended, and it does not optimize for collective use. It is
-a workbench for one person at a time, designed around the assumption that
-**the person being compacted should participate in designing the mechanism
-that compacts them**.
-
-If you want fully automated memory, look at
-[TencentDB-Agent-Memory](https://github.com/Tencent/TencentDB-Agent-Memory) or
-mem0 / letta / zep. They are good at that job. This tool answers a different
-question.
+The whole framework is small enough to read end-to-end in an afternoon,
+change a weight, watch the recon-QA scores move, and form a real opinion
+about what *important* means for the way you work.
 
 → [`docs/concept.md`](docs/concept.md) · [`docs/invariants.md`](docs/invariants.md)
 
@@ -86,6 +101,12 @@ so you can stay consistent with your own past decisions over time. The stability
 principle is "you should match your own classifier," not "you should optimize
 to the model."
 
+<p align="center">
+  <img src="docs/img/labeler-help-open.png" alt="weighted-compact labeler with help panel open" width="100%">
+</p>
+
+<sub><i>Labeler at <code>:18890</code> with the cheat-sheet expanded. Premise on top, your correction below, four tier buttons mapped to <kbd>K</kbd>/<kbd>M</kbd>/<kbd>S</kbd>/<kbd>X</kbd>. Anti-drift sidebar on the right shows the five cosine-nearest prior labeled pairs with their tier decisions. Language switcher top-right — UI ships in English, Russian, and Ukrainian.</i></sub>
+
 → [`docs/span-annotation.md`](docs/span-annotation.md)
 
 ## 03 · Span-level annotation
@@ -104,6 +125,12 @@ Sub-turn granularity changes what downstream renderers can do: a render layer
 can keep only the marked spans verbatim and gist the rest, yielding token
 savings of 5–15× on chatty assistant turns.
 
+<p align="center">
+  <img src="docs/img/labeler-annotations.png" alt="four tier underlines on a single correction — green KEEP, orange MAYBE, red SKIP, purple THINK" width="100%">
+</p>
+
+<sub><i>All four tier underlines on one correction: <strong style="color:#9ece6a">KEEP</strong> (green) on the load-bearing constraints (<code>our SLA requires</code>, <code>8 seconds</code>, <code>anything above 10 is a hard fail</code>), <strong style="color:#e0af68">MAYBE</strong> (orange) on the secondary detail (<code>with no retry</code>), <strong style="color:#b39df0">THINK</strong> (purple) on the trailing clause that's worth flagging for re-examination. The premise above carries a <strong style="color:#6b7280">SKIP</strong> on the wrong default (<code>to 30 seconds</code>) so the compactor knows that figure isn't part of the answer.</i></sub>
+
 ## 04 · Reconstruction-QA gate
 
 Compression without measurement is wishful thinking. weighted-compact ships
@@ -111,8 +138,17 @@ with a reconstruction-QA loop: sample a compacted context, attempt to
 reconstruct the meaning, score it against the original. Iter-chain QC drift
 labels each step so multi-iteration chains are visible.
 
-This is the part most other tools skip entirely. They assert traceability and
-hope.
+The loop is what turns "I changed a mixture weight" from a guess into a
+measurable claim. Raise the misstep coefficient by ten points, re-run the
+recon-QA harness, watch judge-yes percentage move. If the score goes down
+on questions that were previously answered, the weight change cost you
+something specific.
+
+<p align="center">
+  <img src="docs/img/reconstruction-tab.png" alt="reconstruction-QA tab with cheat-sheet open and tunable knobs" width="100%">
+</p>
+
+<sub><i>The reconstruction-QA tab. Build a Q&A set against the source pair (top), then run the eval (bottom) with three knobs: <code>k_drop</code> (what fraction of pairs to hide before asking the question), <code>ranker</code> (importance mixture vs density legacy A/B), <code>topic_decay</code> (cross-topic distance penalty). The cheat-sheet at the top explains each control with the same hover text it provides in the tooltip.</i></sub>
 
 → [`docs/reconstruction-qa.md`](docs/reconstruction-qa.md)
 
