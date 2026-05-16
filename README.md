@@ -17,18 +17,22 @@
 ---
 
 <p align="center">
-  <img src="docs/img/labeler-annotations.png" alt="weighted-compact labeler with span-level annotations — green KEEP, orange MAYBE, red SKIP, purple THINK" width="100%">
+  <img src="docs/img/labeler-help-open.png" alt="weighted-compact labeler with help panel open — English UI, span-level annotations visible (KEEP / MAYBE / SKIP / THINK), anti-drift sidebar" width="100%">
 </p>
 
-<sub><i>Span-level annotation in the labeler. Drag-select a character range inside the premise or correction, tag it with one of four tiers — <strong style="color:#4caf50">KEEP</strong> (load-bearing, preserve verbatim), <strong style="color:#ff9800">MAYBE</strong> (keep if budget permits), <strong style="color:#f44336">SKIP</strong> (drop with confidence), <strong style="color:#9c27b0">THINK</strong> (flag for re-examination). The anti-drift sidebar shows the four cosine-nearest prior labeled pairs with their tier decisions, so future labels stay consistent with past ones.</i></sub>
-
-> **UI is bilingual** — section headers are mostly Russian, content is what you fed in. A full English i18n pass on the labeler HTML is filed as a contributor task; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+<sub><i>The labeler with the cheat-sheet open (top). Span-level annotations on the correction text: <strong style="color:#9ece6a">KEEP</strong> (load-bearing, preserve verbatim), <strong style="color:#e0af68">MAYBE</strong> (keep if budget permits), <strong style="color:#6b7280">SKIP</strong> (drop with confidence), <strong style="color:#b39df0">THINK</strong> (preserve and flag for re-examination). Anti-drift sidebar on the right shows the four cosine-nearest prior labeled pairs with their tier decisions, so future labels stay consistent with past ones. Language selector top-right — UI ships in English, Russian, and Ukrainian.</i></sub>
 
 <p align="center">
-  <img src="docs/img/reconstruction-tab.png" alt="Reconstruction-QA tab — tunable k_drop, ranker, topic_decay" width="100%">
+  <img src="docs/img/labeler-annotations.png" alt="weighted-compact labeler — annotations focus view (help collapsed)" width="100%">
 </p>
 
-<sub><i>The reconstruction-QA tab. Build a Q&A set against the source pair, then run eval with three knobs: <code>k_drop</code> (selection threshold), <code>ranker</code> (importance Phase 4C vs density legacy A/B), <code>topic_decay</code> (cross-topic distance penalty).</i></sub>
+<sub><i>Same labeler with the cheat-sheet collapsed for a closer look at the annotated content. All four tier underlines are visible on the correction; the small "K / M / S / X" buttons map to keyboard shortcuts.</i></sub>
+
+<p align="center">
+  <img src="docs/img/reconstruction-tab.png" alt="Reconstruction-QA tab with help panel open — tunable k_drop, ranker, topic_decay" width="100%">
+</p>
+
+<sub><i>The reconstruction-QA tab with its cheat-sheet open. Build a Q&A set against the source pair, then run eval with three knobs: <code>k_drop</code> (selection threshold), <code>ranker</code> (importance Phase 4C vs density legacy A/B), <code>topic_decay</code> (cross-topic distance penalty).</i></sub>
 
 ---
 

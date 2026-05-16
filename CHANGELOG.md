@@ -49,8 +49,11 @@ from harness API); the numbers around them are not.
   `weighted_compact/extract_pairs.py`.
 - Substrate carries raw conversation text. `.gitignore` is aggressive,
   but if you fork and add CI artifacts, audit them before pushing.
-- **UI is bilingual** (Russian-first, mixed English). A full English
-  i18n pass on `tool.py:PAGE_HTML` is filed as a contributor task.
+- The UI bundles three languages — English (default), Russian, Ukrainian.
+  A switcher in the top bar persists the choice in `localStorage`.
+  Translations live inline in `tool.py:I18N` so contributors can add a
+  fourth language by extending the dictionary plus a single `<option>`
+  in the selector.
 
 ### Fixed
 
