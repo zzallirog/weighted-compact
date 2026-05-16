@@ -74,63 +74,66 @@ measurable thing for the way *you* work.
 
 ## 01 · The substrate carries the weight, the classifier refines
 
-Every trained classifier eventually misses something. A new pattern of
-correction appears, the marker regex doesn't fire on it, the labeled
-corpus turns out smaller than the diversity of moments you actually
-want preserved. The classifier degrades over weeks. In most pipelines
-this means the whole compactor starts producing worse output until
-someone notices and retrains.
+Every trained classifier eventually misses something. A new way of
+saying "no" shows up, the marker regex does not catch it, the labeled
+corpus turns out smaller than the variety of moments you actually want
+to keep. The classifier slowly degrades. In most pipelines that means
+the whole compactor produces worse output until someone notices and
+retrains.
 
-So here the classifier is one signal among several, not the gatekeeper.
-The vectors carry the weight. Every conversational turn becomes an
-e5-multilingual-small embedding stored as a flat substrate, and six
-independent signals compose the importance score sitting over the top —
-content density, your own labels, span-level annotations at four tier
-levels, the misstep AUC from moments you stopped pushing back, recency,
-and topic distance. The classifier contributes to one signal. Pull it
-out entirely and the compactor still produces sensible top-K
-selections from the remaining five.
+Here the classifier is one signal among several, not the deciding
+vote. Every turn becomes an e5-multilingual-small embedding and is
+stored as a flat substrate. An [importance score](docs/importance-mixture.md)
+sits over the substrate, composed from six signals: content density,
+your manual labels, your span-level highlights at four tier levels,
+the per-user [misstep](https://github.com/zzallirog/misstep) predictor
+for moments where you stopped pushing back, recency, and topic
+distance. The classifier contributes weight to one of these. Take it
+out and the compactor still produces useful top-K selections from the
+other five.
 
-This is why Phase 2 of this project — which trained a marker
-classifier to F1 = 0.93 on gold labels, then watched it collapse to
-F1 = 0.446 under cross-validation — did not kill the work. The
-classifier had failed numerically. The substrate kept working, and
-Phase 4 reframed the failure as Goodhart-on-marker-as-target rather
-than a substrate flaw. Future classifiers are swappable without
-redesigning the pipeline; they slot into the same one-of-six position
-the marker-trained one held.
+This is why Phase 2 of the project did not kill the work. The marker
+classifier was trained to F1 = 0.93 on gold labels and then collapsed
+to F1 = 0.446 under cross-validation — a textbook case of fitting the
+marker itself instead of the underlying signal it was supposed to
+proxy. The substrate kept working through that failure. Phase 4
+reframed the result as a Goodhart artifact (the marker became the
+target the moment the regex defined "important") and moved on. Future
+classifiers are swappable; they slot into the same one-of-six spot the
+marker-trained one held.
 
-→ [`docs/importance-mixture.md`](docs/importance-mixture.md)
+→ [`docs/importance-mixture.md`](docs/importance-mixture.md) ·
+[`docs/invariants.md`](docs/invariants.md) (vector-first invariant)
 
 ## 02 · Labeling waits for a reason to fire
 
 When labeling becomes a throughput exercise, you stop thinking. Your
-hand goes through the motions; the labels become a function of the
-regex that surfaced them, not of what you actually believe is worth
-preserving. The model trained on those labels picks up on whatever
-the regex was already biased toward, and the loop ratchets one notch
-tighter around its initial assumptions every iteration.
+hand moves on autopilot; the labels become a function of whatever
+regex surfaced the pair, not of what you actually think is worth
+keeping. The model trained on those labels picks up on the regex bias
+and the whole loop tightens around its initial assumptions every
+iteration.
 
-So the labeler waits. It shows you one pair at a time, and it only
-fires on two triggers. The first is an inline marker you typed during
-a live session — you wrote `(mark)` or `(подумать)` in an actual reply,
-the bootstrap saw the pattern in the JSONL, queued the surrounding
-turn for canonicalization. Something happened in that moment that you
-deemed worth marking; the labeler asks you to make the decision
-explicit. The second is a pair the classifier disagrees on with its
-own bootstrap, or sits at low confidence, or anchors an audit sample.
-In both cases the pair is on the labeler because *something specific*
-calls for a human decision. You sit down, look at the pair, label
-twenty in twenty minutes, walk away.
+So the labeler waits. It shows one pair at a time, and only fires on
+two triggers. The first is an [inline marker](docs/claude-code-integration.md)
+you typed during a live session — you wrote `(mark)` or `(подумать)`
+in an actual reply, the bootstrap saw the pattern in the JSONL and
+queued the surrounding turn for review. Something happened at that
+moment that you decided was worth flagging; the labeler asks you to
+make the decision explicit. The second is a pair the classifier
+disagrees on, or that sits at low confidence, or that was picked to
+anchor a quick audit. In every case the pair is on the labeler because
+*something specific* needs a human decision. You sit down, look at the
+pair, label twenty in twenty minutes, walk away.
 
 The five cosine-nearest prior labels sit in a sidebar to the right of
-every pair, tier decisions in plain view. If you labeled a semantically
-similar pair as KEEP three months ago and you're about to label this
-one as SKIP, the sidebar shows you the contradiction before you act on
-it. The stability principle locked into the design is that you should
-match yourself over time. The model can adjust around your decisions;
-your decisions shouldn't be hill-climbing toward whatever the model
-currently emits.
+every pair, tier decisions visible. If you labeled a similar pair as
+KEEP three months ago and you are about to label this one as SKIP,
+the sidebar shows the contradiction before you commit. The
+[principle](docs/invariants.md#2-captcha-labeling--gap-fill--ambiguity-merge-not-bulk)
+built into the design is that you should match yourself over time.
+The model can adjust to your decisions; your decisions should not be
+chasing the model.
 
 <p align="center">
   <img src="docs/img/labeler-help-open.png" alt="weighted-compact labeler with the cheat-sheet expanded — premise + correction visible with KEEP / MAYBE / SKIP / THINK underlines, anti-drift sidebar populated" width="100%">
@@ -138,70 +141,73 @@ currently emits.
 
 <sub><i>Labeler at <code>:18890</code> with the cheat-sheet expanded. Premise on top, your correction below, four tier buttons mapped to <kbd>K</kbd> / <kbd>M</kbd> / <kbd>S</kbd> / <kbd>X</kbd> for the whole-pair verdict. Anti-drift sidebar on the right shows the cosine-nearest prior labeled pairs with their tier decisions. Language switcher top-right — UI ships in English, Russian, and Ukrainian.</i></sub>
 
+→ [`docs/span-annotation.md`](docs/span-annotation.md) ·
+[`docs/claude-code-integration.md`](docs/claude-code-integration.md) (marker regex set)
+
 ## 03 · Spans, because turns are too coarse
 
-A pair-level keep/drop label decides for a whole turn. But conversations
-aren't coarse — inside a single reply there is usually one paragraph
-that's load-bearing (a constraint, a path, a number, a quoted command)
-surrounded by reasoning that's worth gisting but not preserving
-verbatim. The pair-level decision either keeps the filler along with the
-constraint, or drops the constraint along with the filler. Neither is
-what you'd choose if asked.
+A pair-level keep/drop label decides for the whole turn. But replies
+are not uniform — inside a single reply there is usually one paragraph
+that carries the actual constraint (a path, a number, a quoted
+command, a name) surrounded by reasoning that is worth summarising
+but not keeping word-for-word. The pair-level decision either keeps
+the filler with the constraint, or drops the constraint with the
+filler. Neither is what you would pick if asked.
 
 Drag-selecting a character range inside a turn opens a four-button
-popup. <strong style="color:#9ece6a">KEEP</strong> is for the spans
-that need to survive verbatim — the names, the numbers, the constraints
-the rest of the conversation hangs on. <strong style="color:#e0af68">MAYBE</strong>
-is the middle tier: keep when budget allows, gist when it doesn't.
-<strong style="color:#6b7280">SKIP</strong> is the explicit anti-signal —
-when you mark a span SKIP the compactor drops it with confidence
-regardless of how the surrounding mixture scored. <strong style="color:#b39df0">THINK</strong>
-is the most interesting tier: it preserves the span and flags it for
-re-examination later, like a margin annotation that says *come back to
-this*. A future render layer can paint THINK spans visibly so the next
-session notices "here be open thread."
+popup. <strong style="color:#9ece6a">KEEP</strong> marks a span that
+has to survive word-for-word — the names, the numbers, the constraints
+the rest of the conversation depends on. <strong style="color:#e0af68">MAYBE</strong>
+is the middle tier: keep when budget allows, summarise when it does
+not. <strong style="color:#6b7280">SKIP</strong> is the explicit
+"drop this" — when you mark a span SKIP the compactor drops it
+regardless of how the surrounding mixture scored.
+<strong style="color:#b39df0">THINK</strong> is the interesting tier:
+it keeps the span and flags it for review later. The future render
+layer can show THINK spans with a visual cue so the next session sees
+them immediately.
 
-The four tiers feed back into the importance mixture with separate
-weights. Sparse coverage is fine — most pairs have zero annotations and
-the mixture continues to work on the other five signals. Pairs with
-annotations get a multiplier from whichever tiers are present. For
-chatty assistant turns this translates into token savings of 5–15×
-when the renderer keeps only KEEP spans verbatim and gists everything
-else, which is what makes the W2 render layer worth building.
+The four tiers feed back into the [importance mixture](docs/importance-mixture.md)
+with their own weights. Sparse coverage is fine — most pairs have zero
+annotations and the mixture works on the other five signals. Pairs
+with annotations get an extra multiplier from whichever tiers are
+present. On chatty assistant turns this becomes a token saving of
+5–15× once the renderer keeps only KEEP spans word-for-word and
+summarises the rest, which is the work scheduled for the W2 render
+layer.
 
 → [`docs/span-annotation.md`](docs/span-annotation.md)
 
 ## 04 · A compaction without measurement is wishful thinking
 
 You changed a mixture weight. Did the change help or hurt? Without a
-measurement loop, the answer is whatever you remember from the last
-session — and memory of compression quality across sessions is genuinely
-unreliable, because you compare a half-remembered "this felt fine" to a
-half-remembered "this felt fine, I think."
+measurement loop the answer is whatever you remember from the last
+session — and memory of compression quality across sessions is
+unreliable, because you are comparing one vague impression to another.
 
-The reconstruction-QA loop turns weight changes into measurable claims.
-The mechanism is straightforward: pick a labeled session, hide one of
-its pairs, compact the rest under the current mixture, hand the
-compacted context to a local LLM (qwen2.5:7b by default) and ask it to
-reconstruct the hidden pair. A second LLM (gemma3:4b, deliberately a
-different model family for cross-bias) judges whether the
-reconstruction matches the original. The harness runs across every Q&A
-in your reconstruction-QA set and reports a judge-yes percentage with a
-stricter substring-pass percentage as a lower bound.
+The reconstruction-QA loop turns weight changes into measurable
+results. The mechanism is straightforward. Pick a labeled session.
+Hide one of its pairs. Compact the rest under the current mixture.
+Pass the compacted context to a local LLM ([Ollama](https://ollama.com)
+running `qwen2.5:7b` by default) and ask it to reconstruct the hidden
+pair. A second LLM (`gemma3:4b` — a different model family on purpose,
+to limit shared bias) judges whether the reconstruction matches the
+original. The harness runs across every Q&A in your reconstruction-QA
+set and reports a judge-yes percentage plus a stricter substring-pass
+percentage as a lower bound.
 
-Raise the misstep coefficient by ten points and re-run. If
-judge-yes improves on questions about specific facts, the misstep
-signal was carrying weight you should pay attention to. If a
-previously-answered question now misses, the weight change cost you
-that specific bit of information. Multi-iteration drift labels —
-*complement* (new angles) / *refine* (other phrasings) / *deepen*
-(consequences) — sit over the candidate generation step, so you can see
-when an iteration is paraphrasing instead of contributing.
+Raise the [misstep coefficient](docs/importance-mixture.md) by ten
+points and re-run. If judge-yes improves on questions about specific
+facts, the misstep signal was doing real work. If a previously-answered
+question now misses, the weight change cost you that specific fact.
+Multi-iteration drift labels — *complement* (new angles) / *refine*
+(other phrasings) / *deepen* (consequences) — sit over the candidate
+generation step, so you can spot an iteration that is paraphrasing
+instead of adding new material.
 
-Both LLMs run on your own ollama instance; no cloud calls. The Q&A set
-lives in `recon_qa_set.jsonl` and grows over time into your regression
-suite: facts you've decided should survive any future compaction,
-period.
+Both LLMs run on your own Ollama instance; no cloud calls. The Q&A set
+lives in `recon_qa_set.jsonl` and grows over time into a regression
+suite — facts you have decided must survive any future compaction.
 
 <p align="center">
   <img src="docs/img/reconstruction-tab.png" alt="reconstruction-QA tab with the cheat-sheet expanded and the three control knobs visible" width="100%">
@@ -213,56 +219,63 @@ period.
 
 ## 05 · Sessions hold more than one topic
 
-A long session usually covers more than one thing. Half spent
-debugging an auth flow, half on a database migration. Naive top-K by
-importance pulls the highest-scoring spans from both indiscriminately
-— five auth highlights and five migration highlights blended together
-in the compacted context. The next turn sees both, the model has to
-infer which topic you're returning to, and it generally picks wrong
-or hedges.
+A long session usually covers more than one topic. Half debugging an
+auth flow, half on a database migration. A naive top-K by importance
+pulls the highest-scoring spans from both topics into the same
+compacted output. Five auth highlights and five migration highlights
+end up side by side. The next turn sees both. The model has to guess
+which topic you are returning to, and it usually guesses wrong or
+hedges.
 
-A topic segmenter runs over the correction embeddings using sliding-
-window cosine cohesion — the same idea as TextTiling, applied to e5
+A topic segmenter runs over the correction embeddings using a
+sliding-window cosine cohesion check — the same idea as
+[TextTiling](https://aclanthology.org/J97-1003/) applied to e5
 vectors instead of TF-IDF. It detects per-session topic boundaries
-geometrically, without any classifier; each pair receives a
-`topic_id` stamped from the cohesion drop pattern. Nothing to train,
-nothing to label.
+from the geometry alone, no classifier; each pair receives a
+`topic_id` from the cohesion-drop pattern. Nothing to train, nothing
+to label.
 
 The compactor then multiplies each candidate's importance by
 `topic_decay ^ |Δtopic|`, where `Δtopic` is the number of topic
-boundaries separating the candidate from the source pair. With the
+boundaries between the candidate and the source pair. With the
 default `topic_decay = 0.5`, each topic step halves the score. On a
-verified multi-topic session, that produces a 42% size reduction
+verified multi-topic session that gives a 42% size reduction
 (4597 → 2658 chars) at `topic_decay = 0.3` versus disabled, with no
-recon-QA score loss on questions about the current topic. Set
-`topic_decay = 1.0` and the compactor reverts to topic-blind selection.
+[recon-QA](#04--a-compaction-without-measurement-is-wishful-thinking)
+score loss on questions about the current topic. Set
+`topic_decay = 1.0` and the compactor reverts to topic-blind
+selection.
 
 → [`docs/topic-decay.md`](docs/topic-decay.md)
 
 ## 06 · Your conversations stay on your machine
 
-Your conversation history with Claude Code maps cleanly onto your life.
-It carries the names of the people you work with, the addresses of the
-services you depend on, the configurations of your home network, the
-patterns of how you debug at 2am when something is broken. A
-compaction substrate trained on that corpus inherits the mapping. If
+Your conversation history with Claude Code maps cleanly onto your
+life. It carries the names of the people you work with, the addresses
+of the services you depend on, the configuration of your home network,
+the patterns of how you debug at 2am when something is broken. A
+compaction substrate trained on that history inherits the mapping. If
 the substrate leaves your machine, those patterns go with it.
 
 So nothing leaves your machine. The substrate is built from
 `~/.claude/projects/` on the host where the labeler runs, and lives
-under `$XDG_DATA_HOME/weighted-compact/`. The bootstrap is read-only on
-the Claude session files; the installer never asks for an API key; the
-labeler binds to `127.0.0.1` by default; there's no telemetry endpoint
-to disable because there isn't one. The optional Ollama-backed
-reconstruction-QA loop calls `localhost:11434` — point it at a remote
-service and you have opted out of the local-only guarantee deliberately,
-but the default holds.
+under `$XDG_DATA_HOME/weighted-compact/`
+([install paths](docs/install.md)). The bootstrap is read-only on the
+Claude session files. The installer never asks for an API key. The
+labeler binds to `127.0.0.1` by default. There is no telemetry
+endpoint to disable because there is no telemetry. The optional
+Ollama-backed [reconstruction-QA loop](#04--a-compaction-without-measurement-is-wishful-thinking)
+calls `localhost:11434` — point it at a remote service and you have
+opted out of the local-only guarantee yourself, but the default holds.
 
-The classifier you train is yours. If you copy the substrate to another
-machine, it goes with the labels you produced — and only with those.
-There's no shared baseline you'd inherit from a central project, no
-community model you'd contribute back to without realising. Each
-install is a separate workbench.
+The classifier you train is yours. If you copy the substrate to
+another machine it goes with the labels you produced, and only with
+those. There is no shared baseline you inherit from a central project,
+no community model you contribute back to without realising. Each
+install is its own workbench.
+
+→ [`docs/install.md`](docs/install.md) ·
+[`docs/invariants.md`](docs/invariants.md) (locked invariants)
 
 ---
 
