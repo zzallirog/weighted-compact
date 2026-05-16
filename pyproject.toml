@@ -1,6 +1,6 @@
 [project]
 name = "weighted-compact"
-version = "0.0.1"
+version = "0.0.2"
 description = "Trainable context-compaction substrate for Claude Code — vector-first, classifier-secondary, human-in-the-loop"
 readme = "README.md"
 requires-python = ">=3.11"

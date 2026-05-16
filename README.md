@@ -7,7 +7,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![v0.0.01](https://img.shields.io/badge/release-v0.0.01-orange)](CHANGELOG.md)
+[![v0.0.2](https://img.shields.io/badge/release-v0.0.2-orange)](CHANGELOG.md)
 [![status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-red)](CHANGELOG.md)
 
 <sub><i>Local web tool at <code>http://127.0.0.1:18890/</code> — labeler over your own Claude Code sessions, with a reconstruction-QA gate.</i></sub>

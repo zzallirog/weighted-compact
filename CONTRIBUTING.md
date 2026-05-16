@@ -52,12 +52,17 @@ pip install -e '.[dev,ml]'
 pytest
 ```
 
-The pre-commit hook scans the staged diff for substrate filename patterns
-and known leak markers. Install it once:
+If you want a local guard against accidentally staging substrate files,
+install the optional pre-commit hook once:
 
 ```bash
 scripts/install-hooks.sh
 ```
+
+This is **optional**. The same check runs in CI on every push, so the
+hook only matters if you'd rather catch leaks before they leave your
+machine. Maintainers don't need it; contributors with substrate of their
+own probably do.
 
 ## Filing issues
 

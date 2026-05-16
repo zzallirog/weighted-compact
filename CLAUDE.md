@@ -167,6 +167,11 @@ When the framework changes, bump:
 - `CHANGELOG.md` — add a section under `[Unreleased]` or cut a new release.
 - This `CLAUDE.md` — if the repo map changes, update the map.
 
-The pre-commit hook checks that staged diffs do not introduce substrate
-filename patterns (`*.jsonl`, `*.npz`, `*.model`) or hardcoded user paths
-(`/home/*/work/weighted-compact`).
+`scripts/leak-scan.sh` is what the CI workflow runs on every push to
+catch substrate filename patterns (`*.jsonl`, `*.npz`, `*.model`) and
+hardcoded user paths (`/home/*/...`) from sneaking into a commit.
+Contributors who want the same check locally before a push can install
+it as a git pre-commit hook with `scripts/install-hooks.sh`; for the
+maintainer this is unnecessary because CI catches the same things on
+arrival. The script and the hook are opt-in, not part of the install
+path.

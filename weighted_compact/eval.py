@@ -8,6 +8,7 @@ Picks top-5 sessions by labeled-pair count. For each:
 - Coverage ratio: weighted vs standard
 - Gate: mean improvement ≥ 1.70×
 """
+import datetime
 import json
 import re
 from collections import Counter, defaultdict
@@ -226,7 +227,7 @@ def main():
     lines = [
         '# Phase 2 Content Preservation Evaluation',
         '',
-        '**Дата:** 2026-05-15',
+        f'**Date:** {datetime.date.today().isoformat()}',
         f'**Sessions evaluated:** {len(results)}',
         f'**Mean improvement:** {mean_imp:.3f}× (gate ≥ 1.70×)',
         f'**Gate:** {"✓ PASS" if gate_pass else "✗ FAIL"}',
@@ -266,11 +267,11 @@ def main():
         '',
         '## Notes',
         '',
-        '- Mock reconstruction (Phase 3 render не готов). Verbatim для tier=2, first-sentence для tier=1, pointer для tier=0.',
-        '- Standard mimic — heuristic: first sentence каждого turn до budget. Реальный `/compact` LLM-output может быть лучше; этот mimic — conservative baseline.',
+        '- Mock reconstruction (Phase 3 render not yet ready). Verbatim for tier=2, first-sentence for tier=1, pointer for tier=0.',
+        '- Standard mimic — heuristic: first sentence of every turn up to budget. A real `/compact` LLM output may do better; this mimic is the conservative baseline.',
         '- Entities = top-20 turns by length → capitalized names (≥4 chars), numbers/dates, quoted strings.',
-        '- Если PASS на mock → primary gate проходит. Phase 3 render должен только улучшить.',
-        '- Если FAIL — смотри tier distribution: возможно classifier даёт слишком много tier=0 для важных turn\'ов; iterate Phase 2.',
+        '- If PASS on mock → primary gate passes. Phase 3 render should only improve it.',
+        '- If FAIL — inspect tier distribution: the classifier may be assigning too many tier=0 to important turns; iterate on Phase 2.',
     ])
 
     REPORT_OUT.write_text('\n'.join(lines))

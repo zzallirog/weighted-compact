@@ -205,8 +205,8 @@ def build_compacted_context(source_pair_idx, pairs, scores, k_drop=0.5,
       topic_map = dict pair_idx → topic_id (from topic_segments.npz).
       For each candidate, distance d = |topic_candidate - topic_source|.
       effective_score = scores[pid] * topic_decay^d.
-      → пары в другой теме получают decay; чем дальше topic_id, тем сильнее
-      дроп. d=0 → ×1, d=1 → ×0.5 (default), d=2 → ×0.25, ...
+      → pairs in a different topic receive decay; the further the topic_id,
+      the harder the drop. d=0 → ×1, d=1 → ×0.5 (default), d=2 → ×0.25, ...
       Pass topic_map=None (or topic_decay=1.0) to disable.
     """
     source_pair = pairs[source_pair_idx]
@@ -237,17 +237,17 @@ def build_compacted_context(source_pair_idx, pairs, scores, k_drop=0.5,
 
 def ask_ollama(context, question, timeout=60):
     """Call ollama with context + question. Returns answer string or '<ollama_error: ...>'."""
-    prompt = f"""Дан фрагмент диалога:
+    prompt = f"""You are given a dialog fragment:
 
 {context}
 
 ---
 
-Ответь КРАТКО (1-2 фразы) на вопрос на основании ТОЛЬКО этого фрагмента. Если ответа нет в фрагменте — напиши "не знаю".
+Answer the question BRIEFLY (1-2 sentences) based ONLY on this fragment. If the answer is not in the fragment, write "I don't know".
 
-Вопрос: {question}
+Question: {question}
 
-Ответ:"""
+Answer:"""
     try:
         r = _requests().post(OLLAMA_URL, json={
             'model': MODEL,
@@ -280,20 +280,20 @@ def suggest_qa(pair, n=3, timeout=90, focus=None, prior=None, mode='complement')
     """
     focus_block = ""
     if focus and focus.strip():
-        focus_clean = focus.strip()[:500]  # cap длину чтобы не взорвать prompt
+        focus_clean = focus.strip()[:500]  # cap length so we don't blow up the prompt
         focus_block = f"""
 
-КРИТИЧЕСКИ ВАЖНО: пользователь вручную ПОДСВЕТИЛ эту часть как КЛЮЧЕВУЮ:
+CRITICALLY IMPORTANT: the user manually HIGHLIGHTED this part as KEY:
 \"\"\"
 {focus_clean}
 \"\"\"
-Все {n} сгенерированных вопросов должны проверять сохранение информации СПЕЦИФИЧЕСКИ из этой подсвеченной части. Не уходи в другие части пары если они не связаны напрямую с подсветкой.
+All {n} generated questions must check the preservation of information SPECIFICALLY from this highlighted part. Do not wander into other parts of the pair unless they are directly related to the highlight.
 """
 
     prior_block = ""
     if prior and isinstance(prior, list) and len(prior) > 0:
         prior_lines = []
-        for i, p in enumerate(prior[-6:], 1):  # cap last 6 чтобы не взорвать prompt
+        for i, p in enumerate(prior[-6:], 1):  # cap last 6 so we don't blow up the prompt
             q = str(p.get('q', '')).strip()[:200]
             a = str(p.get('a_truth', '')).strip()[:100]
             if q and a:
@@ -301,55 +301,55 @@ def suggest_qa(pair, n=3, timeout=90, focus=None, prior=None, mode='complement')
         if prior_lines:
             mode_instructions = {
                 'complement': (
-                    "Сгенерируй Qs целящиеся в АСПЕКТЫ ПАРЫ которые предыдущие итерации НЕ покрыли. "
-                    "Не повторяй уже спрошенное. Найди новые углы."
+                    "Generate Qs targeting ASPECTS of the pair that previous iterations did NOT cover. "
+                    "Do not repeat what was already asked. Find new angles."
                 ),
                 'refine': (
-                    "Сгенерируй АЛЬТЕРНАТИВНЫЕ ФОРМУЛИРОВКИ предыдущих вопросов: "
-                    "тот же intent, другие слова. Цель — robust eval с разных фраз."
+                    "Generate ALTERNATIVE PHRASINGS of the previous questions: "
+                    "same intent, different words. Goal — robust eval across different phrasings."
                 ),
                 'deepen': (
-                    "Сгенерируй Qs которые ПРОДОЛЖАЮТ предыдущие — assume их answers как известный context. "
-                    "Спрашивай о следствиях, related фактах, более глубоких связях."
+                    "Generate Qs that EXTEND the previous ones — assume their answers as known context. "
+                    "Ask about consequences, related facts, deeper connections."
                 ),
             }
             mode_inst = mode_instructions.get(mode, mode_instructions['complement'])
             prior_str = '\n'.join(prior_lines)
             prior_block = f"""
 
-ПРЕДЫДУЩИЕ ИТЕРАЦИИ ВЫДАЛИ:
+PREVIOUS ITERATIONS PRODUCED:
 {prior_str}
 
-РЕЖИМ ЦЕПОЧКИ ({mode}): {mode_inst}
+CHAIN MODE ({mode}): {mode_inst}
 """
 
-    prompt = f"""Дан фрагмент диалога:
+    prompt = f"""You are given a dialog fragment:
 
-PREMISE (ответ ассистента):
+PREMISE (assistant's reply):
 {pair['premise_text']}
 
-CORRECTION (правка/реакция пользователя):
+CORRECTION (user's edit / reaction):
 {pair['correction_text']}
 {focus_block}{prior_block}
-Сгенерируй {n} разнородных вопросов с короткими ответами, проверяющих сохранение КЛЮЧЕВОЙ информации этого фрагмента при компактизации.
+Generate {n} diverse questions with short answers that test preservation of the KEY information in this fragment under compaction.
 
-ЗАПРЕЩЕНО:
-- Yes/no вопросы (где ответ "да", "нет", "да/нет"). Они тривиально матчатся.
-- Вопросы про факт самого диалога ("что пользователь сказал?"). Только про КОНТЕНТ.
-- Ответы общего вида ("ок", "ясно", "система", "функция").
+FORBIDDEN:
+- Yes/no questions (where the answer is "yes", "no", "yes/no"). They match trivially.
+- Questions about the dialog itself ("what did the user say?"). Only about CONTENT.
+- Generic answers ("ok", "got it", "system", "function").
 
-ОБЯЗАТЕЛЬНО — каждый из {n} вопросов должен целиться в РАЗНЫЙ тип критичной информации:
-  1. Конкретная сущность: имя/число/путь/команда/url. A = эта сущность (1-3 слова).
-  2. Условие или директива: "что обязательно сделать", "что нельзя", "где должно быть". A = ключевое слово условия.
-  3. Причинно-следственная связь: "что будет если X" / "почему Y". A = последствие или причина (1-3 слова).
+REQUIRED — each of the {n} questions must target a DIFFERENT type of critical information:
+  1. Concrete entity: name / number / path / command / url. A = that entity (1-3 words).
+  2. Condition or directive: "what must be done", "what is forbidden", "where it must be". A = the condition's keyword.
+  3. Cause-and-effect: "what happens if X" / "why Y". A = the consequence or cause (1-3 words).
 
-A_truth должен быть подстрокой которая с высокой вероятностью попадёт в любую разумную формулировку ответа. Избегай редких слов которые LLM может перефразировать.
+A_truth must be a substring that is highly likely to appear in any reasonable phrasing of the answer. Avoid rare words the LLM might paraphrase.
 
-Формат ответа — СТРОГО JSON массив (только JSON, без префиксов):
+Response format — STRICT JSON array (JSON only, no prefixes):
 [
-  {{"q": "вопрос?", "a": "короткий ответ"}},
-  {{"q": "вопрос?", "a": "короткий ответ"}},
-  {{"q": "вопрос?", "a": "короткий ответ"}}
+  {{"q": "question?", "a": "short answer"}},
+  {{"q": "question?", "a": "short answer"}},
+  {{"q": "question?", "a": "short answer"}}
 ]"""
     try:
         r = _requests().post(OLLAMA_URL, json={
@@ -379,22 +379,22 @@ def llm_judge(question, a_truth, predicted, timeout=60):
 
     Returns dict {verdict: 'yes'|'no'|'other', reasoning: str, model: JUDGE_MODEL}.
     """
-    prompt = f"""Задан вопрос и эталонный ответ. Затем дан ответ другой системы. Определи, СЕМАНТИЧЕСКИ ли совпадает её ответ с эталоном.
+    prompt = f"""You are given a question and a reference answer. Then a different system's answer is provided. Decide whether that system's answer SEMANTICALLY matches the reference.
 
-ВОПРОС: {question}
-ЭТАЛОННЫЙ ОТВЕТ: {a_truth}
-ОТВЕТ СИСТЕМЫ: {predicted}
+QUESTION: {question}
+REFERENCE ANSWER: {a_truth}
+SYSTEM ANSWER: {predicted}
 
-Правила:
-- "yes" — ответ системы передаёт ту же информацию что и эталон (синонимы, перефразирование — ОК)
-- "no" — ответ системы противоречит эталону или говорит "не знаю" / отсутствует ключевая информация
-- "other" — двусмысленно, частично, не уверен
+Rules:
+- "yes" — the system answer conveys the same information as the reference (synonyms, paraphrasing — OK)
+- "no" — the system answer contradicts the reference or says "I don't know" / is missing the key information
+- "other" — ambiguous, partial, uncertain
 
-Ответь в формате:
+Reply in this format:
 VERDICT: yes
-REASON: одна короткая фраза.
+REASON: one short phrase.
 
-Только один verdict (yes/no/other) и одна reason."""
+Only one verdict (yes/no/other) and one reason."""
     try:
         r = _requests().post(OLLAMA_URL, json={
             'model': JUDGE_MODEL,
