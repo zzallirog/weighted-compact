@@ -51,7 +51,15 @@ from harness API); the numbers around them are not.
   but if you fork and add CI artifacts, audit them before pushing.
 - **UI is bilingual** (Russian-first, mixed English). A full English
   i18n pass on `tool.py:PAGE_HTML` is filed as a contributor task.
-- **Span annotation rendering has a JS bug** when annotation char-ranges
-  are out of correction-text bounds — the labeler crashes silently with
-  `Cannot read properties of undefined`. Workaround: avoid `char_end`
-  exceeding `len(correction_text)`. Fix planned for `v0.0.2`.
+
+### Fixed
+
+- **Annotation schema backward-compat** — annotations written through
+  the POST `/api/annotation` handler include both `char_start`/`char_end`
+  and a `char_range: [start, end]` array. The frontend reads only
+  `char_range`. Hand-written or migrated fixtures carrying just
+  `char_start`/`char_end` made the labeler crash silently with
+  `Cannot read properties of undefined (reading '0')`. `reload_state`
+  now synthesizes `char_range` from `char_start`/`char_end` when absent.
+  Caught while producing the v0.0.1 README screenshots.
+  See `tests/test_annotation_compat.py`.

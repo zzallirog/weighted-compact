@@ -109,7 +109,12 @@ def reload_state() -> None:
     STATE['labels'] = {l['pair_idx']: l for l in labels_list}
     STATE['queue'] = load_jsonl(QUEUE)
 
-    # Annotations: filter out soft-deleted, group by pair_idx
+    # Annotations: filter out soft-deleted, group by pair_idx.
+    # The POST /api/annotation handler writes records with a `char_range:
+    # [start, end]` array; hand-written or migrated fixtures sometimes carry
+    # `char_start` / `char_end` instead. The frontend only reads `char_range`,
+    # so normalize on load — without this the labeler crashes silently
+    # with "Cannot read properties of undefined (reading '0')".
     raw = load_jsonl(ANNOTATIONS)
     STATE['annotations'] = raw
     grouped: dict[int, list[dict]] = {}
@@ -118,6 +123,8 @@ def reload_state() -> None:
         max_id = max(max_id, int(ann.get('id', 0)))
         if ann.get('deleted'):
             continue
+        if 'char_range' not in ann and 'char_start' in ann and 'char_end' in ann:
+            ann['char_range'] = [int(ann['char_start']), int(ann['char_end'])]
         grouped.setdefault(int(ann['pair_idx']), []).append(ann)
     STATE['annotations_by_pair'] = grouped
     STATE['next_annotation_id'] = max_id + 1

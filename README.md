@@ -17,18 +17,18 @@
 ---
 
 <p align="center">
-  <img src="docs/img/labeler-overview.png" alt="weighted-compact labeler — pair view with anti-drift sidebar" width="100%">
+  <img src="docs/img/labeler-annotations.png" alt="weighted-compact labeler with span-level annotations — green KEEP, orange MAYBE, red SKIP, purple THINK" width="100%">
 </p>
 
-<sub><i>The labeler. Premise + correction shown side-by-side, four-key labeling (KEEP / MAYBE / SKIP / FALSE-POS), anti-drift sidebar showing five cosine-nearest prior labeled pairs with their tier decisions.</i></sub>
+<sub><i>Span-level annotation in the labeler. Drag-select a character range inside the premise or correction, tag it with one of four tiers — <strong style="color:#4caf50">KEEP</strong> (load-bearing, preserve verbatim), <strong style="color:#ff9800">MAYBE</strong> (keep if budget permits), <strong style="color:#f44336">SKIP</strong> (drop with confidence), <strong style="color:#9c27b0">THINK</strong> (flag for re-examination). The anti-drift sidebar shows the four cosine-nearest prior labeled pairs with their tier decisions, so future labels stay consistent with past ones.</i></sub>
 
-> **UI is currently bilingual** — labels and section headers are mostly Russian, content is what you fed in. A full English i18n pass is filed as a contributor task; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+> **UI is bilingual** — section headers are mostly Russian, content is what you fed in. A full English i18n pass on the labeler HTML is filed as a contributor task; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 <p align="center">
   <img src="docs/img/reconstruction-tab.png" alt="Reconstruction-QA tab — tunable k_drop, ranker, topic_decay" width="100%">
 </p>
 
-<sub><i>The reconstruction-QA tab. Build a Q&A set against the source pair, then run eval with three knobs: <code>k_drop</code> (selection threshold), <code>ranker</code> (importance vs density legacy A/B), <code>topic_decay</code> (cross-topic distance penalty).</i></sub>
+<sub><i>The reconstruction-QA tab. Build a Q&A set against the source pair, then run eval with three knobs: <code>k_drop</code> (selection threshold), <code>ranker</code> (importance Phase 4C vs density legacy A/B), <code>topic_decay</code> (cross-topic distance penalty).</i></sub>
 
 ---
 
