@@ -1,0 +1,20 @@
+[Unit]
+Description=weighted-compact labeler — trainable context-compaction substrate
+Documentation=https://github.com/zzallirog/weighted-compact
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/weighted-compact serve --host 127.0.0.1
+Restart=on-failure
+RestartSec=5
+# Substrate lives under XDG_DATA_HOME; never traverses outside the user's home.
+ProtectSystem=full
+ProtectHome=no
+PrivateTmp=yes
+NoNewPrivileges=yes
+# Default port 18890 — override via the environment.
+Environment=WEIGHTED_COMPACT_PORT=18890
+
+[Install]
+WantedBy=default.target

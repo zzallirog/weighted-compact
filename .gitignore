@@ -1,0 +1,57 @@
+# Personal substrate — NEVER commit.
+# Every weighted-compact install grows its own substrate under
+# $WEIGHTED_COMPACT_DATA (default: $XDG_DATA_HOME/weighted-compact or
+# ~/.local/share/weighted-compact/). Substrate is built from the user's own
+# Claude Code sessions; it contains raw conversation text and must stay local.
+#
+# Defense in depth: explicit pattern rules plus a final catch-all on the
+# substrate dir name, so even a stray `cp` into the checkout cannot leak.
+
+# JSONL substrate (pairs, labels, annotations, queues, audits)
+*.jsonl
+*.jsonl.*
+
+# Feature caches and trained classifier weights
+*.npz
+*.npz.*
+*.model
+*.pkl
+*.pickle
+
+# Anything under a `substrate/` or `data/` dir in the checkout
+substrate/
+data/
+**/substrate/
+**/data/
+
+# Backups created by feature extractors / labelers (`.bak.YYYYMMDD-HHMMSS`)
+*.bak.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+.venv/
+venv/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Filter-repo backups (if ever needed)
+.git.bak.*/
+
+# Claude Code session state — never publish
+.claude/
+.claude-work/
