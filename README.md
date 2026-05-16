@@ -16,57 +16,59 @@
 
 ---
 
-Every long Claude Code session reaches the same moment.
+Every long Claude Code session eventually fills the context window.
 
-The context window fills up. The auto-summarizer runs. Somewhere in the
-conversation you had a brittle constraint — an SLA number, a path, the
-edge case a colleague mentioned on the third day — and the summary cannot
-tell which of yesterday's exchanges carried weight and which were padding.
-It guesses. Sometimes it guesses right. Sometimes the next turn opens
-with the model insisting on a default you spent an hour overriding,
-because the line where you overrode it was deemed not load-bearing
-enough to keep verbatim.
+When that happens, the auto-summarizer runs. It reads the whole
+transcript fresh and writes a short paragraph that tries to capture
+what mattered. Sometimes it works. Sometimes it loses a number you
+set yesterday, a path you corrected an hour ago, an edge case a
+colleague pointed out on day three. The next turn opens with the
+model returning to a default you spent time overriding, because the
+line where you overrode it didn't look important enough to keep
+word-for-word.
 
-The mechanism producing that summary is a single forward pass with no
-memory of you. It reads the transcript fresh, decides what looks
-important by general heuristics, and writes a paragraph. Run it twice on
-the same conversation and you get two different paragraphs. The
-compression isn't stable, and it isn't yours.
+That summarizer is a single LLM pass with no memory of you. Run it
+twice on the same conversation and you get two different paragraphs.
+The result is unstable, and it is not really yours.
 
-This is a workbench for a different mechanism.
+weighted-compact replaces that step with a different one.
 
-Instead of asking a model to summarize, weighted-compact keeps a
-substrate. Every conversational turn becomes a vector, and a continuous
-importance score sits over the top, composed from six independent signals
-— your own labels, your span-level annotations, density of named entities
-and numbers, the corpus-wide predictor for moments where you stopped
-pushing back, recency, and a topic-segmentation decay so unrelated topics
-don't bleed into each other when budget runs short. When the window
-fills, the compactor doesn't write a paragraph. It picks the spans that
-matter, verbatim, and gists the rest.
+It keeps a substrate of your own sessions. Every turn becomes a
+vector. An importance score sits over the substrate, composed from
+six signals:
 
-The score is tunable because you are the only person it should match.
-The labeler sits at `http://127.0.0.1:18890/` and surfaces pairs from
-your own session history one at a time — usually triggered by an inline
-marker you typed during a live session (`(mark)`, `(think)`), or a
-pair the classifier disagrees on. You sit down for twenty minutes, label
-a couple of dozen, walk away. The substrate grows. The next compaction
-reflects what you actually meant when you said *this part matters*.
+- your manual labels on past turns,
+- your span-level highlights inside a turn,
+- the density of names, numbers, and quotes,
+- a per-user predictor for moments where you stopped pushing back,
+- recency,
+- and a topic-distance penalty so unrelated topics don't compete for space.
 
-There's a smaller part of it that's the whole point.
+When the window fills, the compactor does not write a paragraph. It
+selects the spans that score highest, keeps them word-for-word, and
+gists the rest.
 
-When the auto-compact happens to a Claude Code session today, you have
-no agency in the decision. The mechanism is a black box that runs at a
-moment you don't choose, on criteria you can't inspect, with results you
-have to live with. weighted-compact turns that around: the person being
-compressed is also the person designing the compression. The labels are
-yours, the mixture weights are visible, and the reconstruction-QA loop
-returns measurable scores telling you whether a chosen weighting
-actually preserves what you'd want preserved.
+The score is tunable because only you should decide what to keep. The
+labeler runs at `http://127.0.0.1:18890/` and shows you one pair at a
+time — usually a pair you flagged with an inline marker like `(mark)`
+during a live session, or a pair the classifier is unsure about. You
+label twenty in twenty minutes and walk away. The substrate grows.
+Future compactions reflect what *you* meant by "this part matters."
 
-The whole framework is small enough to read end-to-end in an afternoon,
-change a weight, watch the recon-QA scores move, and form a real opinion
-about what *important* means for the way you work.
+That last point is the goal of the project.
+
+Today, when auto-compact runs on a Claude Code session, you have no say
+in the decision. It runs when the harness decides, on criteria you
+cannot see, and you have to live with the result. weighted-compact
+flips that around. The person being compressed also designs the
+compression. Your labels, your mixture weights, your reconstruction-QA
+scores telling you whether the current settings preserve what you
+wanted preserved.
+
+The whole framework is small enough to read in an afternoon. Change
+one weight, re-run the QA loop, see the score move. That feedback is
+what turns *important* from a vague feeling into a concrete,
+measurable thing for the way *you* work.
 
 → [`docs/concept.md`](docs/concept.md) · [`docs/invariants.md`](docs/invariants.md)
 
