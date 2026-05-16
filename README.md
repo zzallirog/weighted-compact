@@ -285,37 +285,29 @@ install is its own workbench.
 pipx install git+https://github.com/zzallirog/weighted-compact
 ```
 
-The install puts a `weighted-compact` binary on your `PATH` and pulls in
-five hard deps (`fastapi`, `uvicorn`, `pydantic`, `numpy`, `click`). It
-does **not** start anything, write anywhere outside the pipx venv, or
-register a service.
+The install puts a `weighted-compact` binary on your `PATH` and pulls
+in five runtime deps (`fastapi`, `uvicorn`, `pydantic`, `numpy`,
+`click`). It does not start anything, write outside the pipx venv, or
+register a service. Run it once and nothing on your system has
+changed except `~/.local/bin/`.
 
-After install, four things are true:
-
-1. **`weighted-compact compat` runs immediately** as a read-only
-   diagnostic — safe to invoke anywhere, never touches state.
-2. **No daemon is running.** Nothing listens on port 18890. The labeler
-   only comes up when you explicitly run `weighted-compact serve`, or
-   enable the systemd user unit (see below).
-3. **No substrate exists yet.** `~/.local/share/weighted-compact/` is
-   created lazily on first `weighted-compact bootstrap`.
-4. **No classifier exists yet.** Once you have labeled twenty pairs,
-   `weighted-compact train` fits a baseline. Until then, the importance
-   mixture runs on the five non-classifier signals.
-
-A typical first-run sequence is three explicit commands:
+A first-run sequence is three explicit commands:
 
 ```bash
-weighted-compact compat       # verify install
+weighted-compact compat       # read-only sanity check
 weighted-compact bootstrap    # build substrate from ~/.claude/projects/
 weighted-compact serve        # launch labeler at http://127.0.0.1:18890/
 ```
 
-Each command is user-initiated. Nothing in the install path starts a
-server, opens a port, or schedules background work.
+Each command is user-initiated. The substrate directory under
+`~/.local/share/weighted-compact/` is created lazily on the first
+`bootstrap`. The labeler only comes up when you run `serve` or enable
+the systemd user unit below. No classifier exists until you have
+labeled about twenty pairs and run `weighted-compact train`; the
+importance mixture runs on the five non-classifier signals until then.
 
-For **ambient operation** (the labeler auto-starts at user login), opt
-into the systemd user unit:
+For **ambient operation** (the labeler starts automatically at user
+login), opt into the systemd user unit:
 
 ```bash
 weighted-compact install-units
@@ -324,31 +316,23 @@ systemctl --user enable --now weighted-compact
 xdg-open http://127.0.0.1:18890/
 ```
 
-This is the only autostart path, and it requires three explicit
-commands. `install-units` writes one file under
-`~/.config/systemd/user/`; `enable --now` is what actually starts the
-labeler. Both are reversible with `systemctl --user disable --now
-weighted-compact`.
+This is the only autostart path, and it is three explicit commands.
+`install-units` writes one file under `~/.config/systemd/user/`;
+`enable --now` is what actually starts the labeler. Reversible at any
+time with `systemctl --user disable --now weighted-compact`.
 
 ### Requirements
 
-- Linux. Tested on Arch and Debian-derivatives; CI runs Ubuntu, Arch, Debian.
+- Linux. Arch, Debian, Ubuntu in CI; Fedora, openSUSE expected to work.
 - Python 3.11–3.13.
-- `~/.claude/projects/` — i.e. you have used Claude Code on this host at least
-  once. The tool needs sessions to bootstrap from.
-- Optional: `sentence-transformers` for re-embedding (the bootstrap reuses
-  cached embeddings when present).
+- `~/.claude/projects/` populated — i.e. you have used Claude Code on
+  this host at least once. The tool needs sessions to bootstrap from.
+- Optional: `sentence-transformers` for re-embedding. The bootstrap
+  reuses cached embeddings when present, so this is only needed for
+  fresh corpora.
 
-### What runs, what doesn't
-
-Right after install:
-
-1. **`weighted-compact compat` works** — read-only diagnostic, prints what was
-   detected and what is missing.
-2. **No daemon is running.** Nothing listens on `:18890` until you run
-   `serve` or enable the systemd unit.
-3. **No files have been written under `~/.local/share/weighted-compact/`** —
-   the substrate dir is created on first `bootstrap`.
+Full platform matrix, install footprint per path, exception table, and
+logging surface live in [`docs/install.md`](docs/install.md).
 
 ---
 
@@ -380,7 +364,9 @@ recon_qa.build_compacted_context
    = top-K by importance × decay ^ |Δtopic|
 ```
 
-The mixture weights are heuristic defaults, surfaced in the UI for tuning.
+The mixture weights are heuristic defaults. The labeler surfaces them
+for tuning, and the [reconstruction-QA loop](#04--a-compaction-without-measurement-is-wishful-thinking)
+tells you whether a weight change preserves what you wanted preserved.
 
 → [`docs/architecture.md`](docs/architecture.md)
 
@@ -390,17 +376,18 @@ The mixture weights are heuristic defaults, surfaced in the UI for tuning.
 
 | Phase | Status |
 |---|---|
-| Phase 1 — pair extraction + e5 features | ✅ |
-| Phase 2 — marker classifier (deprecated, kept for reference) | ✅ failed → reframed |
-| Phase 4 — continuous importance mixture (6 signals) | ✅ |
-| Phase 4e — span-level annotations + topic decay | ✅ |
-| W1 — CAPTCHA labeler UI | ✅ |
-| W3 — Reconstruction-QA loop | ✅ MVP (need 50+ baseline) |
-| W2 — Ambient background render | ⚪ next |
+| Phase 1 — pair extraction + e5 features | ✅ shipped |
+| Phase 2 — marker classifier | ✅ failed → reframed (see [§01](#01--the-substrate-carries-the-weight-the-classifier-refines)) |
+| Phase 4 — continuous importance mixture (6 signals) | ✅ shipped |
+| Phase 4e — span-level annotations + topic decay | ✅ shipped |
+| W1 — labeler UI | ✅ shipped |
+| W3 — reconstruction-QA loop | ✅ MVP (50+ baseline still to accumulate) |
+| W2 — ambient background render | ⚪ next |
 | Federation patterns (peer-to-peer label exchange) | ⚪ v0.1 direction |
 
-This is `v0.0.01`. Pre-alpha. Expect breaking schema changes until `v0.1.0`.
-The architectural invariants are locked; the numbers around them are not.
+This is `v0.0.2`. Pre-alpha. Expect breaking schema changes until
+`v0.1.0`. The architectural invariants are
+[locked](docs/invariants.md); the numbers around them are not.
 
 ---
 
@@ -408,33 +395,29 @@ The architectural invariants are locked; the numbers around them are not.
 
 | File | Topic |
 |---|---|
-| [`docs/install.md`](docs/install.md) | Platform support, what gets installed, logging, exception matrix |
-| [`docs/faq.md`](docs/faq.md) | Common questions, comparisons, troubleshooting |
-| [`docs/concept.md`](docs/concept.md) | Why this exists, what it is not |
-| [`docs/invariants.md`](docs/invariants.md) | Three locked design invariants |
+| [`docs/install.md`](docs/install.md) | Platform matrix, install footprint, logging, exception table |
+| [`docs/faq.md`](docs/faq.md) | Common questions and how to troubleshoot the pipeline |
+| [`docs/concept.md`](docs/concept.md) | Longer-form take on the problem and the bet behind it |
+| [`docs/invariants.md`](docs/invariants.md) | The three locked design invariants |
 | [`docs/architecture.md`](docs/architecture.md) | Module map and the substrate pipeline |
-| [`docs/importance-mixture.md`](docs/importance-mixture.md) | The six-signal mixture |
+| [`docs/importance-mixture.md`](docs/importance-mixture.md) | The six-signal mixture, weight by weight |
 | [`docs/span-annotation.md`](docs/span-annotation.md) | Sub-turn char-range tier design |
-| [`docs/reconstruction-qa.md`](docs/reconstruction-qa.md) | Compression-fidelity measurement |
-| [`docs/topic-decay.md`](docs/topic-decay.md) | Unsupervised topic segmentation + decay |
+| [`docs/reconstruction-qa.md`](docs/reconstruction-qa.md) | Compression-fidelity measurement loop |
+| [`docs/topic-decay.md`](docs/topic-decay.md) | Unsupervised topic segmentation and decay |
 | [`docs/claude-code-integration.md`](docs/claude-code-integration.md) | How the bootstrap reads `~/.claude/projects/` |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | What is accepted, what needs discussion |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | What lands easily, what needs discussion first |
 | [`CHANGELOG.md`](CHANGELOG.md) | Version history |
 
 ---
 
 ## Help & support
 
-- **Ideas, questions, show-and-tell** —
-  [GitHub Discussions](https://github.com/zzallirog/weighted-compact/discussions).
-- **Bug you can reproduce** —
-  [open an issue](https://github.com/zzallirog/weighted-compact/issues/new).
-  Include `weighted-compact compat --json`.
-- **PR policy** — see [`CONTRIBUTING.md`](CONTRIBUTING.md). Short version:
-  framework PRs welcome, substrate/data PRs no — each install grows its own.
+- **Ideas, questions, show-and-tell** — [GitHub Discussions](https://github.com/zzallirog/weighted-compact/discussions).
+- **A bug you can reproduce** — [open an issue](https://github.com/zzallirog/weighted-compact/issues/new) and paste the output of `weighted-compact compat --json`.
+- **A PR** — see [`CONTRIBUTING.md`](CONTRIBUTING.md). Framework PRs land easily; substrate or labeled-data PRs are rejected on sight because every install grows its own substrate.
 
-No support SLA. Maintenance is bursty. The repo will go quiet for weeks and
-then move in big bumps.
+No support SLA. The repo goes quiet for weeks and then moves in big
+bumps. Patches with tests merge fastest.
 
 ---
 
