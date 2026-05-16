@@ -49,3 +49,9 @@ from harness API); the numbers around them are not.
   `weighted_compact/extract_pairs.py`.
 - Substrate carries raw conversation text. `.gitignore` is aggressive,
   but if you fork and add CI artifacts, audit them before pushing.
+- **UI is bilingual** (Russian-first, mixed English). A full English
+  i18n pass on `tool.py:PAGE_HTML` is filed as a contributor task.
+- **Span annotation rendering has a JS bug** when annotation char-ranges
+  are out of correction-text bounds — the labeler crashes silently with
+  `Cannot read properties of undefined`. Workaround: avoid `char_end`
+  exceeding `len(correction_text)`. Fix planned for `v0.0.2`.

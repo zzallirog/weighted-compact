@@ -16,6 +16,22 @@
 
 ---
 
+<p align="center">
+  <img src="docs/img/labeler-overview.png" alt="weighted-compact labeler — pair view with anti-drift sidebar" width="100%">
+</p>
+
+<sub><i>The labeler. Premise + correction shown side-by-side, four-key labeling (KEEP / MAYBE / SKIP / FALSE-POS), anti-drift sidebar showing five cosine-nearest prior labeled pairs with their tier decisions.</i></sub>
+
+> **UI is currently bilingual** — labels and section headers are mostly Russian, content is what you fed in. A full English i18n pass is filed as a contributor task; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+<p align="center">
+  <img src="docs/img/reconstruction-tab.png" alt="Reconstruction-QA tab — tunable k_drop, ranker, topic_decay" width="100%">
+</p>
+
+<sub><i>The reconstruction-QA tab. Build a Q&A set against the source pair, then run eval with three knobs: <code>k_drop</code> (selection threshold), <code>ranker</code> (importance vs density legacy A/B), <code>topic_decay</code> (cross-topic distance penalty).</i></sub>
+
+---
+
 ## What this is
 
 A personal compaction tool that learns from **your** Claude Code sessions to
@@ -126,18 +142,37 @@ with the labels you produced — and only with those.
 pipx install git+https://github.com/zzallirog/weighted-compact
 ```
 
-After install, three things are true:
+The install puts a `weighted-compact` binary on your `PATH` and pulls in
+five hard deps (`fastapi`, `uvicorn`, `pydantic`, `numpy`, `click`). It
+does **not** start anything, write anywhere outside the pipx venv, or
+register a service.
 
-1. **`weighted-compact bootstrap` works.** It scans `~/.claude/projects/` for
-   recent sessions, extracts conversation pairs, and seeds your substrate
-   under `~/.local/share/weighted-compact/`. Read-only on the Claude side;
-   never modifies your session history.
-2. **`weighted-compact serve` works.** It launches the labeler at
-   `http://127.0.0.1:18890/`. No systemd unit is installed by default.
-3. **No model is trained yet.** The first time you label twenty pairs and run
-   `weighted-compact train`, a baseline classifier is fitted.
+After install, four things are true:
 
-To install the systemd user unit (optional, for ambient operation):
+1. **`weighted-compact compat` runs immediately** as a read-only
+   diagnostic — safe to invoke anywhere, never touches state.
+2. **No daemon is running.** Nothing listens on port 18890. The labeler
+   only comes up when you explicitly run `weighted-compact serve`, or
+   enable the systemd user unit (see below).
+3. **No substrate exists yet.** `~/.local/share/weighted-compact/` is
+   created lazily on first `weighted-compact bootstrap`.
+4. **No classifier exists yet.** Once you have labeled twenty pairs,
+   `weighted-compact train` fits a baseline. Until then, the importance
+   mixture runs on the five non-classifier signals.
+
+A typical first-run sequence is three explicit commands:
+
+```bash
+weighted-compact compat       # verify install
+weighted-compact bootstrap    # build substrate from ~/.claude/projects/
+weighted-compact serve        # launch labeler at http://127.0.0.1:18890/
+```
+
+Each command is user-initiated. Nothing in the install path starts a
+server, opens a port, or schedules background work.
+
+For **ambient operation** (the labeler auto-starts at user login), opt
+into the systemd user unit:
 
 ```bash
 weighted-compact install-units
@@ -145,6 +180,12 @@ systemctl --user daemon-reload
 systemctl --user enable --now weighted-compact
 xdg-open http://127.0.0.1:18890/
 ```
+
+This is the only autostart path, and it requires three explicit
+commands. `install-units` writes one file under
+`~/.config/systemd/user/`; `enable --now` is what actually starts the
+labeler. Both are reversible with `systemctl --user disable --now
+weighted-compact`.
 
 ### Requirements
 
