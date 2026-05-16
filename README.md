@@ -48,7 +48,7 @@ matter, verbatim, and gists the rest.
 The score is tunable because you are the only person it should match.
 The labeler sits at `http://127.0.0.1:18890/` and surfaces pairs from
 your own session history one at a time — usually triggered by an inline
-marker you typed during a live session (`(mark)`, `(подумать)`), or a
+marker you typed during a live session (`(mark)`, `(think)`), or a
 pair the classifier disagrees on. You sit down for twenty minutes, label
 a couple of dozen, walk away. The substrate grows. The next compaction
 reflects what you actually meant when you said *this part matters*.
