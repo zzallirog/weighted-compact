@@ -8,13 +8,12 @@ Train 3-tier classifier (drop/maybe/keep) using bootstrap strategy:
 import argparse
 import json
 import sys
-from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
+from sklearn.metrics import cohen_kappa_score, confusion_matrix, f1_score
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.metrics import f1_score, confusion_matrix, cohen_kappa_score
 
 from weighted_compact import config
 from weighted_compact.model import WeightedCompactClassifier

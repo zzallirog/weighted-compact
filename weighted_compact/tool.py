@@ -1,21 +1,33 @@
 #!/usr/bin/env python3
-"""weighted-compact CAPTCHA опросник — local web tool.
+"""weighted-compact CAPTCHA labeler — local web tool.
 
-Run:  python3 tool.py
-Open: http://localhost:18890
+Run via the CLI:
+    weighted-compact serve
 
-W1 redesign properties (per CLAUDE.md invariants):
+Or directly:
+    python -m weighted_compact.tool
+
+Then open http://localhost:18890/.
+
+Design (per docs/invariants.md):
 - Equal-weight assistant/user blocks (symmetric typography)
-- Anti-drift sidebar: 5 cosine-nearest prior labeled pairs
-- Keyboard shortcuts: k/m/s/x → KEEP/MAYBE/SKIP/FALSE-POS
+- Anti-drift sidebar: five cosine-nearest prior labeled pairs
+- Keyboard shortcuts: k / m / s / x → KEEP / MAYBE / SKIP / FALSE-POS
 - Queue-driven, resumable via labels.jsonl
 - Stability principle: shows your own past decisions on similar pairs
+
+Note: the embedded HTML UI is currently bilingual (Russian first, mixed
+with English). A full i18n pass is filed as a contributor task; see
+CONTRIBUTING.md for the PR template.
 """
+
 from __future__ import annotations
 
 import json
-import sys
+import logging
 from contextlib import asynccontextmanager
+from datetime import UTC
+from pathlib import Path
 
 import numpy as np
 import uvicorn
@@ -24,6 +36,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from weighted_compact import config, recon_qa
+from weighted_compact.config import ANNOTATION_TIERS, LABEL_KEY_MAP
 
 WORKDIR = config.workdir()
 PAIRS = config.pairs_path()
@@ -33,8 +46,8 @@ FEATURES = config.features_path()
 ANNOTATIONS = config.annotations_path()
 
 PORT = config.labeler_port()
-LABEL_NAMES = {'k': 'keep', 'm': 'maybe', 's': 'skip', 'x': 'false_positive'}
-ANNOTATION_MARKERS = {'keep', 'maybe', 'skip', 'think'}
+LABEL_NAMES = LABEL_KEY_MAP
+ANNOTATION_MARKERS = set(ANNOTATION_TIERS)
 
 # Inline-marker → tier mapping. The labeler accepts canonical tier names
 # directly via API; this map is used when bootstrapping queue entries from
@@ -60,17 +73,22 @@ STATE: dict = {
 }
 
 
+log = logging.getLogger("weighted_compact.tool")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     reload_state()
     qrem = sum(1 for q in STATE['queue'] if not already_tool_labeled(q['pair_idx']))
-    print(f'\n  weighted-compact опросник')
-    print(f'  http://localhost:{PORT}')
-    print(f'  labels: {len(STATE["labels"])}  ·  queue remaining: {qrem}  ·  corpus: {len(STATE["pairs"])}\n')
+    log.info(
+        "weighted-compact labeler listening on http://localhost:%d "
+        "(labels=%d, queue_remaining=%d, corpus=%d)",
+        PORT, len(STATE['labels']), qrem, len(STATE['pairs']),
+    )
     yield
 
 
-app = FastAPI(title='weighted-compact опросник', lifespan=lifespan)
+app = FastAPI(title='weighted-compact labeler', lifespan=lifespan)
 
 
 def load_jsonl(path: Path) -> list:
@@ -329,9 +347,12 @@ def mode_stats() -> dict:
             continue
         src = entry.get('source', '')
         stats['all'] += 1
-        if src == 'bootstrap_disagreement': stats['disagreement'] += 1
-        elif src == 'low_confidence':       stats['low_conf'] += 1
-        elif src == 'audit_anchor':         stats['audit'] += 1
+        if src == 'bootstrap_disagreement':
+            stats['disagreement'] += 1
+        elif src == 'low_confidence':
+            stats['low_conf'] += 1
+        elif src == 'audit_anchor':
+            stats['audit'] += 1
     stats['unknown'] = sum(1 for i in range(len(STATE['pairs'])) if i not in STATE['labels'])
     clusters = STATE.get('clusters')
     if clusters:
@@ -393,7 +414,7 @@ def api_annotation_add(payload: AnnotationPayload) -> JSONResponse:
     aid = STATE['next_annotation_id']
     STATE['next_annotation_id'] += 1
 
-    from datetime import datetime, timezone
+    from datetime import datetime
     rec = {
         'id': aid,
         'pair_idx': payload.pair_idx,
@@ -402,7 +423,7 @@ def api_annotation_add(payload: AnnotationPayload) -> JSONResponse:
         'snippet': text[payload.char_start:payload.char_end][:200],
         'marker': payload.marker,
         'note': payload.note,
-        'created_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+        'created_at': datetime.now(UTC).isoformat(timespec='seconds'),
         'labeled_via': 'tool',
     }
     with open(ANNOTATIONS, 'a') as f:
@@ -419,12 +440,12 @@ def api_annotation_delete(annotation_id: int) -> JSONResponse:
     if not target:
         raise HTTPException(404, f'annotation {annotation_id} not found')
 
-    from datetime import datetime, timezone
+    from datetime import datetime
     tombstone = {
         'id': annotation_id,
         'pair_idx': target['pair_idx'],
         'deleted': True,
-        'deleted_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+        'deleted_at': datetime.now(UTC).isoformat(timespec='seconds'),
     }
     with open(ANNOTATIONS, 'a') as f:
         f.write(json.dumps(tombstone, ensure_ascii=False) + '\n')

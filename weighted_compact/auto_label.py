@@ -124,7 +124,6 @@ def correction_is_question(text):
 def marker_is_standalone(marker_match, correction_text):
     """Check if marker appears standalone (at start or after punct) vs embedded in phrase."""
     marker_lower = marker_match.lower()
-    text_lower = correction_text.lower()
     # Standalone: marker at very start of text (trimmed) or after newline or after punct+space
     patterns = [
         re.compile(r'^\s*' + re.escape(marker_lower), re.IGNORECASE),
@@ -151,7 +150,6 @@ def classify(pair):
     confidence: 'high' | 'med' | 'low'
     """
     correction = pair.get('correction_text', '')
-    premise = pair.get('premise_text', '')
     marker = pair.get('marker_match', '')
     marker_type = pair.get('marker_type', '')
     tier_hint = pair.get('tier_hint', '')
@@ -360,9 +358,9 @@ def main():
         if r['confidence'] == 'low':
             conf_low += 1
 
-    print(f"\n=== Auto-label summary ===")
+    print("\n=== Auto-label summary ===")
     print(f"New labels added: {len(new_labels)}")
-    print(f"Distribution:")
+    print("Distribution:")
     for label in ('keep', 'maybe', 'skip', 'false_positive'):
         cnt = dist.get(label, 0)
         pct = cnt / len(new_labels) * 100 if new_labels else 0
@@ -374,7 +372,7 @@ def main():
     for r in new_labels:
         key = (r['label'], r['_reason'])
         reasons[key] = reasons.get(key, 0) + 1
-    print(f"\nTop reason buckets:")
+    print("\nTop reason buckets:")
     for (lbl, rsn), cnt in sorted(reasons.items(), key=lambda x: -x[1])[:20]:
         print(f"  {lbl:15} {rsn:40} {cnt}")
 

@@ -5,14 +5,15 @@ Higher density → pair carries more signal → kept when compacting.
 """
 import datetime
 import json
-import re
+import os
 import random
+import re
 from collections import Counter
-from pathlib import Path
 
 import numpy as np
 import requests
 
+from weighted_compact import config
 
 # ── Iter-chain QC layer 1: embedding cos-distance ─────────────────────────────
 # Embedded e5 model loaded lazily (~120MB). Used to compute semantic drift
@@ -81,10 +82,6 @@ def iter_chain_metrics(new_candidates, prior_candidates, mode):
         out['error'] = str(e)
     return out
 
-import os
-
-from weighted_compact import config
-
 RECON_SET = config.recon_qa_set_path()
 PAIRS = config.pairs_path()
 DENSITY = config.features_density_path()
@@ -124,8 +121,8 @@ def load_density():
     return {int(pair_indices[i]): float(scores[i]) for i in range(len(scores))}
 
 
-IMPORTANCE = ROOT / 'importance.npz'
-TOPIC_SEGMENTS = ROOT / 'topic_segments.npz'
+IMPORTANCE = config.importance_path()
+TOPIC_SEGMENTS = config.topic_segments_path()
 
 
 def load_importance():

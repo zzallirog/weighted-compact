@@ -224,6 +224,8 @@ The architectural invariants are locked; the numbers around them are not.
 
 | File | Topic |
 |---|---|
+| [`docs/install.md`](docs/install.md) | Platform support, what gets installed, logging, exception matrix |
+| [`docs/faq.md`](docs/faq.md) | Common questions, comparisons, troubleshooting |
 | [`docs/concept.md`](docs/concept.md) | Why this exists, what it is not |
 | [`docs/invariants.md`](docs/invariants.md) | Three locked design invariants |
 | [`docs/architecture.md`](docs/architecture.md) | Module map and the substrate pipeline |

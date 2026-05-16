@@ -11,7 +11,6 @@ Picks top-5 sessions by labeled-pair count. For each:
 import json
 import re
 from collections import Counter, defaultdict
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -207,7 +206,7 @@ def main():
         by_session[p['session_id']] += 1
     top_sessions = sorted(by_session.items(), key=lambda x: -x[1])[:5]
 
-    print(f'Top-5 sessions by labeled pair count:')
+    print('Top-5 sessions by labeled pair count:')
     for sid, n in top_sessions:
         print(f'  {sid[:8]}  {n} pairs')
 
@@ -225,17 +224,17 @@ def main():
     gate_pass = mean_imp >= 1.70
 
     lines = [
-        f'# Phase 2 Content Preservation Evaluation',
-        f'',
-        f'**Дата:** 2026-05-15',
+        '# Phase 2 Content Preservation Evaluation',
+        '',
+        '**Дата:** 2026-05-15',
         f'**Sessions evaluated:** {len(results)}',
         f'**Mean improvement:** {mean_imp:.3f}× (gate ≥ 1.70×)',
         f'**Gate:** {"✓ PASS" if gate_pass else "✗ FAIL"}',
-        f'',
-        f'## Per-session breakdown',
-        f'',
-        f'| Session | Events | Pairs | Entities | Weighted Cov | Standard Cov | Improvement |',
-        f'|---|---|---|---|---|---|---|',
+        '',
+        '## Per-session breakdown',
+        '',
+        '| Session | Events | Pairs | Entities | Weighted Cov | Standard Cov | Improvement |',
+        '|---|---|---|---|---|---|---|',
     ]
     for r in results:
         lines.append(

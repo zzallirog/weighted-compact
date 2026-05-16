@@ -7,11 +7,11 @@ Usage: python3 label_pairs.py
 - Calibration: 3 demo pairs on first run
 """
 import json
-import os
 import random
 import sys
 
 from weighted_compact import config
+from weighted_compact.config import LABEL_KEY_MAP as KEY_MAP
 
 WORKDIR = config.workdir()
 PAIRS = config.pairs_path()
@@ -19,34 +19,30 @@ LABELS = config.labels_path()
 QUEUE = config.queue_path()
 TARGET = 100
 
-KEY_MAP = {
-    'k': 'keep',
-    'm': 'maybe',
-    's': 'skip',
-    'x': 'false_positive',
-}
-
+# Synthetic calibration pairs. NOT real conversation excerpts — these are
+# illustrative examples showing the four tier semantics. The real labeler
+# bootstrap pulls live pairs from ~/.claude/projects/.
 CALIBRATION = [
     {
-        'premise': 'Думаю ты родился где-то в начале 1999 года, судя по нумерологии. Это даёт определённую конфигурацию карт.',
-        'correction': 'не то, декабрь 28 1998 примерно в ночь 3-5',
-        'marker': 'regex_neg "не то"',
+        'premise': "I'll set the timeout to 30 seconds, which should cover most cases.",
+        'correction': "no, our SLA requires 8 seconds — anything above 10 is a hard fail.",
+        'marker': 'regex_neg "no"',
         'answer': 'k',
-        'why': 'Прямая фактическая коррекция. Premise (assistant\'s guess) был неверный, correction предоставляет ground truth. Premise — load-bearing: без него я бы продолжала строить выводы на неверной дате. Сохраняем verbatim.',
+        'why': 'Direct factual correction. The assistant proposed a wrong number; the user supplied the correct constraint. Premise is load-bearing — without it future turns would inherit the wrong timeout. Keep verbatim.',
     },
     {
-        'premise': 'Можем расширить дашборд метриками cache hit ratio и сессионных burst-ивентов. Хочешь?',
-        'correction': 'интересно (маркер - подумать) но сейчас не до этого',
-        'marker': 'explicit_tag "(маркер - подумать)"',
+        'premise': 'We could extend the dashboard with cache hit ratio and burst-event metrics. Want me to scaffold that?',
+        'correction': 'interesting (mark — later) but not the priority right now.',
+        'marker': 'explicit_tag "(mark — later)"',
         'answer': 'm',
-        'why': 'Юзер явно помечает как deferred. Premise релевантный — это была предложенная фича — но не peak importance. Cluster gist достаточно. Сохраняем как "maybe".',
+        'why': 'User explicitly defers the idea. Premise is relevant — it captures a proposed feature — but not peak importance. Cluster gist is enough. Keep as "maybe".',
     },
     {
-        'premise': 'Расскажи подробнее как тебе разговор о философии и физике',
-        'correction': 'а может быть тебе понравится идея создать себе улучшенную версию получение нарратива из любой сессии? и мы бы помечали более важные — как вот общение про философию и физику. хороший был диалог.',
-        'marker': 'regex_pos "вот"',
+        'premise': 'Tell me more about how the analysis went.',
+        'correction': 'maybe you would like the idea of building a session-narrative module that surfaces the highlights — look at how the philosophy discussion turned out.',
+        'marker': 'regex_pos "look"',
         'answer': 'x',
-        'why': 'False positive. "вот" здесь — discourse particle ("например, для иллюстрации"), не correction marker. Эта пара не должна быть в датасете — regex поймал по букве, не по смыслу. Помечаем "x" чтобы исключить.',
+        'why': 'False positive. "look" here is a discourse particle ("for example, look at how X went"), not a correction marker. This pair should be excluded — the regex matched on the surface form, not the meaning. Mark as "x".',
     },
 ]
 
@@ -98,11 +94,11 @@ def show_pair(pair, count, total_to_go, idx, source=None):
     print(trim(pair['correction_text']))
     print()
     print('─' * 76)
-    print('  k = KEEP        premise — load-bearing, ground truth, важный facto')
-    print('  m = MAYBE       средняя важность — gist подойдёт')
-    print('  s = SKIP        scaffolding/filler — pointer-only хватит')
-    print('  x = FALSE POS   эта пара вообще не correction (regex попал ложно)')
-    print('  q = QUIT        сохранить и выйти')
+    print('  k = KEEP        premise is load-bearing — ground truth, important fact')
+    print('  m = MAYBE       mid-importance — a gist is enough')
+    print('  s = SKIP        scaffolding/filler — a pointer is enough')
+    print('  x = FALSE POS   this pair is not a correction at all (regex misfire)')
+    print('  q = QUIT        save and exit')
     print('  ? = repeat help')
     print()
 
@@ -110,12 +106,12 @@ def show_pair(pair, count, total_to_go, idx, source=None):
 def run_calibration():
     clear()
     print('═' * 76)
-    print('  CALIBRATION (3 примера с правильными ответами)')
+    print('  CALIBRATION (3 examples with correct answers)')
     print('═' * 76)
     print()
-    print('Цель: показать как различать tiers. Эти 3 не сохраняются в датасете.')
+    print('Goal: show how to discriminate tiers. These 3 are not saved to the dataset.')
     print()
-    input('[Enter чтобы начать]')
+    input('[Enter to start]')
 
     for i, ex in enumerate(CALIBRATION):
         clear()
@@ -133,13 +129,13 @@ def run_calibration():
         print(ex['correction'])
         print()
         print('─' * 76)
-        print(f'  Правильный ответ: {ex["answer"].upper()}')
+        print(f'  Correct answer: {ex["answer"].upper()}')
         print()
-        print('Почему:')
+        print('Why:')
         for line in ex['why'].split('. '):
             print(f'  {line.strip()}{"." if not line.endswith(".") else ""}')
         print()
-        input('[Enter дальше]')
+        input('[Enter to continue]')
 
 
 def save_label(idx, label, pair, labeled_via=None):
@@ -178,44 +174,42 @@ def main():
                 p = dict(pairs_by_idx[idx])
                 p['_queue_source'] = entry.get('source')
                 unlabeled.append((idx, p))
-        labeled_via = 'queue'
     else:
         if use_queue:
-            print(f'  [--queue] queue.jsonl not found, falling back to random shuffle')
+            print('  [--queue] queue.jsonl not found, falling back to random shuffle')
         unlabeled = [(i, p) for i, p in enumerate(pairs) if i not in labeled]
         random.seed(42)
         random.shuffle(unlabeled)
-        labeled_via = None
 
     clear()
     print('═' * 76)
     print('  Weighted-Compact Phase 1 — manual labeling')
     print('═' * 76)
     print()
-    print(f'  Корпус всего:       {len(pairs)} пар')
-    print(f'  Уже размечено:      {len(labeled)}')
-    print(f'  Осталось до цели:   {max(0, TARGET - len(labeled))}')
+    print(f'  Corpus total:       {len(pairs)} pairs')
+    print(f'  Already labeled:    {len(labeled)}')
+    print(f'  Remaining to goal:  {max(0, TARGET - len(labeled))}')
     print()
 
     first_run = len(labeled) == 0
     if first_run:
-        print('Первый запуск — стартуем с 3 calibration примеров (не сохраняются).')
+        print('First run — starting with 3 calibration examples (not saved).')
         print()
-        input('[Enter чтобы начать calibration]')
+        input('[Enter to start calibration]')
         run_calibration()
 
     remaining = TARGET - len(labeled)
     if remaining <= 0:
         clear()
-        print(f'✓ Уже размечено {len(labeled)} пар. Phase 1 корпус готов.')
+        print(f'✓ Already labeled {len(labeled)} pairs. Phase 1 corpus is ready.')
         print(f'  labels.jsonl: {LABELS}')
         return
 
     clear()
-    print(f'Цель сегодня: {min(remaining, len(unlabeled))} пар.')
-    print(f'Tip: q сохраняет и выходит — можешь возвращаться, прогресс по каждому label\'у.')
+    print(f"Today's target: {min(remaining, len(unlabeled))} pairs.")
+    print("Tip: 'q' saves and exits — you can resume any time; progress is per-label.")
     print()
-    input('[Enter чтобы начать labeling]')
+    input('[Enter to start labeling]')
 
     done_this_run = 0
     try:
@@ -239,11 +233,11 @@ def main():
 
     clear()
     total = len(labeled) + done_this_run
-    print(f'Сохранено. Этой сессией: {done_this_run}. Всего: {total} / {TARGET}.')
+    print(f'Saved. This session: {done_this_run}. Total: {total} / {TARGET}.')
     if total >= TARGET:
-        print(f'✓ Цель {TARGET} достигнута. Можешь стартовать Phase 2.')
+        print(f'✓ Goal of {TARGET} reached. Phase 2 is unblocked.')
     else:
-        print(f'Осталось: {TARGET - total}. Запусти script снова когда будет время.')
+        print(f'Remaining: {TARGET - total}. Run the script again when you have time.')
 
 
 if __name__ == '__main__':

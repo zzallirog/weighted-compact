@@ -69,15 +69,15 @@ while IFS= read -r f; do
     done
 done <<< "$FILES"
 
-# 2. Personal identifiers inside text files.
-for pat in "${PERSONAL_PATTERNS[@]}"; do
-    matches="$(echo "$FILES" | xargs -d '\n' -r grep -lI --color=never "$pat" 2>/dev/null || true)"
-    if [ -n "$matches" ]; then
-        echo "leak-scan: personal pattern '$pat' found in:" >&2
-        echo "$matches" | sed 's/^/  /' >&2
-        fail=1
-    fi
-done
+# 2. Personal identifiers inside text files. One combined ERE pass over the
+#    file list so the cost scales with content size, not pattern count.
+ere="$(IFS='|'; echo "${PERSONAL_PATTERNS[*]}")"
+matches="$(echo "$FILES" | xargs -d '\n' -r grep -lIE --color=never -- "$ere" 2>/dev/null || true)"
+if [ -n "$matches" ]; then
+    echo "leak-scan: personal pattern matched (regex: $ere)" >&2
+    echo "$matches" | awk '{print "  " $0}' >&2
+    fail=1
+fi
 
 if [ "$fail" -ne 0 ]; then
     echo >&2

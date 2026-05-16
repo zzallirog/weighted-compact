@@ -115,7 +115,6 @@ def main():
 
     for sess, pair_list in session_pairs.items():
         rows = [row_for_pair[p] for p in pair_list]
-        vec_for_row = lambda r: corr_vecs[r]
         # Build temporary corr_vecs slice indexed by position in session
         local_vecs = {i: corr_vecs[rows[i]] for i in range(len(rows))}
         topic_ids, cohesions, boundaries = segment_session(

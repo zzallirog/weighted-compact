@@ -12,17 +12,18 @@ import json
 import os
 import sys
 import warnings
+
 import numpy as np
 
 from weighted_compact.feature_extract import (
-    PAIRS_PATH,
-    OUT_PATH,
-    EMBED_DIM,
     BATCH_SIZE,
+    EMBED_DIM,
     MAX_CHARS,
-    load_session_events,
-    find_premise_minus1,
+    OUT_PATH,
+    PAIRS_PATH,
     _has_cuda,
+    find_premise_minus1,
+    load_session_events,
 )
 
 
@@ -130,7 +131,7 @@ def main():
     }
     np.savez(OUT_PATH, **merged)
 
-    print(f"\n--- Summary ---")
+    print("\n--- Summary ---")
     print(f"Output           : {OUT_PATH}")
     print(f"windows shape    : {merged['windows'].shape}")
     print(f"Appended         : {N}  (skipped {skipped})")

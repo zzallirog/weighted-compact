@@ -8,21 +8,16 @@ project the user has run Claude Code in. We glob across all of them.
 """
 import glob
 import json
+import os
 import re
 from collections import Counter
 
 from weighted_compact import config
+from weighted_compact.config import SKIP_PREFIXES
 
-# Every subdir under ``~/.claude/projects/`` and ``~/.claude-work/projects/``.
-# See ``weighted_compact.config.claude_source_dirs`` for override.
 DIRS = [str(p) for p in config.claude_source_dirs()]
 OUT = str(config.pairs_path())
 MIN_FILE_SIZE = 5 * 1024
-
-SKIP_PREFIXES = (
-    "<command", "<local-command", "<bash-input", "<bash-stdout", "<bash-stderr",
-    "<task-notification", "<system-reminder", "<user-prompt", "<image", "<attachment",
-)
 
 RE_NEG = re.compile(
     r"\b(нет|не то|не туда|не так|не надо|стоп|подожди|не нужно|опять|пошлый|"

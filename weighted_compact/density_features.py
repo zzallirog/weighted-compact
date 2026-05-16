@@ -73,7 +73,7 @@ def main():
     print(f'Output: {OUT}')
     print(f'Density shape: {density.shape}')
     print(f'Missing pairs: {missing}')
-    print(f'Per-feature mean (premise side):')
+    print('Per-feature mean (premise side):')
     fnames = ['log_len', 'log_lines', 'log_names', 'log_nums', 'log_quotes', 'log_code', 'uniq_ratio', 'log_words']
     for i, name in enumerate(fnames):
         m = density[:, i].mean()

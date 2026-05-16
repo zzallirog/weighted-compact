@@ -14,11 +14,11 @@ Subcommands:
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import json
-import os
+import logging
 import platform
 import socket
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -26,24 +26,35 @@ import click
 
 from weighted_compact import __version__, config
 
+log = logging.getLogger("weighted_compact.cli")
 
-def _resolve_distro() -> str:
-    """Return /etc/os-release ID (e.g. 'arch', 'debian') or 'unknown'."""
+
+def _setup_logging(verbose: bool) -> None:
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+
+def _distro() -> str:
+    """Return /etc/os-release ID via stdlib (Python 3.10+) — empty string on non-Linux."""
     try:
-        with open("/etc/os-release") as f:
-            for line in f:
-                if line.startswith("ID="):
-                    return line.split("=", 1)[1].strip().strip('"')
-    except OSError:
-        pass
-    return "unknown"
+        return platform.freedesktop_os_release().get("ID", "unknown")
+    except (OSError, AttributeError):
+        return "unknown"
 
 
 def _has_module(name: str) -> bool:
+    """Check without importing — preserves cold-start latency.
+
+    Importing torch / sentence_transformers / sklearn at compat time would
+    add ~2.5s. find_spec resolves the package metadata without loading.
+    """
     try:
-        importlib.import_module(name)
-        return True
-    except ImportError:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
         return False
 
 
@@ -67,16 +78,37 @@ def _count_sessions() -> dict[str, int]:
     return counts
 
 
+def _file_size_or_zero(p: Path) -> int:
+    try:
+        return p.stat().st_size
+    except FileNotFoundError:
+        return 0
+
+
 def _substrate_state() -> dict[str, Any]:
     wd = config.workdir()
     state: dict[str, Any] = {"path": str(wd), "exists": wd.exists()}
     if not wd.exists():
         return state
-    state["pairs"] = config.pairs_path().exists() and config.pairs_path().stat().st_size or 0
-    state["labels"] = config.labels_path().exists() and config.labels_path().stat().st_size or 0
+    state["pairs"] = _file_size_or_zero(config.pairs_path())
+    state["labels"] = _file_size_or_zero(config.labels_path())
     state["features"] = config.features_path().exists()
     state["classifier"] = config.classifier_path().exists()
     return state
+
+
+# Optional deps — keys are pip names, values are the import name to probe.
+# `click` and the core runtime deps are not listed: they are mandatory and
+# the CLI cannot start without them, so reporting them as "present" is noise.
+_OPTIONAL_DEPS: dict[str, str] = {
+    "fastapi": "fastapi",
+    "uvicorn": "uvicorn",
+    "numpy": "numpy",
+    "sentence-transformers": "sentence_transformers",
+    "scikit-learn": "sklearn",
+    "torch": "torch",
+    "requests": "requests",
+}
 
 
 def _compat_report() -> dict[str, Any]:
@@ -84,17 +116,8 @@ def _compat_report() -> dict[str, Any]:
         "version": __version__,
         "python": platform.python_version(),
         "platform": platform.system(),
-        "distro": _resolve_distro(),
-        "deps": {
-            "fastapi": _has_module("fastapi"),
-            "uvicorn": _has_module("uvicorn"),
-            "numpy": _has_module("numpy"),
-            "click": _has_module("click"),
-            "sentence_transformers": _has_module("sentence_transformers"),
-            "sklearn": _has_module("sklearn"),
-            "torch": _has_module("torch"),
-            "requests": _has_module("requests"),
-        },
+        "distro": _distro(),
+        "deps": {pip_name: _has_module(import_name) for pip_name, import_name in _OPTIONAL_DEPS.items()},
         "substrate": _substrate_state(),
         "sessions": _count_sessions(),
         "port_free": _port_free(config.labeler_port()),
@@ -102,10 +125,21 @@ def _compat_report() -> dict[str, Any]:
     }
 
 
+def _run_module_main(module_name: str) -> None:
+    """Import and call `main()` on a sibling module. Fail loudly if missing."""
+    mod = importlib.import_module(f"weighted_compact.{module_name}")
+    main_fn = getattr(mod, "main", None)
+    if main_fn is None:
+        raise click.ClickException(f"{module_name}.py has no main() function — file a bug")
+    main_fn()
+
+
 @click.group()
+@click.option("--verbose", "-v", is_flag=True, help="Debug logging.")
 @click.version_option(version=__version__, prog_name="weighted-compact")
-def main() -> None:
+def main(verbose: bool) -> None:
     """weighted-compact — trainable context-compaction substrate."""
+    _setup_logging(verbose)
 
 
 @main.command()
@@ -122,8 +156,7 @@ def compat(as_json: bool) -> None:
     click.echo("Dependencies:")
     for name, present in report["deps"].items():
         mark = "✓" if present else "·"
-        kind = "" if name in ("fastapi", "uvicorn", "numpy", "click") else " (optional)"
-        click.echo(f"  {mark} {name}{kind}")
+        click.echo(f"  {mark} {name}")
     click.echo()
     sub = report["substrate"]
     click.echo(f"Substrate: {sub['path']}")
@@ -160,10 +193,7 @@ def bootstrap(dry_run: bool) -> None:
         click.echo(f"Would write: {ep.OUT}")
         return
 
-    if not hasattr(ep, "main"):
-        click.echo("ERROR: extract_pairs.py does not expose main() — call its functions directly.")
-        sys.exit(1)
-    ep.main()
+    _run_module_main("extract_pairs")
     click.echo(f"Wrote pairs to {ep.OUT}")
 
 
@@ -178,44 +208,26 @@ def serve(host: str, port: int | None) -> None:
 
     config.workdir().mkdir(parents=True, exist_ok=True)
     p = port or config.labeler_port()
-    click.echo(f"weighted-compact labeler → http://{host}:{p}/")
+    log.info("labeler → http://%s:%d/", host, p)
     uvicorn.run(tool.app, host=host, port=p, log_level="info")
 
 
 @main.command()
 def importance() -> None:
     """Recompose the six-signal importance mixture."""
-    from weighted_compact import importance as imp
-
-    if hasattr(imp, "main"):
-        imp.main()
-    else:
-        click.echo("ERROR: importance.py does not expose main()")
-        sys.exit(1)
+    _run_module_main("importance")
 
 
 @main.command()
 def train() -> None:
     """Fit the classifier on the current substrate."""
-    from weighted_compact import train as tr
-
-    if hasattr(tr, "main"):
-        tr.main()
-    else:
-        click.echo("ERROR: train.py does not expose main()")
-        sys.exit(1)
+    _run_module_main("train")
 
 
 @main.command(name="eval")
 def eval_cmd() -> None:
     """Run the reconstruction-QA gate."""
-    from weighted_compact import eval as ev
-
-    if hasattr(ev, "main"):
-        ev.main()
-    else:
-        click.echo("ERROR: eval.py does not expose main()")
-        sys.exit(1)
+    _run_module_main("eval")
 
 
 @main.command()
@@ -231,20 +243,19 @@ def paths() -> None:
 def install_units(force: bool) -> None:
     """Write the systemd user unit under ~/.config/systemd/user/."""
     here = Path(__file__).resolve().parent
-    src = here.parent / "systemd" / "weighted-compact.service"
-    if not src.exists():
-        # Fall back to a built-in template when installed from a wheel.
-        src = here / "data" / "weighted-compact.service"
-    if not src.exists():
-        click.echo("ERROR: weighted-compact.service template not found.")
-        sys.exit(1)
+    candidates = [
+        here.parent / "systemd" / "weighted-compact.service",
+        here / "data" / "weighted-compact.service",
+    ]
+    src = next((c for c in candidates if c.exists()), None)
+    if src is None:
+        raise click.ClickException("weighted-compact.service template not found")
 
     dest_dir = Path.home() / ".config" / "systemd" / "user"
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / "weighted-compact.service"
     if dest.exists() and not force:
-        click.echo(f"{dest} already exists — pass --force to overwrite.")
-        sys.exit(1)
+        raise click.ClickException(f"{dest} already exists — pass --force to overwrite")
     dest.write_text(src.read_text())
     click.echo(f"Wrote {dest}")
     click.echo()

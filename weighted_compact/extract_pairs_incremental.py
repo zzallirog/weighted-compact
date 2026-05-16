@@ -12,15 +12,14 @@ Usage: python3 extract_pairs_incremental.py
 import glob
 import json
 import os
-import sys
 from collections import Counter
 
 from weighted_compact.extract_pairs import (
     DIRS,
-    OUT,
     MIN_FILE_SIZE,
-    process_file,
+    OUT,
     build_pairs,
+    process_file,
 )
 
 

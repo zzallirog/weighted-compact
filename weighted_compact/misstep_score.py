@@ -20,14 +20,13 @@ Must run under misstep's venv (has duckdb + sklearn):
   ~/work/misstep/.venv/bin/python misstep_score.py
 """
 import json
+import os
 from pathlib import Path
 
-import numpy as np
 import duckdb
+import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
-
-import os
 
 from weighted_compact import config
 
@@ -129,7 +128,7 @@ def main():
         meta=np.array([json.dumps(meta)], dtype=object),
     )
 
-    print(f'\n--- Summary ---')
+    print('\n--- Summary ---')
     print(f'Output: {OUT}')
     print(f'Scored: {len(pair_indices)} pairs')
     print(f'stumble_prob: min={stumble_prob.min():.3f} max={stumble_prob.max():.3f} '

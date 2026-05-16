@@ -12,7 +12,6 @@ if ! [ -d "$HOOKS_DIR" ]; then
     exit 1
 fi
 
-mkdir -p "$HOOKS_DIR"
 cat > "$HOOKS_DIR/pre-commit" <<'EOF'
 #!/usr/bin/env bash
 # weighted-compact pre-commit — leak-scan + ruff (if available).

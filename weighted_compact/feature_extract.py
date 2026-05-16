@@ -4,23 +4,20 @@ import json
 import os
 import sys
 import warnings
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from weighted_compact import config
+from weighted_compact.config import SKIP_PREFIXES
 
 LABELS_PATH = str(config.labels_path())
 PAIRS_PATH = str(config.pairs_path())
 OUT_PATH = str(config.features_path())
 SESSION_DIRS = [str(p) for p in config.claude_source_dirs()]
-EMBED_DIM  = 384
+EMBED_DIM = 384
 BATCH_SIZE = 64
-MAX_CHARS  = 480  # ~512 tokens for RU text
-
-SKIP_PREFIXES = (
-    "<command", "<local-command", "<bash-input", "<bash-stdout", "<bash-stderr",
-    "<task-notification", "<system-reminder", "<user-prompt", "<image", "<attachment",
-)
+MAX_CHARS = 480  # ~512 tokens for RU text
 
 LABEL_MAP = {"keep": 2, "maybe": 1, "skip": 0, "false_positive": 0}
 
@@ -178,7 +175,7 @@ def main():
         flat_texts.append("passage: " + t2 if t2 else "")
         flat_texts.append("passage: " + t3 if t3 else "")
 
-    print(f"Loading multilingual-e5-small ...")
+    print("Loading multilingual-e5-small ...")
     model = SentenceTransformer("intfloat/multilingual-e5-small")
 
     device = "cuda" if _has_cuda() else "cpu"

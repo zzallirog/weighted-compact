@@ -111,3 +111,32 @@ def labeler_port() -> int:
     if raw:
         return int(raw)
     return 18890
+
+
+# Keyboard shortcut → canonical tier name. Shared by tool.py (web labeler)
+# and label_pairs.py (CLI fallback). Single source of truth.
+LABEL_KEY_MAP: dict[str, str] = {
+    "k": "keep",
+    "m": "maybe",
+    "s": "skip",
+    "x": "false_positive",
+}
+
+ANNOTATION_TIERS: frozenset[str] = frozenset({"keep", "maybe", "skip", "think"})
+
+# Claude Code internal tool-output markers. These are not conversational
+# turns and have no labeling value; skipping them keeps the substrate
+# signal/noise high and prevents the topic segmentor from mistaking tool
+# floods for topic boundaries.
+SKIP_PREFIXES: tuple[str, ...] = (
+    "<command",
+    "<local-command",
+    "<bash-input",
+    "<bash-stdout",
+    "<bash-stderr",
+    "<task-notification",
+    "<system-reminder",
+    "<user-prompt",
+    "<image",
+    "<attachment",
+)

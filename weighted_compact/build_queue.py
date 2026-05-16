@@ -116,7 +116,7 @@ def main():
     days = -(-len(final) // DAILY_RATE)  # ceil division
     print(f"Queue built → {QUEUE}")
     print(f"Total: {len(final)} entries")
-    print(f"By source:")
+    print("By source:")
     for src in ('bootstrap_disagreement', 'low_confidence', 'audit_anchor'):
         cnt = by_source.get(src, 0)
         pct = cnt / len(final) * 100 if final else 0
