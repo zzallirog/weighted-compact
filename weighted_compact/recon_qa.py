@@ -11,9 +11,20 @@ import re
 from collections import Counter
 
 import numpy as np
-import requests
 
 from weighted_compact import config
+
+# `requests` is only used to POST to a local Ollama instance for the
+# optional reconstruction-QA evaluator. Importing it at module top would
+# force every consumer of recon_qa (the labeler `tool.py`, the importance
+# mixture) to install `requests` just to load the module. Lazy-import it
+# inside the three functions that actually call Ollama.
+
+
+def _requests():
+    import requests  # noqa: PLC0415
+
+    return requests
 
 # ── Iter-chain QC layer 1: embedding cos-distance ─────────────────────────────
 # Embedded e5 model loaded lazily (~120MB). Used to compute semantic drift
@@ -238,7 +249,7 @@ def ask_ollama(context, question, timeout=60):
 
 Ответ:"""
     try:
-        r = requests.post(OLLAMA_URL, json={
+        r = _requests().post(OLLAMA_URL, json={
             'model': MODEL,
             'prompt': prompt,
             'stream': False,
@@ -341,7 +352,7 @@ A_truth должен быть подстрокой которая с высок�
   {{"q": "вопрос?", "a": "короткий ответ"}}
 ]"""
     try:
-        r = requests.post(OLLAMA_URL, json={
+        r = _requests().post(OLLAMA_URL, json={
             'model': SUGGEST_MODEL,
             'prompt': prompt,
             'stream': False,
@@ -385,7 +396,7 @@ REASON: одна короткая фраза.
 
 Только один verdict (yes/no/other) и одна reason."""
     try:
-        r = requests.post(OLLAMA_URL, json={
+        r = _requests().post(OLLAMA_URL, json={
             'model': JUDGE_MODEL,
             'prompt': prompt,
             'stream': False,
