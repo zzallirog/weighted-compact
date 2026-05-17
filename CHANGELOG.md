@@ -8,6 +8,75 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.1.0-alpha.1] — 2026-05-17
+
+First alpha cut. The substrate ships with three views over a shared
+labels journal — Quiz (annotate), Drift Inspector (observe how
+importance moves), Fidelity (verify compression survives). The same
+`K / M / S / X` writes from any of the three feed the next pipeline
+run.
+
+### Added
+
+- **Drift Inspector tab** (`§07`). Reads `importance.npz.bak.*`
+  snapshots, computes per-pair trajectory across the last N runs,
+  shows six drift metrics (`max_swing` / `total_var` / `slope` /
+  `oscillation` / `|final|`). Sortable, threshold-filtered.
+- **Iter narrative chain** in the Drift Inspector. Per-pair four-step
+  reading via `qwen2.5:7b` (`stats → pattern → synthesis → recommend`),
+  each iter cached and re-fireable. A fifth cell, **∑ finale**,
+  fires automatically after iters 1–4 land — it mode-votes the
+  tier extracted from each iter and reports the e5-measured semantic
+  convergence as a confidence number.
+- **Fidelity layer** (`§08`). For each pair: hide it, compact the
+  rest under current mixture, run iter-chain reconstruction over
+  targeted questions, judge survives-or-not via `gemma3:4b`.
+  Fidelity score ∈ [0, 1] = judge-yes ratio. Conflict score combines
+  with user tier: `KEEP + high fidelity = surplus`, `SKIP + low
+  fidelity = loss`, etc. Append-only `fidelity_cache.jsonl` journal.
+- **Conflict mode** in the inspector — sorts pairs by conflict
+  descending, re-tier candidates rise to the top with `→ skip` or
+  `→ keep` arrows next to the current tier chip.
+- **Fidelity mode** in the inspector — sorts by raw fidelity
+  ascending (worst reconstructions first), honest readout of where
+  the current mixture breaks first.
+- **Selected Pair redesign.** Meta block (trajectory / metrics /
+  session / uuid) folded into `<details>` closed by default.
+  Recommendation block sized like the main action area, color-tinted
+  to the recommended tier, with a pulsing accent dot and a big
+  `apply` button. A 4-tier mode strip below shows what compact does
+  with each tier (`KEEP verbatim / MAYBE paraphrased gist / SKIP
+  pointer-only / FALSE+ struck`) — equal-prominence, the recommended
+  one highlighted.
+- **Drag-select in the Drift Inspector**. Premise and correction
+  blocks in the Selected Pair card are now annotatable in the same
+  way as the Quiz tab — drag → popup → KEEP/MAYBE/SKIP/THINK,
+  writes to the shared `inline_annotations.jsonl`.
+- **Three-views framing** (`§09`). Labeler is now explicitly framed
+  as three jobs on one substrate: Quiz (annotate), Drift (observe),
+  Fidelity (verify). Each view recurses to the same `labels.jsonl`.
+
+### Endpoints
+
+- `GET /api/deltas/fidelity?mode=conflict|fidelity` — list rows
+- `GET /api/deltas/fidelity/{pair_idx}` — detail + judges
+- `GET /api/deltas/fidelity/status` — cache size + build progress
+- `POST /api/deltas/fidelity/build` — kick threaded eval worker;
+  strategies `missing` / `labelled_missing` / `reeval_low_fid`
+- `POST /api/deltas/narr/finale` — aggregate prior iters into a
+  mode-voted recommendation with e5 convergence drift
+
+### Changed
+
+- Compact buttons re-framed: not a strength scale, four render
+  strategies. Tooltips and the manual-row labels now describe what
+  compact does with the pair, not how "important" the pair is.
+- `MEMORY.md` feedback: any inline-JS edit in a Python triple-string
+  must run through `node --check` on the extracted `<script>` block.
+  `ast.parse` is necessary but not sufficient — Python decodes JS
+  escapes (`\s`, `\n`, single quotes) before they reach the browser,
+  producing broken JS at runtime even when `ast.parse` is green.
+
 ## [0.0.2] — 2026-05-16
 
 Docs-and-release polish on top of the v0.0.1 framework cut. No
