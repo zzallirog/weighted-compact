@@ -51,12 +51,16 @@ def shot_drift_full(page: Page) -> None:
 
 def _click_first_row_and_load_iters(page: Page) -> None:
     """Helper: select first row, wait for selection, fire iters 2-4 + finale."""
+    # Ensure drift mode (clear any persisted localStorage mode from prior runs)
+    page.evaluate("localStorage.removeItem('deltas-mode'); window.deltasState && setDeltasMode && setDeltasMode('drift');")
+    page.wait_for_timeout(300)
     page.wait_for_selector(".d-row[data-pair]")
-    rows = page.query_selector_all(".d-row[data-pair]")
-    if not rows:
+    # Use JS-direct click to avoid stale handles
+    first_pid = page.evaluate("() => { const r = document.querySelector('.d-row[data-pair]'); return r ? parseInt(r.dataset.pair) : null; }")
+    if first_pid is None:
         raise RuntimeError("no rows to click")
-    rows[0].click()
-    page.wait_for_selector("#d-cube-pair .d-pair-content", timeout=10000)
+    page.click(f'.d-row[data-pair="{first_pid}"]')
+    page.wait_for_selector("#d-cube-pair .d-pair-content", timeout=15000)
     # Wait for iter buttons to be enabled (renderNarrEmptyOrAuto runs async)
     page.wait_for_function(
         "() => { const b = document.querySelector('#d-narrative-iters .iter-btn[data-iter=\"2\"]'); return b && !b.disabled; }",
@@ -130,13 +134,22 @@ def shot_selected_pair_fidelity(page: Page) -> None:
     goto_deltas(page)
     page.click('.d-mode-btn[data-mode="conflict"]')
     page.wait_for_selector(".d-row[data-pair]", timeout=15000)
-    # Pick first evaluated row (not 'not evaluated' placeholder)
-    rows = page.query_selector_all(".d-row[data-pair]")
-    for row in rows:
-        text = row.inner_text()
-        if "not evaluated" not in text.lower():
-            row.click()
-            break
+    page.wait_for_timeout(800)  # let mode switch settle
+    # Find pair_idx of first evaluated row via JS (no handle to detach)
+    evaluated_pid = page.evaluate("""
+        () => {
+            const rows = document.querySelectorAll('.d-row[data-pair]');
+            for (const r of rows) {
+                if (!r.innerText.toLowerCase().includes('not evaluated')) {
+                    return parseInt(r.dataset.pair);
+                }
+            }
+            return null;
+        }
+    """)
+    if evaluated_pid is None:
+        raise RuntimeError("no evaluated pair found in conflict mode")
+    page.click(f'.d-row[data-pair="{evaluated_pid}"]')
     page.wait_for_selector("#d-cube-pair .d-pair-content", timeout=10000)
     page.wait_for_timeout(800)
     pair = page.query_selector("#d-cube-pair")
