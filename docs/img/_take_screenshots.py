@@ -17,7 +17,7 @@ from pathlib import Path
 from playwright.sync_api import Page, sync_playwright
 
 OUT = Path(__file__).parent
-URL = "http://localhost:18890/"
+URL = "http://localhost:18890/?lang=en"
 VIEWPORT = {"width": 1920, "height": 1080}
 
 
