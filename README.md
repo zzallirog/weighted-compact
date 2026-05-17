@@ -7,7 +7,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![v0.1.0-alpha.1](https://img.shields.io/badge/release-v0.1.0--alpha.1-orange)](CHANGELOG.md)
+[![v0.1.0-alpha.2](https://img.shields.io/badge/release-v0.1.0--alpha.2-orange)](CHANGELOG.md)
 [![status: alpha](https://img.shields.io/badge/status-alpha-yellow)](CHANGELOG.md)
 
 <sub><i>Local web tool at <code>http://127.0.0.1:18890/</code> — labeler over your own Claude Code sessions, with a reconstruction-QA gate.</i></sub>
@@ -533,14 +533,14 @@ tells you whether a weight change preserves what you wanted preserved.
 | Phase 2 — marker classifier | ✅ failed → reframed (see [§01](#01--the-substrate-carries-the-weight-the-classifier-refines)) |
 | Phase 4 — continuous importance mixture (6 signals) | ✅ shipped |
 | Phase 4e — span-level annotations + topic decay | ✅ shipped |
-| Phase 5 — drift inspector + iter chain + ∑ finale | ✅ shipped (`v0.1.0-alpha.1`) |
-| Phase 6 — per-pair fidelity (conflict / fidelity modes) | ✅ shipped (`v0.1.0-alpha.1`) |
+| Phase 5 — drift inspector + iter chain + ∑ finale | ✅ shipped (`v0.1.0-alpha.2`) |
+| Phase 6 — per-pair fidelity (conflict / fidelity modes) | ✅ shipped (`v0.1.0-alpha.2`) |
 | W1 — labeler UI | ✅ shipped |
 | W3 — reconstruction-QA loop | ✅ MVP (50+ baseline still to accumulate) |
 | W2 — ambient background render | ⚪ next |
 | Federation patterns (peer-to-peer label exchange) | ⚪ v0.2 direction |
 
-This is `v0.1.0-alpha.1`. Alpha. The substrate, mixture, labeler, and
+This is `v0.1.0-alpha.2`. Alpha. The substrate, mixture, labeler, and
 three views (Quiz / Drift / Fidelity) are working end-to-end. Expect
 breaking schema changes between alpha releases. The architectural
 invariants are [locked](docs/invariants.md); the numbers around them

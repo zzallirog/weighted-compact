@@ -8,6 +8,44 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.1.0-alpha.2] — 2026-05-18
+
+First alpha that ships publicly. Same shape as the never-published
+alpha.1 draft, with screenshots regenerated against a synthetic demo
+substrate (`~/work/weighted-compact-demo/` — twelve generic
+dev-topic pairs in English) so the README imagery carries no
+personal session content. Also includes the i18n overlay
+(`?lang=en`) and the `WC_WORKDIR` env-var override that made the
+demo path possible.
+
+### Added
+
+- `?lang=en` URL param + `STRINGS` dict (ru/en) + `t(key)` helper for
+  the labeler UI. RU stays as the editor default; EN is an explicit
+  opt-in. Iter narratives 2–4 use English prompts when `?lang=en`, so
+  `qwen2.5:7b` returns English prose.
+- `WC_WORKDIR` env override in `tool.py` and `recon_qa.py` so the
+  labeler can run against an alternate substrate without touching the
+  main one. Used to capture screenshots against the demo dataset.
+- `window.deltasState` explicit export so external pollers (playwright,
+  devtools) can read narrative-cache state. `let`-declared script vars
+  don't bind to `window` and that mismatch silently broke screenshot
+  automation.
+- `docs/img/_take_screenshots.py` — headless playwright script that
+  captures the nine README screens against a live labeler.
+
+### Changed
+
+- README badge `v0.0.2 → v0.1.0-alpha.2`, status `pre-alpha → alpha`.
+  Phase 5 (drift inspector) and Phase 6 (per-pair fidelity) marked
+  shipped in the status table.
+- ∑ finale recommendation label compacted to `5` in the recommend
+  hint above the tier-action row — saves pixels in the narrow
+  Selected Pair cube.
+- README screenshots regenerated under `?lang=en` and pointed at the
+  synthetic demo substrate. No personal session content survives in
+  imagery.
+
 ## [0.1.0-alpha.1] — 2026-05-17
 
 First alpha cut. The substrate ships with three views over a shared
