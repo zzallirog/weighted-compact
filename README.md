@@ -7,8 +7,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![v0.0.2](https://img.shields.io/badge/release-v0.0.2-orange)](CHANGELOG.md)
-[![status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-red)](CHANGELOG.md)
+[![v0.1.0-alpha.1](https://img.shields.io/badge/release-v0.1.0--alpha.1-orange)](CHANGELOG.md)
+[![status: alpha](https://img.shields.io/badge/status-alpha-yellow)](CHANGELOG.md)
 
 <sub><i>Local web tool at <code>http://127.0.0.1:18890/</code> — labeler over your own Claude Code sessions, with a reconstruction-QA gate.</i></sub>
 
@@ -277,6 +277,117 @@ install is its own workbench.
 → [`docs/install.md`](docs/install.md) ·
 [`docs/invariants.md`](docs/invariants.md) (locked invariants)
 
+## 07 · Importance moves; you should see how it moves
+
+`importance.npz` is one point in time. You change a mixture weight,
+re-run the pipeline, see new scores. But you do not see how each
+pair's importance *moved* between runs. A pair drifting downward
+might have been load-bearing two hours ago and is being demoted now —
+either because new labels reweighted things correctly, or because
+the mixture lost a signal it used to read. You cannot tell which
+from the snapshot alone.
+
+The pipeline writes `importance.npz.bak.TIMESTAMP` on every run.
+The Drift Inspector tab in the labeler reads the last N snapshots
+(default four), inner-joins on `pair_idx`, and computes per-pair
+trajectory across the window. Six drift metrics sit over the
+trajectory and serve as sort keys: `max_swing` (peak-to-peak),
+`total_var` (Σ|Δ| between steps), `slope` (linear trend per step),
+`oscillation` (direction sign-flips), `|final|` (net displacement
+between window endpoints). Click any pair and the narrative cube
+fires the iter chain — four `qwen2.5:7b` passes that explain in
+prose what moved this pair and what to do with it. A fifth cell, the
+**∑ finale**, fills after iters 1–4 land: it mode-votes the
+extracted tier from each iter and reports the e5-measured semantic
+convergence between them as a confidence number.
+
+The compactor's K/M/S/X buttons stay attached to every pair card in
+the inspector. Whatever tier you choose lands in the same
+`labels.jsonl` the labeler writes to, and the next pipeline run
+reads it. Drift across snapshots is the temporal feedback channel:
+move a weight, watch the trajectories shift, label what surfaces.
+
+## 08 · Where your labels collide with reality
+
+You mark a pair KEEP. The compactor preserves it verbatim. But the
+neighbouring pairs may already carry that idea, and your KEEP costs
+a budget slot for redundant signal. Or you mark a pair SKIP and the
+compactor drops it — but the surrounding context loses meaning
+without it, and your SKIP costs a fact at restore time. Either way,
+you cannot see this from labels alone. The label and the compression
+outcome live in different layers.
+
+The fidelity loop bridges them. For each pair, the labeler hides
+that pair from its session, compacts the rest under the current
+mixture, runs the iter-chain reconstruction, and judges whether the
+original content can still be recovered from the compacted neighbours.
+Fidelity score is the judge-yes ratio over targeted questions about
+the hidden pair. Conflict score combines that with your tier:
+
+> KEEP + high fidelity → surplus *(recoverable anyway, candidate for SKIP)*
+> SKIP + low  fidelity → loss *(information gone, candidate for KEEP)*
+> MAYBE at the extremes → re-tier candidate
+> consistent pairings → conflict 0, sink to the bottom of the list
+
+The inspector ships two new modes alongside `drift`. **Conflict**
+sorts pairs by conflict score descending — re-tier candidates rise
+to the top with a `→ skip` or `→ keep` arrow next to your current
+tier chip. **Fidelity** sorts by raw fidelity ascending — the honest
+view of where reconstruction actually breaks first, regardless of
+how you labeled the pair. Both modes share the same Selected Pair
+card as drift mode, only the badge swaps to `fid 0.40 · c 0.40`, and
+the judges (Q / truth / recon, color-coded by verdict) appear inline
+under the premise / correction blocks.
+
+The reframe is the point: K, M, S, FALSE+ are not a scale of
+importance, they are four legitimate render strategies — preserved
+verbatim, paraphrased gist, pointer-only, struck from training. The
+fidelity mode tells you which strategy actually serves the pair
+under your current mixture.
+
+→ [`docs/reconstruction-qa.md`](docs/reconstruction-qa.md) for the
+underlying eval loop the per-pair test reuses.
+
+## 09 · Three views over one substrate
+
+Same substrate, three different jobs. You write labels to teach the
+substrate what your future self should remember verbatim. You watch
+how those labels propagate through the importance mixture over time
+as new sessions come in. You verify the resulting compression
+actually preserves what you wanted preserved. Each job needs its own
+surface and its own cognitive frame — but all three operate on the
+same N pairs, the same N×3×384 embeddings, the same `labels.jsonl`,
+the same `inline_annotations.jsonl`.
+
+The labeler ships with three views, each tuned to one of those jobs:
+
+**Quiz · annotate.** Pair-level `K / M / S / X` plus span-level
+drag-select for `KEEP / MAYBE / SKIP / THINK`. Five anti-drift
+neighbours sit in the sidebar — your prior decisions on the most
+cosine-similar pairs, surfaced so you can match yourself over time
+rather than drift toward whatever framing the model happens to be in.
+
+**Drift Inspector · observe.** Trajectory across the last N hourly
+snapshots, sorted by your choice of drift metric. The narrative chain
+(iter 1–4 plus ∑ finale) reads each pair through `qwen2.5:7b` and
+returns a tier recommendation extracted from the consensus across
+iters, weighted by their semantic convergence.
+
+**Fidelity · verify.** Per-pair compression-quality test. Conflict
+mode surfaces label/reality mismatches; fidelity mode surfaces raw
+weaknesses in the current mixture. K/M/S/X applied here goes to the
+same `labels.jsonl` everything else reads.
+
+Each view recurses to the same K/M/S/X writes. The labels you commit
+through any view become input to the next pipeline run, which updates
+`importance.npz`, which the next snapshot window picks up, which the
+next fidelity test observes against. Quiz → Drift → Fidelity → Quiz
+is one workflow, not three — closing in a single workspace with a
+single local LLM doing three different reading jobs on the same data.
+
+→ [`docs/architecture.md`](docs/architecture.md) (module map across
+the three views).
+
 ---
 
 ## Install
@@ -380,14 +491,18 @@ tells you whether a weight change preserves what you wanted preserved.
 | Phase 2 — marker classifier | ✅ failed → reframed (see [§01](#01--the-substrate-carries-the-weight-the-classifier-refines)) |
 | Phase 4 — continuous importance mixture (6 signals) | ✅ shipped |
 | Phase 4e — span-level annotations + topic decay | ✅ shipped |
+| Phase 5 — drift inspector + iter chain + ∑ finale | ✅ shipped (`v0.1.0-alpha.1`) |
+| Phase 6 — per-pair fidelity (conflict / fidelity modes) | ✅ shipped (`v0.1.0-alpha.1`) |
 | W1 — labeler UI | ✅ shipped |
 | W3 — reconstruction-QA loop | ✅ MVP (50+ baseline still to accumulate) |
 | W2 — ambient background render | ⚪ next |
-| Federation patterns (peer-to-peer label exchange) | ⚪ v0.1 direction |
+| Federation patterns (peer-to-peer label exchange) | ⚪ v0.2 direction |
 
-This is `v0.0.2`. Pre-alpha. Expect breaking schema changes until
-`v0.1.0`. The architectural invariants are
-[locked](docs/invariants.md); the numbers around them are not.
+This is `v0.1.0-alpha.1`. Alpha. The substrate, mixture, labeler, and
+three views (Quiz / Drift / Fidelity) are working end-to-end. Expect
+breaking schema changes between alpha releases. The architectural
+invariants are [locked](docs/invariants.md); the numbers around them
+and the cache shapes are not.
 
 ---
 
