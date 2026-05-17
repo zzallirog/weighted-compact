@@ -296,10 +296,14 @@ trajectory and serve as sort keys: `max_swing` (peak-to-peak),
 `oscillation` (direction sign-flips), `|final|` (net displacement
 between window endpoints). Click any pair and the narrative cube
 fires the iter chain — four `qwen2.5:7b` passes that explain in
-prose what moved this pair and what to do with it. A fifth cell, the
-**∑ finale**, fills after iters 1–4 land: it mode-votes the
-extracted tier from each iter and reports the e5-measured semantic
-convergence between them as a confidence number.
+prose what moved this pair and what to do with it. After the
+fourth iter caches, a hidden **∑** aggregation pass runs: it
+mode-votes the tier extracted from each iter and reports the
+e5-measured semantic convergence between them as a confidence
+number. The result surfaces in the Selected Pair recommend hint —
+`recommend → KEEP · 5 · 75% · drift 0.84` — not as a separate UI
+cell. The tier-action button matching the suggestion gets a pulse
+halo so you can see at a glance which one to click, or not.
 
 The compactor's K/M/S/X buttons stay attached to every pair card in
 the inspector. Whatever tier you choose lands in the same

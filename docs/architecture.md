@@ -105,10 +105,23 @@ gitignored.
 | `pairs.jsonl` | append-only, one pair per line | bootstrap + incremental |
 | `labels.jsonl` | append-only, latest line wins | every label keystroke |
 | `inline_annotations.jsonl` | append-only with `deleted: true` tombstones | every span drag |
+| `fidelity_cache.jsonl` | append-only, latest line wins (replay) | per pair, on `build · 10` button |
 | `queue.jsonl` | rewritten atomically | nightly + on-demand |
 | `features.npz` | rewritten atomically with `.bak.*` snapshot | every re-embed |
 | `features_*.npz` | rewritten atomically with `.bak.*` snapshot | every re-extract |
-| `importance.npz` | rewritten atomically | every mixture recompose |
+| `importance.npz` | rewritten atomically with `.bak.*` snapshot | every mixture recompose |
+
+The `importance.npz.bak.*` snapshots — formerly just rollback insurance —
+became a primary substrate consumer for the Drift Inspector in
+`v0.1.0-alpha.2`. The inspector inner-joins the last N snapshots on
+`pair_idx` to compute per-pair trajectories. Keep them around; deleting
+old snapshots truncates the drift window.
+
+`fidelity_cache.jsonl` is the per-pair compression-quality cache filled
+by the Fidelity mode. Each entry: pair_idx, fidelity ∈ [0, 1] (judge-yes
+ratio over reconstruction-QA), per-question judge verdicts, the mixture
+weights at eval time. Replay-newest-wins, so re-running fidelity on a
+pair simply appends; consumers see the latest record.
 
 Append-only journals are tombstone-replayed at load time, which means
 deletions are non-destructive — the original line stays, the tombstone
