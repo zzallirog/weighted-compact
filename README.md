@@ -307,6 +307,18 @@ the inspector. Whatever tier you choose lands in the same
 reads it. Drift across snapshots is the temporal feedback channel:
 move a weight, watch the trajectories shift, label what surfaces.
 
+<p align="center">
+  <img src="docs/img/drift-inspector-full.png" alt="Drift Inspector — table on the left sorts pairs by drift metric, Selected Pair card on the right shows premise/correction with the iter narrative and the tier-action row" width="100%">
+</p>
+
+<sub><i>Drift Inspector mode. Left: pairs sorted by max_swing across the four-snapshot window with sparkline trajectories. Right: Selected Pair card with premise/correction (top), the iter chain (Drift Narrative), and the tier-action row (KEEP / MAYBE / SKIP / FALSE+) at the bottom.</i></sub>
+
+<p align="center">
+  <img src="docs/img/drift-narrative-final.png" alt="Drift Narrative cube with four iter buttons; iter 3 expanded showing narrative prose from qwen2.5:7b" width="100%">
+</p>
+
+<sub><i>The iter chain reads each pair through <code>qwen2.5:7b</code>: <em>i</em> stats (instant, no LLM), <em>ii</em> pattern, <em>iii</em> synthesis, <em>iv</em> recommend. After the fourth iter caches, a hidden ∑ pass aggregates tier extracted from each iter via mode-vote, weighted by e5-measured semantic convergence — the result surfaces in the Selected Pair tier-action row, not as a separate UI element.</i></sub>
+
 ## 08 · Where your labels collide with reality
 
 You mark a pair KEEP. The compactor preserves it verbatim. But the
@@ -344,6 +356,18 @@ importance, they are four legitimate render strategies — preserved
 verbatim, paraphrased gist, pointer-only, struck from training. The
 fidelity mode tells you which strategy actually serves the pair
 under your current mixture.
+
+<p align="center">
+  <img src="docs/img/conflict-mode-table.png" alt="Conflict mode table — pairs sorted by conflict score descending, with → KEEP and → SKIP retag arrows next to MAYBE/SKIP tier chips" width="100%">
+</p>
+
+<sub><i>Conflict mode. Pairs sorted by conflict score descending — the ones where your tier disagrees with empirical compression-fidelity rise to the top with a <code>→ KEEP</code> or <code>→ SKIP</code> arrow. Pairs consistent with the mixture sink to the bottom.</i></sub>
+
+<p align="center">
+  <img src="docs/img/selected-pair-fidelity.png" alt="Selected Pair card in fidelity mode showing premise + correction + judges block with Q/truth/recon verdicts color-coded" width="100%">
+</p>
+
+<sub><i>Selected Pair in fidelity mode. Premise and correction at the top with drag-select highlights, then the per-question judges block — each question, its ground-truth answer, what the reconstructed context recovered, and the judge verdict (✓ yes / × no / ? other). The tier-action row at the bottom shows which tier the empirical evidence suggests.</i></sub>
 
 → [`docs/reconstruction-qa.md`](docs/reconstruction-qa.md) for the
 underlying eval loop the per-pair test reuses.
@@ -384,6 +408,24 @@ through any view become input to the next pipeline run, which updates
 next fidelity test observes against. Quiz → Drift → Fidelity → Quiz
 is one workflow, not three — closing in a single workspace with a
 single local LLM doing three different reading jobs on the same data.
+
+<p align="center">
+  <img src="docs/img/mode-bar.png" alt="Three-mode bar at the top of the inspector — 01 drift, 02 conflict, 03 fidelity, with a cache pill on the right" width="100%">
+</p>
+
+<sub><i>The three modes at the top of the inspector — <code>drift</code> (trajectory · how it moves), <code>conflict</code> (labels vs reality · re-tier), <code>fidelity</code> (where compression fails). Cache status on the right shows how many of the substrate's pairs have an evaluated fidelity score, and the <code>build · 10</code> button kicks the next batch of ten through the iter-chain reconstruction.</i></sub>
+
+<p align="center">
+  <img src="docs/img/tier-action-row.png" alt="Tier-action row close-up — four render-strategy buttons (KEEP, MAYBE, SKIP, FALSE+) with short descriptions; current and recommended tier highlighted" width="100%">
+</p>
+
+<sub><i>Tier-action row in the Selected Pair card. Each tier button describes what the compactor does with the pair under that tier — verbatim, paraphrased gist, pointer-only, struck from training. The recommended tier (from finale / fidelity / narrative depending on mode) gets a pulse halo; the current tier gets a filled border. Clicking a button is the action — no separate "apply" surface.</i></sub>
+
+<p align="center">
+  <img src="docs/img/drag-select-popup.png" alt="Drag-select popup over a highlighted correction span with KEEP / MAYBE / SKIP / THINK buttons; judges block visible below" width="100%">
+</p>
+
+<sub><i>Drag-select inside the correction block opens the same span-tier popup as the Quiz tab — annotation writes go to the shared <code>inline_annotations.jsonl</code> regardless of which view you trigger it from.</i></sub>
 
 → [`docs/architecture.md`](docs/architecture.md) (module map across
 the three views).
