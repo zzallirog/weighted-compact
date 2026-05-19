@@ -8,6 +8,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Documented
+
+- **Label-weight ablation result** (`docs/importance-mixture.md` §
+  "Ablation"). `label_weight ∈ {0.0, 0.15}` × 5 seeds × 3 disjoint
+  session corpora, N=57 paired pair-evaluations. Mean Δjudge-yes =
+  **+0.053**, 95 % CI **[−0.004, +0.109]**. Direction positive in 3/3
+  corpora; 13:6 on non-tied pairs. Marginal significance, consistent
+  sign — `label` weight stays load-bearing at the current default
+  pending more baseline. Raw runs in
+  `~/work/weighted-compact/ablation_label_weight_{results.jsonl,summary.json}`.
+
 ## [0.1.0-alpha.2] — 2026-05-18
 
 First alpha that ships publicly. Same shape as the never-published

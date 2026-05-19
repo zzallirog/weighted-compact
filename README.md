@@ -102,6 +102,18 @@ target the moment the regex defined "important") and moved on. Future
 classifiers are swappable; they slot into the same one-of-six spot the
 marker-trained one held.
 
+The slot is not aspirational. An [ablation](docs/importance-mixture.md#ablation-label-weight-effect-on-recon-qa-fidelity)
+of the `label` weight from `0.15` to `0.0` on N=57 paired pair-evaluations
+across three disjoint session corpora (5 seeds, 4 pairs per corpus per
+seed, 360 LLM question-evaluations total) shifts the recon-QA judge-yes
+fraction by **Δ = +0.053**, 95 % CI **[−0.004, +0.109]**. Direction is
+positive in all three corpora (+0.100 / +0.028 / +0.021) and 13:6 on
+non-tied paired pairs. Marginal significance at this N, consistent
+sign — enough to keep the weight load-bearing pending a bigger corpus,
+not enough to call definitive. The point is that the question has an
+answer that moves when you change the weight, and the answer lives in
+a file you can rerun.
+
 → [`docs/importance-mixture.md`](docs/importance-mixture.md) ·
 [`docs/invariants.md`](docs/invariants.md) (vector-first invariant)
 
