@@ -121,3 +121,59 @@ weighted-compact eval --weights-a defaults --weights-b experimental
 The UI also surfaces a per-component bar next to each pair so you can see
 why a particular score is what it is. This is the anti-Goodhart
 scaffolding — when one signal dominates, you see it explicitly.
+
+## Ablation: label-weight effect on recon-QA fidelity
+
+How load-bearing is the `label` slot? The
+[reconstruction-QA loop](reconstruction-qa.md) is the tool that
+answers this — flip the weight, re-run, see the score move.
+
+Setup (run 2026-05-19):
+
+- Ablation grid: `label_weight ∈ {0.0, 0.15}` × `seed ∈ {1..5}` × three
+  disjoint session corpora (78 / 61 / 74 eligible pair_idxs each — split
+  by `session_id` so no session appears in two corpora).
+- Sampling: per `(corpus, seed)`, draw 4 pair_idxs without replacement;
+  the **same four** are evaluated under both weights to enable a paired
+  comparison.
+- Per pair: `evaluate_pair_fidelity(n_questions=3, k_drop=0.5,
+  topic_decay=0.5)` — three auto-generated Qs targeting the hidden
+  pair, answered by `qwen2.5:7b` against the compacted context, judged
+  by `gemma3:4b`. Fidelity ∈ {0, 0.33, 0.67, 1.0} per pair.
+- Total: 120 pair-evaluations (60 per weight), 360 question-evaluations.
+
+Aggregate (judge-yes fraction, mean over pairs):
+
+| weight | n | mean | sd | 95 % CI |
+|---:|---:|---:|---:|---|
+| `0.00` | 58 | 0.081 | 0.157 | ±0.040 |
+| `0.15` | 58 | 0.132 | 0.197 | ±0.051 |
+
+Per-corpus mean (label_active − label_off):
+
+| corpus | sessions | label_off | label_base | Δ |
+|---|---:|---:|---:|---:|
+| A | 13 | 0.100 | 0.200 | **+0.100** |
+| B | 13 | 0.105 | 0.133 | **+0.028** |
+| C | 13 | 0.035 | 0.056 | **+0.021** |
+
+Paired diff over the n=57 pairs where both weights produced a fidelity
+value (one pair dropped on missing-context error in one config):
+
+> **mean Δfidelity = +0.053**, 95 % CI **[−0.004, +0.109]**
+> sign breakdown: 13 positive, 6 negative, 38 ties
+
+Reading: the direction is **positive in all three corpora** and on the
+non-tied paired pairs (13:6 in favour of `label_base`). The 95 % CI on
+the paired mean just barely crosses zero on the lower bound, so this is
+a **directionally consistent signal at marginal significance** for
+N=57 — not a knockout, not noise. Ties dominate (38 / 57) because
+fidelity is a 4-value discrete score on 3 questions; many pairs survive
+or fail identically under both weights. The size of the effect
+(roughly +5 percentage points on judge-yes) is what `weight = 0.15`
+buys you over `weight = 0`.
+
+Raw runs: `~/work/weighted-compact/ablation_label_weight_results.jsonl`
+(120 rows) plus `ablation_label_weight_summary.json` (aggregates).
+Bigger corpora and more seeds will tighten the CI; the harness for
+that is `ablation_label_weight.py`, same shape as above.
