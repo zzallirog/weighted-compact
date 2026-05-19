@@ -102,17 +102,6 @@ target the moment the regex defined "important") and moved on. Future
 classifiers are swappable; they slot into the same one-of-six spot the
 marker-trained one held.
 
-Adjacent compaction substrates take the position further. OpenHuman
-defaults its ingest scorer's `llm_importance` weight to `0.0`
-([`src/openhuman/memory/tree/score/signals/ops.rs`](https://github.com/tinyhumansai/openhuman/blob/main/src/openhuman/memory/tree/score/signals/ops.rs)),
-running admission on deterministic features alone — a cleaner story,
-but the classifier signal is then unfalsifiable: it can drift to any
-value without anything in the pipeline noticing. weighted-compact
-keeps the slot live in the mixture and pins its weight to the
-[reconstruction-QA loop](#04--a-compaction-without-measurement-is-wishful-thinking),
-so a non-zero weight is a measurable claim against held-out pairs,
-not a guess.
-
 → [`docs/importance-mixture.md`](docs/importance-mixture.md) ·
 [`docs/invariants.md`](docs/invariants.md) (vector-first invariant)
 
