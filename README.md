@@ -50,7 +50,7 @@ Five distinct readers, same substrate underneath. Pick yours.
 |---|---|---|
 | 🌱 &nbsp;**Daily Claude Code user** | The hostname you corrected once an hour ago does not vanish at compaction | [↓](#angle-daily-user) |
 | 🔬 &nbsp;**Memory & distillation researcher** | Seven-signal mixture · cross-family judge · N=57 ablation reported honestly | [↓](#angle-researcher) |
-| 🔧 &nbsp;**Builder / signal hacker** | One file = one black-box contract; 30-line patch lands a new signal | [↓](#angle-builder) |
+| 🔧 &nbsp;**Builder / signal tinkerer** | One file = one black-box contract; 30-line patch lands a new signal | [↓](#angle-builder) |
 | 🕵️ &nbsp;**Dialog reconstructor** | Recon-QA is a fitness function: keep mixing signals until the hidden pair comes back | [↓](#angle-reconstructor) |
 | 🔒 &nbsp;**Local-first / privacy** | Substrate stays in `$XDG_DATA_HOME`; CI scans every commit for leaks | [↓](#angle-privacy) |
 
@@ -133,7 +133,7 @@ total). Add a ninth:
 ```python
 # weighted_compact/density_features.py
 REVERSAL_RE = re.compile(
-    r"\b(actually|wait|scratch that|не так|на самом деле)\b",
+    r"\b(actually|wait|scratch that|on second thought)\b",
     re.IGNORECASE,
 )
 
@@ -169,10 +169,16 @@ The system is, structurally, an inverse problem. The recon-QA loop is
 the fitness function: keep mixing signals until reconstruction
 succeeds. If it does not, you are missing a feature.
 
+This is the reconstructor's angle. If you only want compaction that
+works out of the box, you do not need this section — that is the
+[daily-user angle](#angle-daily-user). Stay here if you want to add
+your own signal and make it prove it earns a place in the mixture.
+
 What is already in the mixture:
 
-- `misstep` — stumble recovery patterns (where you corrected and the
-  conversation stabilised)
+- `misstep` *(optional — needs the separate misstep substrate)* —
+  stumble recovery patterns (where you corrected and the conversation
+  stabilised)
 - `density` — anchor entities, paths, numbers, code spans
 - `span_keep / span_skip` — your per-char drag-select tiers, when you
   cared enough to highlight
@@ -187,7 +193,9 @@ hypothesis about what signal catches what:
 - Anything else you can write a regex or a classifier for
 
 Add the signal. Re-run the loop. The numbers tell you whether your
-hypothesis survives N=57 paired evaluation.
+hypothesis holds up under [paired evaluation](#results) — currently
+N=57 pairs across 3 disjoint corpora, underpowered, read as
+directional.
 
 → [Quiz / Quest Q3](#quiz--quest) · [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md)
 
@@ -339,8 +347,8 @@ weight may want to be lower for you.
 
 **Q3 — Add a signal in thirty lines.**
 Open `weighted_compact/density_features.py`. Add a 17th feature — a
-regex for "I changed my mind" patterns (`r"\b(actually|wait|не так|на
-самом деле)\b"`). Re-run bootstrap. The new feature lands in
+regex for "I changed my mind" patterns (`r"\b(actually|wait|scratch
+that)\b"`). Re-run bootstrap. The new feature lands in
 `features_density.npz` automatically as a column. Wire a weight in
 `importance.py:WEIGHTS`. Run recon-QA. Did your new signal change
 which pairs survive compaction at `k_drop=0.5`? If yes, you have just

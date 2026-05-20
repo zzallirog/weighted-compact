@@ -127,7 +127,7 @@ Architectural invariants are locked; numbers around them are not.
   re-exports every previously-public symbol; callers using
   `from weighted_compact import recon_qa; recon_qa.foo(...)` keep
   working unchanged. Each module starts with a `Black box:
-  вход/выход/как открыт` contract docstring.
+  input/output/entry` contract docstring.
 - **`recon_qa.score()` null-guard restored.** Empty `predicted` or
   `a_truth` now returns `False` instead of evaluating `"" in ""` as
   `True`, which had silently inflated fidelity counts on

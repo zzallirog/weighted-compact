@@ -1,10 +1,10 @@
 """Question generator: turn a source pair into n Q/a_truth candidates via ollama.
 
 Black box:
-  вход — pair dict (premise_text + correction_text), n, optional focus highlight,
+  input — pair dict (premise_text + correction_text), n, optional focus highlight,
          optional prior candidate list + mode (complement | refine | deepen).
-  выход — list of {q, a_truth} dicts; empty list on parse/timeout failure.
-  как открыт — `suggest_qa` is the single entry. `ask_ollama` is the shared
+  output — list of {q, a_truth} dicts; empty list on parse/timeout failure.
+  entry — `suggest_qa` is the single entry. `ask_ollama` is the shared
          low-level LLM call also used by fidelity eval. Prompt is the §5.1
          two-axis quality bar + self-check (EN edition).
 """
@@ -135,7 +135,7 @@ A_truth quality bar (CRITICAL, models often fail here):
   and the meaning stays — wrong choice. If you can DROP it from any
   reasonable answer and the answer is still correct — wrong choice.
 - REJECT a_truth that is: a path fragment alone (/etc/, ~/.config),
-  a modifier alone (обязательно, нужно, важно, must, should), a UI
+  a modifier alone (must, should, need to, important, required), a UI
   shortcut name (Ctrl+Shift+R) UNLESS the question is literally
   "which keyboard shortcut".
 - PREFER a_truth that names: the actor (which service, which command,
@@ -149,7 +149,7 @@ Self-check before responding:
 - Would the user himself write this Q and this A as a probe? If the Q
   reads like a school quiz and the A is a single rare noise word —
   rewrite or drop.
-- Are any of your a_truth values just `обязательно` / `нужно` / `must` /
+- Are any of your a_truth values just `must` / `should` / `need to` /
   `system` / `function` / `ok` / a bare path? If yes — that entry is
   noise, replace it or drop it.
 

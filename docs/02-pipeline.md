@@ -49,7 +49,7 @@ Output schema:
 
 **How it opens.** Walks JSONL session files; extracts consecutive
 (human-turn, assistant-turn) pairs. Inline markers in the correction text
-(`(mark)`, `(подумать)`, `(маркер)`, etc.) are detected by regex in
+(`(mark)`, `(think)`, etc.) are detected by regex in
 `MARKER_PATTERNS` and stored in the `marker` field for the labeling queue.
 
 **Maturity.** Schema changes between alpha releases are possible but the

@@ -32,8 +32,8 @@ for weighting**, not as a gatekeeper.
 Labeling is targeted intervention, not throughput. Two legitimate triggers
 fire a labeling request:
 
-- **Gap** — an inline marker in your live session (`(маркер)`, `(подумать)`,
-  `(mark)`) auto-queues the surrounding turn for canonicalization.
+- **Gap** — an inline marker in your live session (`(mark)`, `(think)`)
+  auto-queues the surrounding turn for canonicalization.
 - **Ambiguity** — classifier disagreement, low-confidence pairs, or
   audit-anchor pairs surface for human resolution.
 

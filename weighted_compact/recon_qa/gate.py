@@ -1,14 +1,14 @@
 """Admission gate: classify QA entries by difficulty under current ranker.
 
 Black box:
-  вход — easy_k + hard_k + ranker + signal ('judge' default | 'substring').
-  выход — dict with 4 buckets:
+  input — easy_k + hard_k + ranker + signal ('judge' default | 'substring').
+  output — dict with 4 buckets:
             trivial      — pass at both k_drop levels → low signal
             impossible   — fail at both → out of pipeline reach
             informative  — pass easy, fail hard → discriminating
             inverted     — fail easy, pass hard → noise
           Plus per_entry breakdown + signal_disagreement_easy counters.
-  как открыт — `classify_difficulty` runs `run_eval` twice (once at each k_drop),
+  entry — `classify_difficulty` runs `run_eval` twice (once at each k_drop),
           extracts pass-signal via `_pass_signal`, buckets accordingly.
 
 EvoEnv-style difficulty filter (paper 2605.14392). Cost: O(qa_set × 2) LLM
@@ -21,10 +21,10 @@ from .fidelity import run_eval
 def _pass_signal(entry, signal):
     """Extract bool pass-signal from a run_eval record.
 
-    signal='judge'     — verdict == 'yes' (recommended; substring врёт
-                          on paraphrase ответах)
-    signal='substring' — substring_pass (хрупкое: a_truth обычно короткий
-                          rare-term, который solver paraphrase'ит)
+    signal='judge'     — verdict == 'yes' (recommended; substring lies
+                          on paraphrased answers)
+    signal='substring' — substring_pass (brittle: a_truth is usually a short
+                          rare-term that the solver paraphrases)
     """
     if signal == 'judge':
         return entry.get('judge', {}).get('verdict') == 'yes'

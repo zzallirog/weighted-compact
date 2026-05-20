@@ -95,11 +95,9 @@ ANNOTATION_MARKERS = set(ANNOTATION_TIERS)
 # Add other-language patterns in extract_pairs.MARKER_PATTERNS and mirror
 # canonical tiers here.
 INLINE_SYNTAX_MAP = {
-    '(маркер)': 'keep',
-    '(маркер - нейтральный)': 'maybe',
-    '(mark)': 'maybe',
-    '(подумать)': 'think',
-    '(пропос)': 'think',
+    '(mark)': 'keep',
+    '(mark - neutral)': 'maybe',
+    '(think)': 'think',
 }
 
 STATE: dict = {
@@ -215,7 +213,7 @@ def reload_state() -> None:
         windows = f['windows']  # (N, 3, 384) — [prev_assistant, premise, correction]
         pair_indices = f['pair_indices']
 
-        # Anti-drift signal: correction embedding ONLY — это user's turn vector.
+        # Anti-drift signal: correction embedding ONLY — this is the user's turn vector.
         # NOT mean-of-window (which mixes assistant + user). Transparency
         # surfaced in UI as "sim by: correction embedding".
         correction = windows[:, 2, :]
@@ -260,8 +258,8 @@ def compute_clusters(vectors: np.ndarray, pair_indices: np.ndarray, k: int = 10)
 
 
 def already_tool_labeled(pid: int) -> bool:
-    """Tool re-label беспрепятственно перезаписывает bootstrap label.
-    Queue entry consumed только когда tool сам поставил label."""
+    """A tool re-label freely overwrites a bootstrap label.
+    A queue entry is consumed only when the tool itself set the label."""
     lab = STATE['labels'].get(pid)
     return bool(lab and lab.get('labeled_via') == 'tool')
 
@@ -673,7 +671,7 @@ PAGE_HTML = """<!doctype html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>weighted-compact опросник</title>
+<title>weighted-compact labeler</title>
 <style>
   :root {
     --bg: #0f1115;
@@ -998,14 +996,6 @@ PAGE_HTML = """<!doctype html>
 <div class="tabbar" style="display:flex;align-items:center;gap:8px">
   <button class="tab-btn active" id="tab-quiz-btn" onclick="switchTab('quiz')" data-i18n="tab.quiz">Labeler</button>
   <button class="tab-btn" id="tab-recon-btn" onclick="switchTab('recon')" data-i18n="tab.recon">Reconstruction</button>
-  <div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding-right:14px">
-    <label for="lang-select" style="font-size:10px;color:var(--fg-dim);text-transform:uppercase;letter-spacing:1px" data-i18n="lang.label">Language</label>
-    <select id="lang-select" onchange="setLang(this.value)" style="background:var(--bg3);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px">
-      <option value="en">English</option>
-      <option value="ru">Русский</option>
-      <option value="uk">Українська</option>
-    </select>
-  </div>
 </div>
 <div id="quiz-tab">
 <details class="rubric" id="rubric-quiz">
@@ -1162,8 +1152,7 @@ window.fetch = function(input, init = {}) {
 };
 
 // ── i18n ─────────────────────────────────────────────────────────────────────
-// Three languages: en (default), ru, uk. Persist user choice in localStorage.
-// Strings split into:
+// Single language (en). Strings split into:
 //   - `static`: rendered from HTML markup via data-i18n attributes
 //   - `dynamic`: used inside JS template literals via t('key')
 const I18N = {
@@ -1257,198 +1246,11 @@ const I18N = {
     'recon.judge.review': 'review',
     'recon.judge.summary': 'judge: <b>{pct}%</b> yes ({yes}/{total}) · {other} other → review',
     'recon.judge.lowbound': 'substring: {pct}% (lower bound)',
-    'lang.label': 'Language',
-  },
-  ru: {
-    'app.title': 'weighted-compact опросник',
-    'tab.quiz': 'Опросник',
-    'tab.recon': 'Reconstruction',
-    'cheat.quiz.header': 'Cheat · Опросник',
-    'cheat.quiz.tag': 'span tiers · workflow · hotkeys · modes',
-    'cheat.recon.header': 'Cheat · Reconstruction',
-    'cheat.recon.tag': 'build · eval · controls',
-    'cheat.expand': '▸ раскрыть',
-    'cheat.collapse': '▾ скрыть',
-    'cheat.tiers.label': 'Span tiers (popup)',
-    'cheat.tier.keep': 'verbatim, load-bearing',
-    'cheat.tier.maybe': 'gist хватит, перефраз ок',
-    'cheat.tier.skip': 'filler, безопасно drop',
-    'cheat.tier.think': 'приглашение к рассуждению / re-examination',
-    'cheat.flow.label': 'Поток работы',
-    'cheat.flow.line1': '<b>drag-select</b> текст → popup → tier (<b>auto-save</b> в момент клика)',
-    'cheat.flow.line2': "клик по существующему span'у → удалить (с подтверждением)",
-    'cheat.flow.line3': 'нижние кнопки → pair-level verdict + переход к следующей паре',
-    'cheat.modes.label': 'Modes & sidebar',
-    'cheat.modes.line1': '<b>modebar</b> сверху — фильтр очереди: disagreement (бутстрап спорит с моделью) · low_conf · audit (sanity anchors) · unknown (никогда не размечал) · cluster (по semantic similarity).',
-    'cheat.modes.line2': "<b>anti-drift</b> справа — 5 cosine-nearest прошлых решений на correction embedding. Цель: быть consistent с собой, не optimize'ить под model.",
-    'cheat.think.note': '<b><span class="tier-think">THINK</span> tier semantics:</b> wired в <code>importance.py</code> с весом <code>+0.05</code> — «preserve + flag для re-examination» (меньше KEEP по силе, но не drop). Компонент сохранён в matrix отдельно — render-движок W2 сможет рисовать «here be open thread» специально.',
-    'cheat.recon.build.label': 'Build set (сверху)',
-    'cheat.recon.build.line1': 'пишешь Q+A про текущую pair → <code>recon_qa_set.jsonl</code> (regression set «такой факт должен выживать»).',
-    'cheat.recon.build.line2': '<b>Generate 3 candidates</b> — qwen2.5:7b сочиняет черновики, можно принять/редактировать.',
-    'cheat.recon.build.line3': '<b>Iter chain</b>: complement (новые углы) / refine (другие фразы) / deepen (следствия).',
-    'cheat.recon.build.line4': '<b>drift</b> над итерами — cos-distance от прошлых iter, ⚠ если вне expected range.',
-    'cheat.recon.eval.label': 'Run eval (снизу)',
-    'cheat.recon.eval.line1': 'для всех Q+A: <b>скрывает</b> source pair → <b>сжимает</b> остальные по importance (выкидывает нижнюю <code>k_drop</code> долю) → задаёт мне вопрос на сжатом контексте → судья gemma3 yes/no/other.',
-    'cheat.recon.eval.line2': 'итог: <b>% pass</b> = насколько pipeline сохранил факт после compression.',
-    'cheat.recon.controls.label': 'Controls',
-    'cheat.recon.controls.line1': "<b>k_drop</b> — доля pair'ов, что прячем. <code>0.5</code> = половину. Выше = жёстче, стресс-тест.",
-    'cheat.recon.controls.line2': '<b>ranker</b> — <code>importance</code> (4C: misstep+density+label+span) или <code>density</code> (legacy) для A/B.',
-    'cheat.recon.controls.line3': "<b>topic_decay</b> (4E) — embedding-based topic shift drop. <code>1.0</code> выкл, <code>0.5</code> пол-веса при смене темы, <code>0.0</code> режет всё чужое. Без classifier'а, чистая геометрия cohesion.",
-    'loading': 'Загрузка...',
-    'build.heading': 'Build set — добавить Q&A',
-    'build.q.label': 'Вопрос (factual, по correction_text)',
-    'build.q.placeholder': 'Например: Что пользователь попросил исправить?',
-    'build.a.label': 'Правильный ответ (substring, case-insensitive match)',
-    'build.a.placeholder': 'Ключевое слово или фраза из ответа',
-    'build.autosuggest.label': 'Auto-suggest',
-    'build.autosuggest.btn': '🪄 Generate 3 candidates',
-    'build.iter.label': 'Iter chain (накапливается, формирует полную картину связности):',
-    'build.iter.complement': '+ complement (новые углы)',
-    'build.iter.refine': '+ refine (другие фразы)',
-    'build.iter.deepen': '+ deepen (следствия)',
-    'build.iter.reset': '↻ reset chain',
-    'build.save': 'Save',
-    'build.skip': 'Skip →',
-    'eval.heading': 'Run eval',
-    'eval.run': '▶ Run eval',
-    'sidebar.heading': 'Anti-drift · похожие прошлые решения',
-    'sidebar.help': "Похожие pair'ы (cosine top-5). Цель — соответствовать своему классификатору, не optimize'ить под model.",
-    'sidebar.empty': 'Соседи появятся после первых labels.',
-    'btn.kbd.keep': 'KEEP',
-    'btn.kbd.maybe': 'MAYBE',
-    'btn.kbd.skip': 'SKIP',
-    'btn.kbd.fpos': 'FALSE-POS',
-    'btn.kbd.keep.hint': 'load-bearing',
-    'btn.kbd.maybe.hint': 'gist хватит',
-    'btn.kbd.skip.hint': 'pointer-only',
-    'btn.kbd.fpos.hint': 'не correction',
-    'mode.all': 'Все',
-    'role.assistant': 'ASSISTANT',
-    'role.user': 'USER',
-    'role.premise.suffix': 'premise (что я сказал до)',
-    'role.correction.suffix': 'correction (твой ответ на это)',
-    'role.correction.hiddensuffix': 'correction (hidden in eval)',
-    'meta.queue': 'в очереди',
-    'prior.heading': 'Прошлое решение',
-    'done.heading': 'Mode «{mode}» пройден',
-    'done.body': 'Tool-labeled: {n}. Переключись на другой mode сверху, или обнови queue.jsonl / build_queue.py.',
-    'recon.counter': 'В set: {n} записей · доступно для добавления: {avail}',
-    'recon.empty': 'Все eligible pairs уже в set.',
-    'recon.fill_qa': 'Заполни Q и A',
-    'recon.saved': 'saved · {n} в set',
-    'recon.suggesting': 'Генерируется (qwen2.5:7b, до 90с)...',
-    'recon.suggesting.focus': 'Генерируется с фокусом на выделение ({n} симв)...',
-    'recon.suggest.empty': 'Не удалось сгенерировать. Попробуй ещё раз или напиши вручную.',
-    'recon.suggest.focused': '🎯 Generate focused ({n} симв)',
-    'recon.eval.status': 'Запрос к ollama... (может занять 60-120с с judge)',
-    'recon.eval.empty': 'Set пустой — сначала добавь Q&A.',
-    'recon.iter.empty': 'Iter {n}: пусто. Попробуй другой mode или reset.',
-    'recon.iter.drift': '⚠ drift вне range',
-    'recon.chain.status': 'Iter {iter} · накоплено {n} кандидатов · цепь: {modes}',
-    'recon.confirm.delete': 'Удалить annotation #{id}?',
-    'recon.judge.review': 'ревизия',
-    'recon.judge.summary': 'judge: <b>{pct}%</b> yes ({yes}/{total}) · {other} other → ревизия',
-    'recon.judge.lowbound': 'substring: {pct}% (нижняя граница)',
-    'lang.label': 'Язык',
-  },
-  uk: {
-    'app.title': 'weighted-compact опитувальник',
-    'tab.quiz': 'Опитувальник',
-    'tab.recon': 'Reconstruction',
-    'cheat.quiz.header': 'Cheat · Опитувальник',
-    'cheat.quiz.tag': 'span tiers · workflow · hotkeys · modes',
-    'cheat.recon.header': 'Cheat · Reconstruction',
-    'cheat.recon.tag': 'build · eval · controls',
-    'cheat.expand': '▸ розгорнути',
-    'cheat.collapse': '▾ згорнути',
-    'cheat.tiers.label': 'Span tiers (popup)',
-    'cheat.tier.keep': 'дослівно, load-bearing',
-    'cheat.tier.maybe': 'gist достатньо, перефраз ок',
-    'cheat.tier.skip': 'filler, безпечно drop',
-    'cheat.tier.think': 'запрошення до повторного огляду',
-    'cheat.flow.label': 'Робочий процес',
-    'cheat.flow.line1': '<b>drag-select</b> текст → popup → tier (<b>auto-save</b> у мить кліку)',
-    'cheat.flow.line2': "клік по існуючому span'у → видалити (з підтвердженням)",
-    'cheat.flow.line3': 'нижні кнопки → pair-level verdict + перехід до наступної пари',
-    'cheat.modes.label': 'Modes & sidebar',
-    'cheat.modes.line1': '<b>modebar</b> згори — фільтр черги: disagreement (бутстрап сперечається з моделлю) · low_conf · audit (sanity anchors) · unknown (ніколи не розмічав) · cluster (за semantic similarity).',
-    'cheat.modes.line2': "<b>anti-drift</b> справа — 5 cosine-nearest минулих рішень на correction embedding. Мета: бути consistent із собою, не optimize'ити під model.",
-    'cheat.think.note': '<b><span class="tier-think">THINK</span> tier semantics:</b> wired у <code>importance.py</code> з вагою <code>+0.05</code> — «preserve + flag для re-examination» (менше KEEP за силою, але не drop). Компонент збережено в matrix окремо — render-рушій W2 зможе малювати «here be open thread» спеціально.',
-    'cheat.recon.build.label': 'Build set (згори)',
-    'cheat.recon.build.line1': 'пишеш Q+A про поточну pair → <code>recon_qa_set.jsonl</code> (regression set «такий факт має вижити»).',
-    'cheat.recon.build.line2': '<b>Generate 3 candidates</b> — qwen2.5:7b пише чернетки, можна прийняти/відредагувати.',
-    'cheat.recon.build.line3': '<b>Iter chain</b>: complement (нові кути) / refine (інші фрази) / deepen (наслідки).',
-    'cheat.recon.build.line4': '<b>drift</b> над ітераціями — cos-distance від минулих iter, ⚠ якщо поза expected range.',
-    'cheat.recon.eval.label': 'Run eval (знизу)',
-    'cheat.recon.eval.line1': 'для всіх Q+A: <b>ховає</b> source pair → <b>стискає</b> решту за importance (викидає нижню <code>k_drop</code> частку) → ставить мені питання на стиснутому контексті → суддя gemma3 yes/no/other.',
-    'cheat.recon.eval.line2': 'підсумок: <b>% pass</b> = наскільки pipeline зберіг факт після compression.',
-    'cheat.recon.controls.label': 'Controls',
-    'cheat.recon.controls.line1': "<b>k_drop</b> — частка pair'ів, які ховаємо. <code>0.5</code> = половину. Вище = жорсткіше, стрес-тест.",
-    'cheat.recon.controls.line2': '<b>ranker</b> — <code>importance</code> (4C: misstep+density+label+span) або <code>density</code> (legacy) для A/B.',
-    'cheat.recon.controls.line3': "<b>topic_decay</b> (4E) — embedding-based topic shift drop. <code>1.0</code> вимк., <code>0.5</code> пів-ваги при зміні теми, <code>0.0</code> ріже все чуже. Без classifier'а, чиста геометрія cohesion.",
-    'loading': 'Завантаження...',
-    'build.heading': 'Build set — додати Q&A',
-    'build.q.label': 'Питання (factual, за correction_text)',
-    'build.q.placeholder': 'Приклад: Що користувач попросив виправити?',
-    'build.a.label': 'Правильна відповідь (substring, case-insensitive match)',
-    'build.a.placeholder': 'Ключове слово або фраза з відповіді',
-    'build.autosuggest.label': 'Auto-suggest',
-    'build.autosuggest.btn': '🪄 Generate 3 candidates',
-    'build.iter.label': 'Iter chain (накопичується, формує повну картину зв\\'язності):',
-    'build.iter.complement': '+ complement (нові кути)',
-    'build.iter.refine': '+ refine (інші фрази)',
-    'build.iter.deepen': '+ deepen (наслідки)',
-    'build.iter.reset': '↻ reset chain',
-    'build.save': 'Save',
-    'build.skip': 'Skip →',
-    'eval.heading': 'Run eval',
-    'eval.run': '▶ Run eval',
-    'sidebar.heading': 'Anti-drift · схожі минулі рішення',
-    'sidebar.help': "Схожі pair'и (cosine top-5). Мета — відповідати своєму класифікатору, не optimize'ити під model.",
-    'sidebar.empty': 'Сусіди з\\'являться після перших labels.',
-    'btn.kbd.keep': 'KEEP',
-    'btn.kbd.maybe': 'MAYBE',
-    'btn.kbd.skip': 'SKIP',
-    'btn.kbd.fpos': 'FALSE-POS',
-    'btn.kbd.keep.hint': 'load-bearing',
-    'btn.kbd.maybe.hint': 'gist достатньо',
-    'btn.kbd.skip.hint': 'pointer-only',
-    'btn.kbd.fpos.hint': 'не correction',
-    'mode.all': 'Усі',
-    'role.assistant': 'ASSISTANT',
-    'role.user': 'USER',
-    'role.premise.suffix': 'premise (що я сказав до)',
-    'role.correction.suffix': 'correction (твоя відповідь)',
-    'role.correction.hiddensuffix': 'correction (hidden in eval)',
-    'meta.queue': 'у черзі',
-    'prior.heading': 'Минуле рішення',
-    'done.heading': 'Mode «{mode}» пройдено',
-    'done.body': 'Tool-labeled: {n}. Переключись на інший mode згори, або онови queue.jsonl / build_queue.py.',
-    'recon.counter': 'У set: {n} записів · доступно для додавання: {avail}',
-    'recon.empty': 'Усі eligible pairs уже в set.',
-    'recon.fill_qa': 'Заповни Q та A',
-    'recon.saved': 'saved · {n} у set',
-    'recon.suggesting': 'Генерується (qwen2.5:7b, до 90с)...',
-    'recon.suggesting.focus': 'Генерується з фокусом на виділення ({n} симв)...',
-    'recon.suggest.empty': 'Не вдалося згенерувати. Спробуй ще раз або напиши вручну.',
-    'recon.suggest.focused': '🎯 Generate focused ({n} симв)',
-    'recon.eval.status': 'Запит до ollama... (може зайняти 60-120с із judge)',
-    'recon.eval.empty': 'Set порожній — спочатку додай Q&A.',
-    'recon.iter.empty': 'Iter {n}: порожньо. Спробуй інший mode або reset.',
-    'recon.iter.drift': '⚠ drift поза range',
-    'recon.chain.status': 'Iter {iter} · накопичено {n} кандидатів · ланцюг: {modes}',
-    'recon.confirm.delete': 'Видалити annotation #{id}?',
-    'recon.judge.review': 'ревізія',
-    'recon.judge.summary': 'judge: <b>{pct}%</b> yes ({yes}/{total}) · {other} other → ревізія',
-    'recon.judge.lowbound': 'substring: {pct}% (нижня межа)',
-    'lang.label': 'Мова',
   },
 };
-const LANG_NAMES = { en: 'English', ru: 'Русский', uk: 'Українська' };
-let LANG = (localStorage.getItem('wc-lang') || 'en');
-if (!I18N[LANG]) LANG = 'en';
+const LANG = 'en';
 function t(key, vars) {
-  let s = (I18N[LANG] && I18N[LANG][key]) || (I18N.en && I18N.en[key]) || key;
+  let s = (I18N.en && I18N.en[key]) || key;
   if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
   return s;
 }
@@ -1465,18 +1267,6 @@ function applyI18n(root) {
   });
   document.title = t('app.title');
   document.documentElement.lang = LANG;
-}
-function setLang(lang) {
-  if (!I18N[lang]) return;
-  LANG = lang;
-  localStorage.setItem('wc-lang', lang);
-  applyI18n();
-  // Re-render dynamic sections so JS template literals pick up new keys.
-  if (typeof currentPair !== 'undefined' && currentPair) render(currentPair);
-  if (typeof reconCurrentPair !== 'undefined' && reconCurrentPair) {
-    const card = document.getElementById('recon-build-card');
-    if (card) reconLoadSample();
-  }
 }
 // Rubric collapse state — persists across page loads.
 (function initRubricState() {
@@ -2092,19 +1882,8 @@ for (const id of ['rubric-quiz', 'rubric-recon']) {
   const el = document.getElementById(id);
   if (el) el.addEventListener('toggle', updateRubricToggleText);
 }
-// Sync the language selector with the active LANG (loaded from localStorage).
-{
-  const sel = document.getElementById('lang-select');
-  if (sel) sel.value = LANG;
-}
 applyI18n();
 updateRubricToggleText();
-// setLang() re-runs both when the user switches languages.
-const _origSetLang = setLang;
-setLang = function(lang) {
-  _origSetLang(lang);
-  updateRubricToggleText();
-};
 </script>
 </body>
 </html>

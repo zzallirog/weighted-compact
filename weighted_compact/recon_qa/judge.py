@@ -1,10 +1,10 @@
 """Judge: semantic verdict + iter-drift telemetry.
 
 Black box:
-  вход — question, a_truth, predicted, optional source_pair.
-  выход — {verdict: 'yes'|'no'|'other', reasoning, model}. Tri-value verdict
-         policy: 'other' лучше чем guessed 'yes' под uncertainty (§5.2).
-  как открыт — `llm_judge` main scoring. `score` cheap substring backup.
+  input — question, a_truth, predicted, optional source_pair.
+  output — {verdict: 'yes'|'no'|'other', reasoning, model}. Tri-value verdict
+         policy: 'other' beats a guessed 'yes' under uncertainty (§5.2).
+  entry — `llm_judge` main scoring. `score` cheap substring backup.
          `iter_chain_metrics` separate telemetry over a generation chain.
 
 `_get_e5_model` lazy ~120MB; only loaded when iter_chain_metrics fires.

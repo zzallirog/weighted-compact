@@ -18,7 +18,7 @@ PAIRS = config.pairs_path()
 FEATURES = config.features_path()
 OUT = config.features_density_path()
 
-NAME_RE = re.compile(r'\b[A-ZА-ЯЁЇІЄҐ][a-zа-яёїієґ]{3,}\b')
+NAME_RE = re.compile(r'\b[A-Z][a-zA-Z]{3,}\b')
 NUM_RE = re.compile(r'\b\d{2,}\b|\b\d+[.,]\d+\b|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b')
 QUOTE_RE = re.compile(r'[«"\'`][^«»"\'`]{4,}[»"\'`]')
 CODE_FENCE_RE = re.compile(r'```|`[^`\n]+`|^\s{4,}\S', re.MULTILINE)

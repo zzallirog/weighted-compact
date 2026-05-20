@@ -36,20 +36,20 @@ Pairs are detected by a regex over the user turn:
 
 ```python
 RE_POS = re.compile(
-    r"\b(именно|да это|точно|вот|идеально|отлично|именно так|то что надо|"
-    r"супер|то самое)\b", re.IGNORECASE)
+    r"\b(exactly|that's it|that's right|perfect|great|nailed it|"
+    r"nice|correct)\b", re.IGNORECASE)
 
 RE_NEG = re.compile(
-    r"\b(нет|не то|не туда|не так|не надо|стоп|подожди|не нужно|опять|"
-    r"пошлый|погоди|перестань|неправильно|мимо|ошибаешься|это бред)\b",
+    r"\b(no|not that|not what|not right|not quite|wrong|incorrect|"
+    r"stop|wait|hold on|nope|don't|revert|undo|again)\b",
     re.IGNORECASE)
 
 RE_TAG = re.compile(
-    r"\(([^)]*?(маркер|mark|подумать|пропос|neutral|нейтральн)[^)]*?)\)",
+    r"\(([^)]*?(mark|think|neutral)[^)]*?)\)",
     re.IGNORECASE)
 ```
 
-These patterns currently cover Russian, Ukrainian, and English. The
+These patterns cover English correction and validation markers. The
 patterns are intentionally narrow — they err on the side of missing
 pairs rather than producing false positives, because a false positive
 pollutes the substrate while a missed pair just means you label it

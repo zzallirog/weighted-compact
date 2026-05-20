@@ -55,22 +55,20 @@ inspection.
 
 ## Inline-syntax bootstrapping
 
-If you type `(маркер)`, `(подумать)`, or `(mark)` inside a live Claude
+If you type `(mark)` or `(think)` inside a live Claude
 Code session, the bootstrap auto-queues the surrounding turn for
 canonicalization. The map between inline syntax and canonical tier lives
 in `tool.py:INLINE_SYNTAX_MAP`:
 
 ```python
 INLINE_SYNTAX_MAP = {
-    '(маркер)':                 'keep',
-    '(маркер - нейтральный)':   'maybe',
-    '(mark)':                   'maybe',
-    '(подумать)':               'think',
-    '(пропос)':                 'think',
+    '(mark)':           'keep',
+    '(mark - neutral)': 'maybe',
+    '(think)':          'think',
 }
 ```
 
-Other languages: add patterns to `extract_pairs.MARKER_PATTERNS` and mirror
+New markers: add patterns to the `extract_pairs` regexes and mirror
 canonical tiers here. This is a deliberately small map — labels are user
 decisions, not autopilot.
 

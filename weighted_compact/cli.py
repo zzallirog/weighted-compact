@@ -7,7 +7,7 @@ Subcommands:
     install-units    Write the systemd user unit under ~/.config/systemd/user/.
     train            Fit the classifier on the current substrate.
     eval             Run the reconstruction-QA gate against current labels.
-    qa-gate          Сегментировать recon-QA set по информативности (admission gate).
+    qa-gate          Segment the recon-QA set by informativeness (admission gate).
     importance       Recompose the six-signal importance mixture.
     paths            Print substrate paths for sourcing in shell scripts.
 """
@@ -237,23 +237,23 @@ def eval_cmd() -> None:
 
 @main.command(name="qa-gate")
 @click.option("--easy-k", default=0.0, type=float,
-              help="Слабая компакция (доля выброшенных пар).")
+              help="Weak compaction (fraction of pairs dropped).")
 @click.option("--hard-k", default=0.9, type=float,
-              help="Сильная компакция (доля выброшенных пар).")
+              help="Strong compaction (fraction of pairs dropped).")
 @click.option("--ranker", default="importance",
               type=click.Choice(["importance", "density"]))
 @click.option("--signal", default="judge",
               type=click.Choice(["judge", "substring"]),
-              help="Чем мерить pass: judge (рекомендуется) или substring.")
+              help="Pass metric: judge (recommended) or substring.")
 @click.option("--write", is_flag=True,
-              help="Записать informative-подмножество в substrate dir.")
+              help="Write the informative subset to the substrate dir.")
 def qa_gate(easy_k: float, hard_k: float, ranker: str, signal: str,
             write: bool) -> None:
-    """Сегментировать recon-QA set по информативности под компакцию.
+    """Segment the recon-QA set by informativeness for compaction.
 
-    Два прогона eval (слабая vs сильная компакция), раскладка entry на
-    trivial / impossible / informative / inverted. Под ablation имеет
-    смысл смотреть только informative — там градиент.
+    Two eval runs (weak vs strong compaction), bucketing entries into
+    trivial / impossible / informative / inverted. For ablation only the
+    informative bucket is worth looking at — that is where the gradient is.
     """
     from weighted_compact import recon_qa
 

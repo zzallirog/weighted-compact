@@ -1,8 +1,8 @@
 """Internal constants — paths from `config` module + ollama URL/model defaults.
 
-Black box: вход — env overrides (WEIGHTED_COMPACT_OLLAMA_URL, WEIGHTED_COMPACT_RECON_MODEL,
-WEIGHTED_COMPACT_JUDGE_MODEL, WEIGHTED_COMPACT_SUGGEST_MODEL); выход — module-level
-Path objects + URL/model strings. Как открыт — import _constants from any
+Black box: input — env overrides (WEIGHTED_COMPACT_OLLAMA_URL, WEIGHTED_COMPACT_RECON_MODEL,
+WEIGHTED_COMPACT_JUDGE_MODEL, WEIGHTED_COMPACT_SUGGEST_MODEL); output — module-level
+Path objects + URL/model strings. Entry — import _constants from any
 sub-module; everything is plain attribute access. Not part of public API
 (underscore prefix); use the re-exports in `__init__.py`.
 

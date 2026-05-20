@@ -30,7 +30,7 @@ SESSION_DIRS = config.claude_source_dirs()
 META_RE = re.compile(r'^<(command|local-command|bash-input|bash-stdout|bash-stderr|task-notification|system-reminder|user-prompt|image|attachment)')
 
 # Entity extractors (heuristic)
-CAPITAL_NAME = re.compile(r'\b([А-ЯЁA-Z][а-яёa-zA-Z]{3,})\b')
+CAPITAL_NAME = re.compile(r'\b([A-Z][a-zA-Z]{3,})\b')
 NUMBER_DATE = re.compile(r'\b(\d{2,4}[-\./]?\d{0,2}[-\./]?\d{0,4}|\d{3,}[a-zA-Z]*|\d+[.,]\d+|\d+%)\b')
 QUOTED = re.compile(r'[«"]([^»"]{4,80})[»"]')
 TARGET_BUDGET_CHARS = 8000

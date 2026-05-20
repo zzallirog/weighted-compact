@@ -1,10 +1,10 @@
 """Context-building: load pair-level signals + assemble compacted markdown context.
 
 Black box:
-  вход — pair_idx + ranker scores + k_drop + topic_decay.
-  выход — markdown string with the source pair removed and remaining session
+  input — pair_idx + ranker scores + k_drop + topic_decay.
+  output — markdown string with the source pair removed and remaining session
           pairs ranked by `scores[pid] * topic_decay**|topic_distance|`.
-  как открыт — loaders are flat npz/jsonl readers (load_pairs / load_density /
+  entry — loaders are flat npz/jsonl readers (load_pairs / load_density /
           load_importance / load_topic_map). `build_compacted_context` is the
           assembly head. Public package version drops some substrate-only
           helpers (chain_neighbors, segment_pair_idxs) — those live in the

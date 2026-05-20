@@ -1,11 +1,11 @@
 """Reconstruction-QA eval loop + qa_set journal accessors.
 
 Black box:
-  вход — k_drop, ranker, topic_decay (defaults preserve old behavior).
-  выход — list of result dicts per QA entry: {predicted, substring_pass, judge,
+  input — k_drop, ranker, topic_decay (defaults preserve old behavior).
+  output — list of result dicts per QA entry: {predicted, substring_pass, judge,
           context_chars} merged with the entry. Persists nothing — caller
           owns the journal.
-  как открыт — `run_eval` is the entry point; iterates over `load_qa_set()`
+  entry — `run_eval` is the entry point; iterates over `load_qa_set()`
           and calls `build_compacted_context` → `ask_ollama` → `score` +
           `llm_judge`. qa_set helpers (load/used/sample/save_qa_entry) live
           here as the natural neighbours of run_eval.

@@ -20,16 +20,16 @@ OUT = str(config.pairs_path())
 MIN_FILE_SIZE = 5 * 1024
 
 RE_NEG = re.compile(
-    r"\b(нет|не то|не туда|не так|не надо|стоп|подожди|не нужно|опять|пошлый|"
-    r"погоди|перестань|неправильно|мимо|ошибаешься|это бред)\b",
+    r"\b(no|not that|not what|not right|not quite|wrong|incorrect|"
+    r"stop|wait|hold on|nope|don't|revert|undo|again)\b",
     re.IGNORECASE,
 )
 RE_POS = re.compile(
-    r"\b(именно|да это|точно|вот|идеально|отлично|именно так|то что надо|супер|то самое)\b",
+    r"\b(exactly|that's it|that's right|perfect|great|nailed it|nice|correct)\b",
     re.IGNORECASE,
 )
 RE_TAG = re.compile(
-    r"\(([^)]*?(маркер|mark|подумать|пропос|neutral|нейтральн)[^)]*?)\)",
+    r"\(([^)]*?(mark|think|neutral)[^)]*?)\)",
     re.IGNORECASE,
 )
 
@@ -67,7 +67,7 @@ def detect_marker(text):
     tag_m = RE_TAG.search(text)
     if tag_m:
         tag_inner = tag_m.group(1).lower()
-        if any(w in tag_inner for w in ("neutral", "нейтральн", "подумать", "пропос")):
+        if any(w in tag_inner for w in ("neutral", "think")):
             return "explicit_tag", tag_m.group(0), "maybe"
         return "explicit_tag", tag_m.group(0), "keep"
     neg_m = RE_NEG.search(text)

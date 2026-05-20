@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Auto-label unlabeled pairs in pairs.jsonl following user's annotation pattern.
+"""Auto-label unlabeled pairs in pairs.jsonl following the user's annotation pattern.
 
 Phase 1 of weighted-compact project. Pure stdlib only.
 """
@@ -17,91 +17,44 @@ LABELS_FILE = str(config.labels_path())
 
 # Patterns that indicate the correction_text starts with system/output leakage
 SYSTEM_LEAKAGE_RE = re.compile(
-    r'^(Мониторю|Запускаю|tar |/home/|/root/|/etc/|/usr/|```|---\n|'
-    r'Phase \d|OK\.|Готово\.|Запустил\.|Session|Сессия\s\d|'
-    r'ОК\. |Ок\. |ok\. |Checking |Running |Done\.|'
+    r'^(tar |/home/|/root/|/etc/|/usr/|```|---\n|'
+    r'Phase \d|OK\.|Done\.|Started\.|Session|'
+    r'Checking |Running |Monitoring |Starting |'
     r'\d{4}-\d{2}-\d{2}|\[\d+/\d+\])',
-    re.IGNORECASE
-)
-
-# Long emotional/philosophical reflections with no directives
-EMOTIONAL_REFLECTION_RE = re.compile(
-    r'(это очень|это просто|как будто|я понимаю|мне кажется|не знаю даже|'
-    r'странно но|как-то так|вот такой я|это сложно|очень сложно|как обычно)',
     re.IGNORECASE
 )
 
 # Wrap-up / scaffolding patterns
 WRAPUP_RE = re.compile(
-    r'(локал гитеа|ингест фоном|окей, спасибо|ок спасибо|хорошо, понял|'
-    r'понял, спасибо|давай завтра|до завтра|окей давай|хорошо давай|'
-    r'поня[лт]|go ahead|let\'s go|ладно|ну ладно)',
+    r"(thanks|thank you|got it|understood|ok let's|okay let's|"
+    r"alright|all right|go ahead|let's go|sounds good|"
+    r"see you tomorrow|let's do it tomorrow)",
     re.IGNORECASE
 )
 
-# Phrasal contexts where marker word is NOT a correction
+# Phrasal contexts where a marker word is NOT a correction
 # key = marker word (lower), value = list of context patterns that make it FP
 PHRASAL_FP_PATTERNS = {
-    'нет': [
-        re.compile(r'а нет ли', re.IGNORECASE),
-        re.compile(r'нет результата', re.IGNORECASE),
-        re.compile(r'нет слов', re.IGNORECASE),
-        re.compile(r'или нет[,\?]', re.IGNORECASE),
-        re.compile(r'нет ни', re.IGNORECASE),
-        re.compile(r'как нет', re.IGNORECASE),
-        re.compile(r'пока нет', re.IGNORECASE),
-        re.compile(r'(там|здесь|тут) нет', re.IGNORECASE),
-        re.compile(r'нет смысла', re.IGNORECASE),
-        re.compile(r'нет времени', re.IGNORECASE),
-        re.compile(r'нет данных', re.IGNORECASE),
-        re.compile(r'нет информации', re.IGNORECASE),
-        re.compile(r'нет ничего', re.IGNORECASE),
-        re.compile(r'нет разницы', re.IGNORECASE),
-        re.compile(r'\bнет\b.*\bнет\b', re.IGNORECASE),  # repeated "нет" in longer context
+    'no': [
+        re.compile(r'\bno result', re.IGNORECASE),
+        re.compile(r'\bno point', re.IGNORECASE),
+        re.compile(r'\bno idea', re.IGNORECASE),
+        re.compile(r'\bno time', re.IGNORECASE),
+        re.compile(r'\bno longer', re.IGNORECASE),
+        re.compile(r'\bno data', re.IGNORECASE),
+        re.compile(r'\bno difference', re.IGNORECASE),
+        re.compile(r"\bthere'?s no\b", re.IGNORECASE),
     ],
-    'вот': [
-        re.compile(r'вот так', re.IGNORECASE),
-        re.compile(r'вот этот', re.IGNORECASE),
-        re.compile(r'вот общение', re.IGNORECASE),
-        re.compile(r'вот такой', re.IGNORECASE),
-        re.compile(r'вот такая', re.IGNORECASE),
-        re.compile(r'вот и всё', re.IGNORECASE),
-        re.compile(r'вот и все', re.IGNORECASE),
-        re.compile(r'вот что', re.IGNORECASE),
-        re.compile(r'вот где', re.IGNORECASE),
-        re.compile(r'вот почему', re.IGNORECASE),
-        re.compile(r'вот когда', re.IGNORECASE),
-        re.compile(r'вот как', re.IGNORECASE),
+    'wait': [
+        re.compile(r'wait for', re.IGNORECASE),
+        re.compile(r"can'?t wait", re.IGNORECASE),
+        re.compile(r'wait until', re.IGNORECASE),
     ],
-    'точно': [
-        re.compile(r'не точно', re.IGNORECASE),
-        re.compile(r'точно не', re.IGNORECASE),
-        re.compile(r'точно так', re.IGNORECASE),
-        re.compile(r'это точно', re.IGNORECASE),
-    ],
-    'именно': [
-        re.compile(r'не именно', re.IGNORECASE),
-        re.compile(r'да, именно', re.IGNORECASE),
-        re.compile(r'именно так', re.IGNORECASE),
-        re.compile(r'именно поэтому', re.IGNORECASE),
-        re.compile(r'именно то', re.IGNORECASE),
-        re.compile(r'именно это', re.IGNORECASE),
+    'exactly': [
+        re.compile(r'not exactly', re.IGNORECASE),
     ],
 }
 
-# Markers that are almost always validating/directive when standalone
-STRONG_CORRECTION_MARKERS = {'не так', 'не то', 'не нужно', 'не надо', 'стоп', 'погоди',
-                               'опять', 'нет', 'нет,', 'нет.', 'нет!'}
-STRONG_POSITIVE_MARKERS = {'точно', 'именно', 'супер', 'отлично', 'идеально', 'да это'}
-
-# Deferred / soft markers
-SOFT_MARKERS = {'погоди', 'подожди', 'стоп', 'стоп,'}
-
-# Short validation questions -> maybe
-VALIDATION_QUESTION_RE = re.compile(
-    r'^.{0,120}\?$',  # short message ending with question
-    re.DOTALL
-)
 
 # Substantive multi-sentence corrections
 def is_substantive(text):
@@ -168,15 +121,15 @@ def classify(pair):
 
     # --- Explicit tags are usually good signals
     if marker_type == 'explicit_tag':
-        # (маркер), (подумать) etc.
+        # (mark), (think), (mark - neutral)
         tag_lower = marker_lower.strip('()')
-        if tag_lower in ('маркер', 'mark'):
+        if 'neutral' in tag_lower or 'think' in tag_lower:
+            return 'maybe', 'med', 'explicit_tag_neutral'
+        if 'mark' in tag_lower:
             # explicit annotation - if substantive correction -> keep, else maybe
             if is_substantive(correction):
                 return 'keep', 'high', 'explicit_tag_substantive'
             return 'maybe', 'med', 'explicit_tag_short'
-        if tag_lower in ('подумать', 'нейтральный'):
-            return 'maybe', 'med', 'explicit_tag_neutral'
         return 'maybe', 'med', 'explicit_tag_other'
 
     # --- False positive check: phrasal context
@@ -187,104 +140,37 @@ def classify(pair):
             return 'keep', 'low', 'phrasal_fp_overridden_by_substantive'
         return 'false_positive', 'high', 'phrasal_context'
 
-    # --- Marker standalone check
     standalone = marker_is_standalone(marker, correction)
 
-    # --- "нет" marker
-    if marker_lower in ('нет', 'нет,', 'нет.', 'нет!'):
-        if not standalone:
-            # нет embedded in longer text
-            if is_substantive(correction):
-                return 'keep', 'low', 'нет_embedded_substantive'
-            return 'false_positive', 'med', 'нет_embedded_short'
-        # standalone нет
+    # --- Negative / correction markers (no, wrong, not that, stop, ...)
+    if marker_type == 'regex_neg':
         if is_substantive(correction):
-            return 'keep', 'high', 'нет_standalone_substantive'
+            return 'keep', 'high', 'neg_substantive'
         if correction_is_question(correction):
-            return 'maybe', 'med', 'нет_standalone_question'
+            return 'maybe', 'med', 'neg_question'
         if len(correction.strip()) < 80:
-            # Very short correction after standalone нет
             if WRAPUP_RE.search(correction):
-                return 'skip', 'med', 'нет_standalone_wrapup'
-            return 'maybe', 'med', 'нет_standalone_short'
-        return 'keep', 'med', 'нет_standalone_medium'
-
-    # --- "вот" marker
-    if marker_lower in ('вот',):
-        if not standalone:
-            return 'false_positive', 'high', 'вот_not_standalone'
-        if is_substantive(correction):
-            return 'keep', 'high', 'вот_standalone_substantive'
-        if correction_is_question(correction):
-            return 'maybe', 'med', 'вот_standalone_question'
-        return 'keep', 'med', 'вот_standalone_medium'
-
-    # --- "опять" marker - usually bug report or repeated issue
-    if marker_lower == 'опять':
-        if is_substantive(correction):
-            return 'keep', 'high', 'опять_substantive'
+                return 'skip', 'med', 'neg_short_wrapup'
+            if standalone:
+                return 'maybe', 'med', 'neg_standalone_short'
+            return 'false_positive', 'med', 'neg_embedded_short'
         if standalone:
-            return 'keep', 'med', 'опять_standalone'
-        return 'maybe', 'med', 'опять_embedded'
+            return 'keep', 'med', 'neg_standalone_medium'
+        return 'maybe', 'med', 'neg_embedded_medium'
 
-    # --- "точно" marker
-    if marker_lower in ('точно', 'Точно'):
-        if not standalone:
-            if is_substantive(correction):
-                return 'keep', 'med', 'точно_embedded_substantive'
-            return 'false_positive', 'med', 'точно_embedded_short'
+    # --- Positive / validation markers (exactly, perfect, great, that's it, ...)
+    if marker_type == 'regex_pos':
+        stripped = correction.strip()
+        # Pure acknowledgement without elaboration
+        if len(stripped) < 60:
+            if WRAPUP_RE.search(correction) or len(stripped) < 15:
+                return 'skip', 'med', 'pos_pure_ack'
+            return 'maybe', 'med', 'pos_short'
         if is_substantive(correction):
-            return 'keep', 'high', 'точно_standalone_substantive'
+            return 'keep', 'high', 'pos_substantive'
         if correction_is_question(correction):
-            return 'maybe', 'high', 'точно_question'
-        return 'keep', 'med', 'точно_standalone_medium'
-
-    # --- "именно" marker
-    if marker_lower in ('именно', 'Именно'):
-        if check_phrasal_fp('именно', correction):
-            return 'false_positive', 'med', 'именно_phrasal'
-        if is_substantive(correction):
-            return 'keep', 'high', 'именно_substantive'
-        if standalone:
-            return 'keep', 'med', 'именно_standalone'
-        return 'maybe', 'med', 'именно_embedded'
-
-    # --- "супер" marker
-    if marker_lower == 'супер':
-        if len(correction.strip()) < 60:
-            # Pure "супер" confirm without elaboration
-            if WRAPUP_RE.search(correction) or correction.strip().lower() in ('супер', 'супер!', 'супер.'):
-                return 'skip', 'med', 'супер_pure_ack'
-            return 'maybe', 'med', 'супер_short'
-        if is_substantive(correction):
-            return 'keep', 'high', 'супер_substantive'
-        if correction_is_question(correction):
-            return 'maybe', 'high', 'супер_question'
-        return 'maybe', 'med', 'супер_medium'
-
-    # --- "погоди" / "стоп" markers
-    if marker_lower in ('погоди', 'подожди', 'стоп', 'стоп,', 'Стоп'):
-        if is_substantive(correction):
-            return 'keep', 'high', 'стоп_substantive'
-        if correction_is_question(correction):
-            return 'maybe', 'high', 'стоп_question'
-        return 'maybe', 'med', 'стоп_short'
-
-    # --- "не так", "не то", "не нужно", "не надо", "не надо"
-    if marker_lower in ('не так', 'не то', 'не нужно', 'не надо', 'не надо,'):
-        if is_substantive(correction):
-            return 'keep', 'high', 'neg_directive_substantive'
-        if standalone:
-            return 'keep', 'med', 'neg_directive_standalone'
-        return 'maybe', 'med', 'neg_directive_short'
-
-    # --- "отлично", "идеально", "да это"
-    if marker_lower in ('отлично', 'идеально', 'да это'):
-        if len(correction.strip()) < 60:
-            return 'maybe', 'med', 'pos_confirm_short'
-        if is_substantive(correction):
-            return 'keep', 'high', 'pos_confirm_substantive'
-        return 'maybe', 'med', 'pos_confirm_medium'
+            return 'maybe', 'high', 'pos_question'
+        return 'maybe', 'med', 'pos_medium'
 
     # --- Tier hint from extractor as tiebreaker
     if tier_hint == 'keep':
