@@ -4,6 +4,9 @@
 
 **A substrate for self-distillation from your own Claude Code sessions.**
 
+*From a session compactor → to a personal memory you can interrogate →
+toward an autonomy layer that anticipates your next move.*
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![v0.2.0-beta.1](https://img.shields.io/badge/release-v0.2.0--beta.1-yellow)](CHANGELOG.md)
@@ -12,25 +15,128 @@
 
 ---
 
-This is not a compressor. It is a substrate.
+## What it was. What it is. Where it goes.
 
-Your Claude Code sessions — the corrections you pushed back on, the numbers
-you made the model get right, the paths you typed twice because the first
-answer missed — are already sitting in `~/.claude/projects/`. They contain a
-record of how you think and what you care about. weighted-compact reads them,
-runs them through a small pipeline of measurable modules, and returns a
-compact memory shaped by your vocabulary, your corrections, your reasoning.
+**Was.** A replacement for `/compact`. The standard Claude Code compactor
+summarises your conversation in one forward pass and drops whatever did
+not fit the paragraph. The first cut of this project was a better
+compressor — different ranking, same problem shape. That framing was
+wrong. Compression is the *artefact*, not the goal.
 
-The model that reads that memory next session is not guessing what you meant.
-It is reading a distillation of what you said you meant.
+**Is.** Not a compressor. A *substrate*. Your Claude Code sessions sit in
+`~/.claude/projects/` already — a record of what you corrected, what you
+restated, what numbers you forced the model to get right. weighted-compact
+reads them, runs them through eight black boxes with measurable
+contracts, and emits a per-pair importance score gated by a
+reconstruction-QA loop. Six signals compose into that score. A judge from
+a different model family verifies whether the compacted context can still
+answer questions about what was hidden from it.
+
+**Goes toward.** A substrate that does not only remember — it begins to
+*anticipate*. The same signals that rank importance can be inverted to
+predict which corrections you are about to make, which constraints you
+are about to set, which paths you typically reject. Cross-session
+correlation (the `v0.3` direction) is the first step. The horizon is an
+autonomy layer where the memory belongs to you, not to the vendor —
+something an IDE-side assistant could read to pre-empt your moves the
+way Antigravity-style tools pre-empt yours from the vendor's training set.
+
+---
+
+## Read it from your angle
+
+This tool serves several distinct purposes from the same codebase. Pick
+whichever framing maps to your interest — the substrate underneath is
+the same.
+
+### 🌱 If you use Claude Code daily
+
+Auto-compact drops the hostname you typed once an hour ago. The flag
+you corrected three turns up. The edge case you described slowly. Your
+substrate keeps those — because *you* told it they mattered, by
+correcting them in the first place.
+
+What you get:
+
+- Memory that survives compaction by *your* criteria, not by the model's
+  guess at your criteria
+- A labeler with a CAPTCHA-style quiz: no infinite scroll, twenty pairs
+  on triggers only, takes one sitting
+- Forward direction: the same substrate becomes your decision predictor
+  — corrections you make today become lookahead for tomorrow
+
+→ [Install](#install) · [Quick start](#install)
+
+### 🔬 If you read papers on memory and distillation
+
+Six-signal weighted mixture: a per-user `misstep` logistic regression
+(AUC 0.665 on the maintainer's corpus) + 16-feature density + per-tier
+span coverage + sparse human label. Cross-family judge — `gemma3:4b`
+(Gemma) verifies `qwen2.5:7b` (Qwen) reconstructions to avoid
+same-family agreement bias. EvoEnv-style difficulty filtering (arXiv:2605.14392) buckets pairs
+into trivial / impossible / informative. Per-pair fidelity is a
+4-valued discrete score on 3 questions, baseline-gated at ~50 samples.
+
+Published ablation: label weight `0.0` vs `0.15`, N=57 paired, mean
+Δfidelity = **+0.053**, 95% CI [−0.004, +0.109], positive direction in
+3/3 corpora.
+
+→ [Results](#results) · [`docs/importance-mixture.md`](docs/importance-mixture.md)
+
+### 🔧 If you write code and want a substrate you can extend
+
+Eight modules, eight black-box contracts (input artefact, output
+artefact, entry point, dependencies). Each contract is documented at
+the top of its own file. Replace any one without touching the others as
+long as the contract holds.
+
+The importance mixture composes six signals in eight lines of
+arithmetic. Adding a seventh is a 30-line patch in `density_features.py`
+plus one weight entry in `importance.py:WEIGHTS`. The recon-QA loop is
+the fitness function — it tells you whether your new signal helped.
+
+→ [What is pluggable](#what-is-pluggable) · [`docs/02-pipeline.md`](docs/02-pipeline.md)
+
+### 🕵️ If you think dialogs can be reverse-engineered from signals
+
+The system is, structurally, an inverse problem. Hide a pair from the
+context, hand the compacted context to a reconstruction model, ask it
+questions whose answers lived in the hidden pair. If it answers, your
+signals selected the right context. If it does not, you are missing a
+feature.
+
+That is the framing under which markers of hesitation, anchor entities,
+correction patterns, even rhetorical manipulations become first-class
+signals you can add to the mixture and *measure*. Pick the right
+features, the right templates, the right traces of thought-flow — and
+any dialog becomes reconstructable from a shrunken substrate. Pick
+the wrong ones and the loop tells you which pairs cannot be recovered.
+
+→ [Quiz / Quest](#quiz--quest) · [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md)
+
+### 🔒 If you care about local-first and privacy
+
+Substrate lives in `$XDG_DATA_HOME/weighted-compact/`. Gitignored.
+Never uploaded. No telemetry. No cloud sync. No federation. Each
+install grows its own substrate from its own sessions — there is no
+shared baseline, by design.
+
+`scripts/leak-scan.sh` enforces this in CI: every commit is grepped
+for substrate filename patterns (`*.jsonl`, `*.npz`, `*.model`) and
+hardcoded `/home/*/...` paths. The remote repo is an orphan-cut
+branch carrying only framework code; the maintainer's substrate,
+with personal session history, lives on a private mirror and never
+touches GitHub.
+
+→ [Architectural invariants](#architectural-invariants) · [`docs/invariants.md`](docs/invariants.md)
 
 ---
 
 ## What the pipeline does
 
 Your session files flow through a sequence of modules. Each one is a
-defined black box: known input, known output, documented in its own file so
-you can open it, inspect it, and replace it independently:
+defined black box: known input, known output, documented in its own
+file so you can open it, inspect it, and replace it independently.
 
 ```
 ~/.claude/projects/
@@ -44,96 +150,152 @@ you can open it, inspect it, and replace it independently:
     topic_segments      → topic_segments.npz
         |
     importance.compose  → importance.npz
-        = 0.40 x misstep + 0.25 x density + 0.15 x label
-          + 0.20 x span_keep - 0.15 x span_skip + ...
+        = 0.40 × misstep + 0.25 × density + 0.15 × label
+          + 0.20 × span_keep − 0.15 × span_skip + ...
         |
     recon_qa            → judge-yes fraction
         (fidelity gate: can the compacted context answer questions
          about the pair that was hidden from it?)
 ```
 
-The quality metric driving development is reconstruction fidelity, not
-compression ratio. Ratio is easy to game; fidelity is harder.
-See [`docs/03-quality-driver.md`](docs/03-quality-driver.md) for why.
+The quality metric driving development is *reconstruction fidelity*,
+not compression ratio. Ratio is easy to game. Fidelity is harder. See
+[`docs/03-quality-driver.md`](docs/03-quality-driver.md) for why.
 
 ---
 
-## Who this is for
+## Architectural invariants
 
-You use Claude Code daily. Your sessions are long. Auto-compact occasionally
-drops a constraint you set an hour ago — a hostname, an edge case, a flag
-you corrected. You would rather have that constraint survive than have a
-cleaner-looking summary.
+Three commitments. They are why the project looks the way it does. Full
+text in [`docs/invariants.md`](docs/invariants.md).
 
-You are also willing to spend twenty minutes labeling pairs. Not because
-labeling is fun, but because you want the substrate to reflect your
-judgment, not the model's guess about your judgment.
+1. **Vectors first, classifier as refinement.** Every turn becomes an
+   e5-multilingual-small embedding. The importance mixture runs on
+   those vectors. A classifier sits on top as a *weighting* refinement,
+   not as a gatekeeper. If the classifier degrades or is missing, the
+   pipeline degrades to a vector baseline. It does not break.
 
-If you want a fully automated compactor that requires no input from you,
-weighted-compact is not that.
+2. **CAPTCHA labeling — gap-fill and ambiguity-merge, not bulk.** The
+   labeler waits for one of two triggers: an inline marker in a live
+   session, or classifier disagreement. You label twenty pairs in
+   twenty minutes when there is a reason. The UI shows five cosine-
+   nearest prior labels next to the current pair — anti-drift
+   scaffolding, so you match your own past judgment, not the model's.
 
----
-
-## Substrate, not summary
-
-When auto-compact fires on a Claude Code session, you have no say in the
-decision. The model reads your conversation and produces a paragraph. Run it
-again and you get a different paragraph.
-
-weighted-compact inverts that. Your sessions become the training corpus.
-The substrate stays on your machine. The output is a ranked selection from
-your own turns, weighted by signals derived from your own behavior.
-
-The three architectural commitments behind this:
-
-1. **Vectors first.** Every turn becomes an e5-multilingual-small embedding.
-   The importance mixture runs on those vectors. If the classifier degrades
-   or is missing, the pipeline falls back to the vector baseline — it does
-   not break.
-
-2. **Labeling by trigger, not throughput.** The labeler waits for a reason
-   to show you a pair: either you flagged it inline during a live session,
-   or the classifier is uncertain about it. You label twenty pairs in twenty
-   minutes. The substrate grows.
-
-3. **Fidelity as the gate.** Before a weight change ships, run the
-   reconstruction-QA loop. Ask whether the compacted context can still
-   answer questions about what was hidden from it. If not, the weight change
-   lost something.
-
-Full invariants in [`docs/invariants.md`](docs/invariants.md).
+3. **Independent of any agent-harness API.** No assumed system-message
+   slot. No vendor API hooks. Markdown output, paste-delivery, runs
+   standalone. If a future harness exposes more privileged delivery,
+   that is a bonus, not a dependency.
 
 ---
 
-## The modules, briefly
+## What is pluggable
 
-Each module is a file. Open the file to see the black-box contract
-(input / output / how it opens). They are in `weighted_compact/`:
+The contract surface is small and named. If you respect the I/O shape,
+you can swap any of these without breaking the rest:
 
-| Module | What it does |
+| Replacement point | Default | What you can replace with |
+|---|---|---|
+| Pair extractor | `extract_pairs.py` walks `~/.claude/projects/` | Any source that produces `pairs.jsonl` with the documented schema |
+| Embedder | `intfloat/multilingual-e5-small` (384-dim) | bge-m3, qwen3-emb, gte-multilingual — any sentence-transformer |
+| Density features | 16 regex signals | Your own regex bag, language-model-derived features, custom entropy variants |
+| Misstep predictor | logistic regression on stumble events (per-user) | Random forest, attention-pool classifier, your own trained model |
+| Span tier set | KEEP / MAYBE / SKIP / THINK | Locked at 4 in current schema — open issue if you need more |
+| Topic segmenter | sliding-window cosine (TextTiling on e5) | BERTopic, supervised classifier, your own boundary detector |
+| Importance composer | weighted sum of 6 signals | Custom mixture, additional signals, gradient-boosted ensemble |
+| Reconstruction model | `qwen2.5:7b` via Ollama | Any model behind an Ollama `/api/generate` endpoint |
+| Judge model | `gemma3:4b` (Gemma — different family) | Different-family constraint is the only rule; pick any other family |
+| Difficulty filter | EvoEnv-style two-`k_drop` bucketing | Your own bucketing logic that returns the four-bucket dict |
+
+The recon-QA loop is the fitness function for every one of these
+swaps. Replace a component, rerun the loop, see whether mean Δfidelity
+moved.
+
+→ Module-by-module contracts and "how it opens": [`docs/02-pipeline.md`](docs/02-pipeline.md)
+
+---
+
+## Quiz / Quest
+
+Three concrete invitations. The fastest way to understand the system
+is to run it against your own corpus and watch the numbers move.
+
+**Q1 — Find your own stumble.**
+Bootstrap your substrate. Open the labeler at `http://127.0.0.1:18890/`.
+Sort by `misstep_score` descending. The top five pairs should be
+moments where you corrected the model sharply and the conversation
+stabilised after. Were they? If yes, the predictor caught your
+stumbles. If not, your corpus is below the training threshold — keep
+using Claude Code and re-bootstrap in a week.
+
+**Q2 — Reproduce the public ablation on your own corpus.**
+Public number from 3 corpora, N=57: mean Δfidelity = +0.053 (CI
+[−0.004, +0.109]). Run the same ablation on your substrate:
+
+```bash
+weighted-compact ablation --weights label=0.0,label=0.15
+```
+
+If your Δ is positive, your corrections are landing at a layer the
+label signal sees. If your Δ is zero, your sessions correct at a layer
+the labels do not capture — the misstep or density signals are doing
+the work, and your label weight may want to be lower.
+
+**Q3 — Add a signal in thirty lines.**
+Open `weighted_compact/density_features.py`. Add a 17th feature — a
+regex for "I changed my mind" patterns (`r"\b(actually|wait|не так|на
+самом деле)\b"`). Re-run bootstrap. The new feature lands in
+`features_density.npz` automatically as a column. Wire a weight in
+`importance.py:WEIGHTS`. Run recon-QA. Did your new signal change
+which pairs survive compaction at `k_drop=0.5`? If yes, you have just
+shipped a signal-level improvement to your own substrate.
+
+---
+
+## Results
+
+The numbers below come from a paired ablation on the maintainer's own
+substrate. They are honest, not knockout — fidelity is a 4-valued
+discrete score on 3 questions per pair, and ties dominate at the
+current sample size.
+
+**Label-weight ablation, 3 disjoint session corpora, N=57 paired pairs:**
+
+| Metric | Value |
 |---|---|
-| `extract_pairs.py` | Walk `~/.claude/projects/`, extract (premise, correction) pairs |
-| `feature_extract.py` | e5 embeddings over each pair; 3-vector sliding windows |
-| `density_features.py` | Content-bearing signal: names, numbers, quoted strings |
-| `misstep_score.py` | P(stumble) per pair from the misstep predictor (optional) |
-| `span_features.py` | Span-level annotation fractions from inline highlights |
-| `topic_segments.py` | Unsupervised topic boundaries via sliding-window cosine cohesion |
-| `importance.py` | Compose six signals into a continuous importance score per pair |
-| `recon_qa/` | Reconstruction-QA loop — five sub-modules, each its own black box |
+| Mean Δfidelity, `label_weight=0.15` vs `0.0` | **+0.053** |
+| 95% paired CI | [−0.004, +0.109] |
+| Sign breakdown | 13 positive · 6 negative · 38 ties |
+| Per-corpus direction | positive in all three (A +0.100 · B +0.028 · C +0.021) |
 
-The `recon_qa/` package breaks down as:
+Read: keeping the label signal in the importance mixture helps modestly
+and consistently. CI just barely crosses zero on the lower bound, so
+this is directionally consistent at marginal significance for N=57 —
+not noise, not a knockout. Full table and per-corpus rows in
+[`docs/importance-mixture.md`](docs/importance-mixture.md#ablation-label-weight-effect-on-recon-qa-fidelity).
 
-| Sub-module | Black box |
-|---|---|
-| `judge.py` | Semantic verdict: question, truth, prediction → yes/no/other |
-| `generator.py` | Q&A generation: source pair → list of {q, a_truth} candidates |
-| `gate.py` | Difficulty classifier: sort QA entries by informativeness |
-| `context.py` | Context assembly: pair scores + k_drop → compacted markdown |
-| `fidelity.py` | Eval loop: run all QA entries, return per-entry result dicts |
+**What the pipeline catches:**
 
-Full pipeline walkthrough in [`docs/02-pipeline.md`](docs/02-pipeline.md).
+- Numeric and entity anchors (hostnames, paths, flag names) survive
+  compaction when they land in pairs with high density score
+- Cross-family judge — `gemma3:4b` (Gemma) judging `qwen2.5:7b` (Qwen)
+  reconstructions — catches vague paraphrases a same-family judge waves
+  through; see [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md)
+- Pipeline degrades to a vector baseline if misstep or labels are
+  missing — every signal except `feature_extract` is optional, and the
+  mixture re-weights what remains
 
-An optional inspection tool runs at `http://127.0.0.1:18890/` (`weighted-compact serve`) — a labeler with three views (Quiz / Drift Inspector / Fidelity) for labeling pairs, watching importance drift, and running per-pair fidelity tests; see [`docs/architecture.md`](docs/architecture.md) for the full view breakdown.
+**What does not work yet:**
+
+- `recon_qa/gate.py` is scaffold — difficulty bucketing computes
+  correctly but nothing downstream consumes the buckets (W3 work)
+- Per-install ~50-sample baseline accumulation: scores below that
+  threshold should be read as illustrative, not calibrated — see
+  [`docs/03-quality-driver.md`](docs/03-quality-driver.md#the-50-sample-baseline-problem)
+- Misstep predictor AUC 0.665 on the maintainer's corpus — useful as a
+  backbone signal, not yet calibrated across users
+- No shared community weights file; every install starts from scratch
+  and accumulates its own baseline against its own corpus
 
 ---
 
@@ -186,58 +348,13 @@ Full platform matrix and install footprint: [`docs/install.md`](docs/install.md)
 | `weighted-compact qa-gate` CLI | shipped (`v0.2.0-beta.1`) |
 | W2 — ambient background render | next |
 | Cross-session correlation | v0.3 direction |
+| Decision-anticipation layer | v0.4+ direction |
 
-Beta. Substrate, six-signal mixture, labeler, three inspector views, and
-the reconstruction-QA gate are all working end-to-end on a real corpus.
+Beta. Substrate, six-signal mixture, labeler, three inspector views,
+and the reconstruction-QA gate all work end-to-end on a real corpus.
 Architectural invariants are locked; the numbers around them are not.
 Schema may still shift between beta releases — migration notes ship in
 `CHANGELOG.md` when they do.
-
----
-
-## Results
-
-The numbers below come from a paired ablation on the maintainer's own
-substrate. They are honest, not knockout — fidelity is a 4-valued discrete
-score on 3 questions per pair, and ties dominate at the current sample size.
-
-**Label-weight ablation, 3 disjoint session corpora, N=57 paired pairs:**
-
-| Metric | Value |
-|---|---|
-| Mean Δfidelity, `label_weight=0.15` vs `0.0` | **+0.053** |
-| 95% paired CI | [−0.004, +0.109] |
-| Sign breakdown | 13 positive · 6 negative · 38 ties |
-| Per-corpus direction | positive in all three (A +0.100 · B +0.028 · C +0.021) |
-
-Read: keeping the label signal in the importance mixture helps modestly
-and consistently. CI just barely crosses zero on the lower bound, so this
-is directionally consistent at marginal significance for N=57 — not
-noise, not a knockout. Full table and per-corpus rows in
-[`docs/importance-mixture.md`](docs/importance-mixture.md#ablation-label-weight-effect-on-recon-qa-fidelity).
-
-**What the pipeline catches:**
-
-- Numeric and entity anchors (hostnames, paths, flag names) survive
-  compaction when they land in pairs with high density score
-- Cross-family judge — `gemma3:4b` (Gemma) judging `qwen2.5:7b` (Qwen)
-  reconstructions — catches vague paraphrases a same-family judge waves
-  through; see [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md)
-- Pipeline degrades to a vector baseline if misstep or labels are
-  missing — every signal except `feature_extract` is optional, and the
-  mixture re-weights what remains
-
-**What does not work yet:**
-
-- `recon_qa/gate.py` is scaffold — difficulty bucketing computes correctly
-  but nothing downstream consumes the buckets (W3 work)
-- Per-install ~50-sample baseline accumulation: scores below that
-  threshold should be read as illustrative, not calibrated — see
-  [`docs/03-quality-driver.md`](docs/03-quality-driver.md#the-50-sample-baseline-problem)
-- Misstep predictor AUC 0.665 on the maintainer's corpus — useful as a
-  backbone signal, not yet calibrated across users
-- No shared community weights file; every install starts from scratch
-  and accumulates its own baseline against its own corpus
 
 ---
 
@@ -246,14 +363,14 @@ noise, not a knockout. Full table and per-corpus rows in
 | File | Topic |
 |---|---|
 | [`docs/01-substrate.md`](docs/01-substrate.md) | Your sessions as a self-distillation corpus |
-| [`docs/02-pipeline.md`](docs/02-pipeline.md) | The modules as black boxes, box by box |
+| [`docs/02-pipeline.md`](docs/02-pipeline.md) | The eight modules as black boxes, box by box |
 | [`docs/03-quality-driver.md`](docs/03-quality-driver.md) | Why fidelity, not compression ratio |
 | [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md) | Two-tier signal economics: cheap regex vs LLM judge |
 | [`docs/05-roadmap.md`](docs/05-roadmap.md) | Open items and honest forward look |
 | [`docs/concept.md`](docs/concept.md) | Longer-form take on the problem and the bet behind it |
 | [`docs/invariants.md`](docs/invariants.md) | The three locked design invariants |
 | [`docs/architecture.md`](docs/architecture.md) | Module map and substrate pipeline |
-| [`docs/importance-mixture.md`](docs/importance-mixture.md) | Six-signal mixture, weight by weight |
+| [`docs/importance-mixture.md`](docs/importance-mixture.md) | Six-signal mixture, weight by weight + ablation data |
 | [`docs/reconstruction-qa.md`](docs/reconstruction-qa.md) | Compression-fidelity measurement loop |
 | [`docs/span-annotation.md`](docs/span-annotation.md) | Sub-turn char-range tier design |
 | [`docs/topic-decay.md`](docs/topic-decay.md) | Unsupervised topic segmentation and decay |
