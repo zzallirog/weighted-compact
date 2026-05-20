@@ -8,8 +8,54 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- **`weighted-compact qa-gate` CLI command.** Segments the recon-QA set
+  into trivial / impossible / informative / inverted buckets by running
+  the eval at two `k_drop` levels. `--easy-k 0.0 --hard-k 0.9 --signal
+  judge` is the recommended invocation. `--write` persists the
+  informative subset to substrate for follow-up labeling.
+
+### Changed
+
+- **`recon_qa.py` split into a package** (`weighted_compact/recon_qa/`).
+  The 600 LOC monolith is now five black-box modules — `context.py`
+  (compacted-context assembly + signal loaders), `generator.py`
+  (`suggest_qa`/`ask_ollama`), `judge.py` (`llm_judge`/`score`/
+  `iter_chain_metrics`), `gate.py` (`classify_difficulty` difficulty
+  buckets), `fidelity.py` (`run_eval` + qa_set journal helpers) — plus
+  `_constants.py` for shared paths/model names. `__init__.py`
+  re-exports every previously-public symbol; callers using
+  `from weighted_compact import recon_qa; recon_qa.foo(...)` keep
+  working unchanged. Each module starts with a `Black box:
+  вход/выход/как открыт` contract docstring.
+- **`recon_qa.score()` null-guard restored.** Empty `predicted` or
+  `a_truth` now returns `False` instead of evaluating `"" in ""` as
+  `True`, which had silently inflated fidelity counts on
+  `<ollama_error: ...>` responses.
+
 ### Documented
 
+- **vocab_canon (§5.3) ablation — DROP.** 5-corpus paired ablation
+  (canon_off=0.0 vs canon_05=0.05) on the 62-entry v1 corpus. Sign
+  agreement positive: 0/5; canon_05 yes-rate 0.000 vs canon_off 0.089.
+  Adding a flat presence-based bonus DISPLACES pairs that previously
+  ranked high on misstep/density/label without compensating with
+  Q-relevance signal. CANON_TOKENS list and the harness stay in the
+  maintainer's private substrate as reference for future ablations.
+  Future direction: per-Q canon bonus (boost
+  only when canon token appears in BOTH the pair and the Q), not a
+  flat flag. Raw results in
+  `~/work/weighted-compact/ablation_vocab_canon_{results.jsonl,summary.json}`.
+- **README rewrite + `docs/01..05`.** Narrative now opens with
+  substrate-and-distillation framing instead of the
+  `/compact`-replacement framing. Five new docs cover the substrate
+  (sessions-as-corpus), pipeline (the black boxes), quality driver
+  (reconstruction-fidelity, not compression ratio), grep-vs-judge
+  signal economics, and roadmap (matrix-importance, cross-session
+  correlation).
+- **CLAUDE.md substrate framing section.** Added near top for
+  cold-pickup by any LLM walking the repo.
 - **Label-weight ablation result** (`docs/importance-mixture.md` §
   "Ablation"). `label_weight ∈ {0.0, 0.15}` × 5 seeds × 3 disjoint
   session corpora, N=57 paired pair-evaluations. Mean Δjudge-yes =

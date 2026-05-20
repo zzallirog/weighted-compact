@@ -7,6 +7,7 @@ Subcommands:
     install-units    Write the systemd user unit under ~/.config/systemd/user/.
     train            Fit the classifier on the current substrate.
     eval             Run the reconstruction-QA gate against current labels.
+    qa-gate          Сегментировать recon-QA set по информативности (admission gate).
     importance       Recompose the six-signal importance mixture.
     paths            Print substrate paths for sourcing in shell scripts.
 """
@@ -228,6 +229,55 @@ def train() -> None:
 def eval_cmd() -> None:
     """Run the reconstruction-QA gate."""
     _run_module_main("eval")
+
+
+@main.command(name="qa-gate")
+@click.option("--easy-k", default=0.0, type=float,
+              help="Слабая компакция (доля выброшенных пар).")
+@click.option("--hard-k", default=0.9, type=float,
+              help="Сильная компакция (доля выброшенных пар).")
+@click.option("--ranker", default="importance",
+              type=click.Choice(["importance", "density"]))
+@click.option("--signal", default="judge",
+              type=click.Choice(["judge", "substring"]),
+              help="Чем мерить pass: judge (рекомендуется) или substring.")
+@click.option("--write", is_flag=True,
+              help="Записать informative-подмножество в substrate dir.")
+def qa_gate(easy_k: float, hard_k: float, ranker: str, signal: str,
+            write: bool) -> None:
+    """Сегментировать recon-QA set по информативности под компакцию.
+
+    Два прогона eval (слабая vs сильная компакция), раскладка entry на
+    trivial / impossible / informative / inverted. Под ablation имеет
+    смысл смотреть только informative — там градиент.
+    """
+    from weighted_compact import recon_qa
+
+    res = recon_qa.classify_difficulty(
+        easy_k=easy_k, hard_k=hard_k, ranker=ranker, signal=signal,
+    )
+    click.echo(
+        f"total: {res['total']} "
+        f"(easy_k={easy_k}, hard_k={hard_k}, ranker={ranker}, signal={signal})"
+    )
+    for bucket, n in res["counts"].items():
+        pct = (100.0 * n / res["total"]) if res["total"] else 0.0
+        click.echo(f"  {bucket:12s} {n:4d}  ({pct:5.1f}%)")
+    dis = res["signal_disagreement_easy"]
+    click.echo(
+        f"signal disagreement on easy: "
+        f"substring-only-pass={dis['substring_only_pass']}, "
+        f"judge-only-pass={dis['judge_only_pass']}"
+    )
+    if write:
+        qa_set = recon_qa.load_qa_set()
+        keep_idx = set(res["buckets"]["informative"])
+        out = config.workdir() / "qa_informative_subset.jsonl"
+        with open(out, "w") as f:
+            for i, entry in enumerate(qa_set):
+                if i in keep_idx:
+                    f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        click.echo(f"informative subset → {out} ({len(keep_idx)} entries)")
 
 
 @main.command()

@@ -9,6 +9,31 @@
 
 ---
 
+## Substrate framing
+
+weighted-compact is not a compression tool. It is a substrate for
+self-distillation from your own Claude Code sessions.
+
+The user's `~/.claude/projects/` already contains a record of every
+correction they pushed back on, every number they had to restate, every
+constraint the model lost track of. weighted-compact reads those files,
+runs them through a pipeline of measurable modules (extract_pairs →
+feature_extract → importance mixture → reconstruction-QA), and returns
+a compact memory shaped by the user's vocabulary, corrections, and reasoning.
+
+Each module is a defined black box: known input, known output, documented
+in its own file. The boxes are replaceable independently. The quality metric
+driving development is reconstruction fidelity (can the compacted context
+answer questions about what was hidden from it?), not compression ratio.
+
+If you are an LLM reading this repo to answer a question or make a change:
+- The framing is "substrate" and "distillation", not "compressor" or "summarizer"
+- The pipeline is a sequence of black boxes; treat them as independent
+- The locked invariants (vectors-first, CAPTCHA labeling, no-harness-dep)
+  are in the section below — do not propose changes that violate them
+
+---
+
 ## TL;DR in 30 seconds
 
 - **What this is:** a trainable substrate that compacts Claude Code conversation
@@ -33,7 +58,14 @@ weighted-compact/
 │
 ├── weighted_compact/                package
 │   ├── tool.py                      CAPTCHA labeler — FastAPI app + UI
-│   ├── recon_qa.py                  reconstruction-QA loop
+│   ├── recon_qa/                    reconstruction-QA package (5 black boxes)
+│   │   ├── __init__.py
+│   │   ├── _constants.py            shared config (model names, paths, lazy imports)
+│   │   ├── context.py               context assembly: pair scores + k_drop → markdown
+│   │   ├── generator.py             Q&A generation: source pair → {q, a_truth} list
+│   │   ├── judge.py                 semantic verdict: question + truth + predicted → yes/no/other
+│   │   ├── gate.py                  difficulty classifier: QA entries → trivial/informative/impossible
+│   │   └── fidelity.py              eval loop: run all QA entries, return per-entry results
 │   ├── importance.py                six-signal mixture
 │   ├── extract_pairs.py             session walker (~/.claude/projects/)
 │   ├── feature_extract.py           e5 embeddings → features.npz
