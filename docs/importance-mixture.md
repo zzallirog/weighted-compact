@@ -26,10 +26,9 @@ enters with a negative coefficient and is subtracted.
 ### `misstep_score` — vector-based backbone (weight 0.40)
 
 A logistic regression on stumble events from a per-user **misstep**
-predictor (see [github.com/zzallirog/misstep](https://github.com/zzallirog/misstep)
-when published). Misstep is trained on the user's own session corpus; it
-predicts `P(stumble at this user turn)` from the embedding of the correction
-turn.
+predictor (separate project, not yet published). Misstep is trained on
+the user's own session corpus; it predicts `P(stumble at this user turn)`
+from the embedding of the correction turn.
 
 Hypothesis (locked in `weighted_compact/misstep_score.py`):
 

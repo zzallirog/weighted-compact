@@ -1,15 +1,18 @@
 # 02 — Eight black boxes
 
-This chapter covers the full pipeline — eight modules wired in order,
-from raw session JSONLs to a fidelity-scored compacted context. Each
-module is a defined black box: known input, known output, the relevant
-file named explicitly. You can open any box, read it, and replace it
-without touching the others. That replaceability is the point — it is
-how the substrate stays Goodhart-resistant and how you stay free to
-swap a signal source without redesigning the rest.
+The pipeline is eight modules wired in order: raw session JSONLs in,
+fidelity-scored compacted context out. Each module is a file under
+`weighted_compact/` with a black-box contract — input artefact, output
+artefact, entry point, and the dependencies it loads. Modules are
+independently replaceable: swap one without touching the others as long
+as the contract holds. Replaceability is what makes the substrate
+Goodhart-resistant — no single signal source is structurally privileged.
 
-This document walks through each box in pipeline order and notes which
-ones are mature, which are scaffolded, and which are optional.
+Each box below lists file path, input, output, implementation notes,
+and maturity (stable / scaffold / optional). Order is pipeline order;
+Box 4 (`misstep_score`) is optional and skipped if the dependency is
+missing, with the importance mixture re-weighting the remaining signals
+automatically.
 
 ---
 
@@ -84,13 +87,17 @@ expected to grow significantly.
 
 **File:** `weighted_compact/misstep_score.py`
 
-**In:** `features.npz`, misstep substrate (separate install)
+**In:** `features.npz`, optional misstep predictor (separate install, see below)
 
 **Out:** `features_misstep.npz` — shape `(N,)` — `P(stumble)` per pair
 
-**How it opens:** Calls the [misstep](https://github.com/zzallirog/misstep)
-predictor if installed. If misstep is not present, this box is skipped and
-the importance mixture re-weights the remaining signals automatically.
+**How it opens:** Calls the misstep predictor if installed. Misstep is a
+separate per-user model — logistic regression on stumble events trained on
+the user's own session corpus — that returns `P(stumble)` for each user
+turn from its embedding. It is not yet published as a public repo; the
+install path will land in `docs/install.md` when it ships. If misstep is
+not present, this box is skipped and the importance mixture re-weights the
+remaining signals automatically.
 
 The hypothesis: a pair is load-bearing if the user stopped stumbling at
 that correction. `misstep_score = 1 - P(stumble)`, giving high scores to
