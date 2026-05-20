@@ -45,76 +45,160 @@ way Antigravity-style tools pre-empt yours from the vendor's training set.
 
 ## Read it from your angle
 
-This tool serves several distinct purposes from the same codebase. Pick
-whichever framing maps to your interest — the substrate underneath is
-the same.
+Five distinct readers, same substrate underneath. Pick yours.
 
-### 🌱 If you use Claude Code daily
+| Reader | The hook | Jump |
+|---|---|---|
+| 🌱 &nbsp;**Daily Claude Code user** | The hostname you corrected once an hour ago does not vanish at compaction | [↓](#angle-daily-user) |
+| 🔬 &nbsp;**Memory & distillation researcher** | Six-signal mixture · cross-family judge · N=57 ablation reported honestly | [↓](#angle-researcher) |
+| 🔧 &nbsp;**Builder / signal hacker** | One file = one black-box contract; 30-line patch lands a new signal | [↓](#angle-builder) |
+| 🕵️ &nbsp;**Dialog reconstructor** | Recon-QA is a fitness function: keep mixing signals until the hidden pair comes back | [↓](#angle-reconstructor) |
+| 🔒 &nbsp;**Local-first / privacy** | Substrate stays in `$XDG_DATA_HOME`; CI scans every commit for leaks | [↓](#angle-privacy) |
 
-Auto-compact drops the hostname you typed once an hour ago. The flag
-you corrected three turns up. The edge case you described slowly. Your
-substrate keeps those — because *you* told it they mattered, by
-correcting them in the first place.
+<br>
 
-What you get:
+<a id="angle-daily-user"></a>
 
-- Memory that survives compaction by *your* criteria, not by the model's
+### 🌱 &nbsp; If you use Claude Code daily
+
+*The constraint you set an hour ago does not vanish at compaction.*
+
+Auto-compact drops the hostname you typed once. The flag you corrected
+three turns up. The edge case you described slowly. Your substrate
+keeps those — because *you* told it they mattered, by correcting them
+in the first place.
+
+What you get today:
+
+- Memory that survives compaction by *your* criteria, not the model's
   guess at your criteria
-- A labeler with a CAPTCHA-style quiz: no infinite scroll, twenty pairs
-  on triggers only, takes one sitting
-- Forward direction: the same substrate becomes your decision predictor
-  — corrections you make today become lookahead for tomorrow
+- A CAPTCHA-style labeler: no infinite scroll, twenty pairs on triggers
+  only, one sitting
+- A read-only audit before you commit to anything — run
+  `weighted-compact compat` to see what your substrate *would* look
+  like, then `bootstrap` only if you want to keep it
 
-→ [Install](#install) · [Quick start](#install)
+What you get in the roadmap (`v0.3+`, not shipped):
 
-### 🔬 If you read papers on memory and distillation
+- Cross-session correlation: corrections from one session inform ranking
+  in the next
+- Decision-anticipation: the same signals that score importance run in
+  reverse to suggest which constraints you are about to set again. The
+  substrate becomes a lookahead, not just a memory
+
+→ [Install](#install) · [Quiz / Quest Q1](#quiz--quest)
+
+---
+
+<a id="angle-researcher"></a>
+
+### 🔬 &nbsp; If you read papers on memory and distillation
+
+*Six signals, cross-family judge, EvoEnv difficulty filter, ablation reported with CI not just point estimate.*
 
 Six-signal weighted mixture: a per-user `misstep` logistic regression
 (AUC 0.665 on the maintainer's corpus) + 16-feature density + per-tier
 span coverage + sparse human label. Cross-family judge — `gemma3:4b`
 (Gemma) verifies `qwen2.5:7b` (Qwen) reconstructions to avoid
-same-family agreement bias. EvoEnv-style difficulty filtering (arXiv:2605.14392) buckets pairs
-into trivial / impossible / informative. Per-pair fidelity is a
-4-valued discrete score on 3 questions, baseline-gated at ~50 samples.
+same-family agreement bias. EvoEnv-style difficulty filtering
+(arXiv:2605.14392) buckets pairs into trivial / impossible /
+informative. Per-pair fidelity is a 4-valued discrete score on 3
+questions, baseline-gated at ~50 samples.
 
-Published ablation: label weight `0.0` vs `0.15`, N=57 paired, mean
-Δfidelity = **+0.053**, 95% CI [−0.004, +0.109], positive direction in
-3/3 corpora.
+Reported ablation (in-repo, not journal): label weight `0.0` vs `0.15`,
+N=57 paired — underpowered, treat as directional. Mean Δfidelity =
+**+0.053**, 95% CI [−0.004, +0.109], positive direction in 3/3 corpora.
+Lower-bound just touches zero — honest "marginal significance,
+consistent sign", not a published result claim.
 
 → [Results](#results) · [`docs/importance-mixture.md`](docs/importance-mixture.md)
 
-### 🔧 If you write code and want a substrate you can extend
+---
 
-Eight modules, eight black-box contracts (input artefact, output
-artefact, entry point, dependencies). Each contract is documented at
-the top of its own file. Replace any one without touching the others as
-long as the contract holds.
+<a id="angle-builder"></a>
 
-The importance mixture composes six signals in eight lines of
-arithmetic. Adding a seventh is a 30-line patch in `density_features.py`
-plus one weight entry in `importance.py:WEIGHTS`. The recon-QA loop is
-the fitness function — it tells you whether your new signal helped.
+### 🔧 &nbsp; If you write code and want a substrate you can extend
+
+*Eight files, eight black-box contracts. Add a signal in 30 lines, the loop tells you whether it helped.*
+
+Eight modules, eight contracts (input artefact, output artefact, entry
+point, dependencies). Each is documented at the top of its own file.
+Replace any one without touching the others as long as the contract
+holds.
+
+What "30-line patch" actually looks like — append a feature to the
+density vector. `density_features.py:extract_density()` returns an
+np.array of 8 numbers per turn (premise + correction = 16 features
+total). Add a ninth:
+
+```python
+# weighted_compact/density_features.py
+REVERSAL_RE = re.compile(
+    r"\b(actually|wait|scratch that|не так|на самом деле)\b",
+    re.IGNORECASE,
+)
+
+def extract_density(text):
+    if not text:
+        return np.zeros(9, dtype=np.float32)   # was 8
+    # ... existing 8 features ...
+    return np.array([
+        # ... existing 8 features ...
+        np.log1p(len(REVERSAL_RE.findall(text))),   # NEW: reversal markers
+    ], dtype=np.float32)
+```
+
+Re-run `weighted-compact bootstrap` — the new column lands in
+`features_density.npz` automatically and feeds the density signal
+(rank-normalised mean across all 18 features now). Run
+`weighted-compact qa-gate` — your Δfidelity vs the previous run tells
+you whether the signal earned its place. Adding a *whole new signal*
+(not just a density feature) takes ~60 lines: a new `features_X.npz`
+producer plus one weight entry in `importance.py:WEIGHTS`.
 
 → [What is pluggable](#what-is-pluggable) · [`docs/02-pipeline.md`](docs/02-pipeline.md)
 
-### 🕵️ If you think dialogs can be reverse-engineered from signals
+---
 
-The system is, structurally, an inverse problem. Hide a pair from the
-context, hand the compacted context to a reconstruction model, ask it
-questions whose answers lived in the hidden pair. If it answers, your
-signals selected the right context. If it does not, you are missing a
-feature.
+<a id="angle-reconstructor"></a>
 
-That is the framing under which markers of hesitation, anchor entities,
-correction patterns, even rhetorical manipulations become first-class
-signals you can add to the mixture and *measure*. Pick the right
-features, the right templates, the right traces of thought-flow — and
-any dialog becomes reconstructable from a shrunken substrate. Pick
-the wrong ones and the loop tells you which pairs cannot be recovered.
+### 🕵️ &nbsp; If you think dialogs can be reverse-engineered from signals
 
-→ [Quiz / Quest](#quiz--quest) · [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md)
+*Hide a pair, hand the rest to a model, ask it the questions whose answers lived in the hidden pair. If it answers, your signals chose the right context.*
 
-### 🔒 If you care about local-first and privacy
+The system is, structurally, an inverse problem. The recon-QA loop is
+the fitness function: keep mixing signals until reconstruction
+succeeds. If it does not, you are missing a feature.
+
+What is already in the mixture:
+
+- `misstep` — stumble recovery patterns (where you corrected and the
+  conversation stabilised)
+- `density` — anchor entities, paths, numbers, code spans
+- `span_keep / span_skip` — your per-char drag-select tiers, when you
+  cared enough to highlight
+- `topic_segments` — unsupervised topic boundaries via cosine cohesion
+
+What is *invited* but not yet shipped — every reader brings their own
+hypothesis about what signal catches what:
+
+- Hesitation markers ("hmm", "wait", "maybe")
+- Rhetorical manipulation patterns
+- Intent-shift gestures
+- Anything else you can write a regex or a classifier for
+
+Add the signal. Re-run the loop. The numbers tell you whether your
+hypothesis survives N=57 paired evaluation.
+
+→ [Quiz / Quest Q3](#quiz--quest) · [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md)
+
+---
+
+<a id="angle-privacy"></a>
+
+### 🔒 &nbsp; If you care about local-first and privacy
+
+*Substrate lives in `$XDG_DATA_HOME`. Never uploaded. CI scans every commit for leaks.*
 
 Substrate lives in `$XDG_DATA_HOME/weighted-compact/`. Gitignored.
 Never uploaded. No telemetry. No cloud sync. No federation. Each
@@ -124,9 +208,9 @@ shared baseline, by design.
 `scripts/leak-scan.sh` enforces this in CI: every commit is grepped
 for substrate filename patterns (`*.jsonl`, `*.npz`, `*.model`) and
 hardcoded `/home/*/...` paths. The remote repo is an orphan-cut
-branch carrying only framework code; the maintainer's substrate,
-with personal session history, lives on a private mirror and never
-touches GitHub.
+branch carrying only framework code; the maintainer's substrate, with
+personal session history, lives on a private mirror and never touches
+GitHub.
 
 → [Architectural invariants](#architectural-invariants) · [`docs/invariants.md`](docs/invariants.md)
 
