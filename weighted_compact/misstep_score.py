@@ -115,9 +115,22 @@ def main():
     stumble_prob = full_clf.predict_proba(correction_vecs)[:, 1]
     importance = 1.0 - stumble_prob
 
-    # Normalize importance to [0, 1] via percentile rank (robust to logreg scale)
-    from scipy.stats import rankdata
-    importance_rank = (rankdata(importance, method='average') - 1) / max(1, len(importance) - 1)
+    # Normalize importance to [0, 1] via percentile rank (robust to logreg scale).
+    # Pure numpy: stable argsort + average rank for ties.
+    n = len(importance)
+    order = importance.argsort(kind='stable')
+    ranks = np.empty(n, dtype=float)
+    ranks[order] = np.arange(1, n + 1, dtype=float)
+    sorted_vals = importance[order]
+    i = 0
+    while i < n:
+        j = i + 1
+        while j < n and sorted_vals[j] == sorted_vals[i]:
+            j += 1
+        if j > i + 1:
+            ranks[order[i:j]] = (i + 1 + j) / 2.0
+        i = j
+    importance_rank = (ranks - 1) / max(1, n - 1)
 
     np.savez(
         OUT,

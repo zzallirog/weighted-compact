@@ -63,11 +63,24 @@ WEIGHTS = {
 
 
 def rank_normalize(x):
-    """Map values to [0, 1] via average-rank percentile."""
-    from scipy.stats import rankdata
-    if len(x) == 0:
+    """Map values to [0, 1] via average-rank percentile (numpy-only, ties → mean rank)."""
+    x = np.asarray(x, dtype=float)
+    n = len(x)
+    if n == 0:
         return x
-    return (rankdata(x, method='average') - 1) / max(1, len(x) - 1)
+    order = x.argsort(kind='stable')
+    ranks = np.empty(n, dtype=float)
+    ranks[order] = np.arange(1, n + 1, dtype=float)
+    sorted_x = x[order]
+    i = 0
+    while i < n:
+        j = i + 1
+        while j < n and sorted_x[j] == sorted_x[i]:
+            j += 1
+        if j > i + 1:
+            ranks[order[i:j]] = (i + 1 + j) / 2.0
+        i = j
+    return (ranks - 1) / max(1, n - 1)
 
 
 def load_labels_keep_mask(pair_indices):
