@@ -8,6 +8,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Tests
+
+- **CI regression-guard for v0.2.0-beta.2 batch.** Added `tests/test_security.py`
+  (V1 Host-header allowlist + V2 bearer-token on `/api/*`, token-file 0600,
+  token persistence across reload), `tests/test_signals.py` (M3
+  `extract_density` ↔ `FEATURE_NAMES` sizing; C2 7-signal composition;
+  graceful degradation when `features_misstep.npz` absent vs. present),
+  `tests/test_recon_eval.py` (C1 `judge.verdict` accounting +
+  `passed_substring` exposure; empty-corpus zero-division). 12 → 25 tests.
+
 ## [0.2.0-beta.2] — 2026-05-20
 
 Security and correctness pass triggered by a paired audit (security review
