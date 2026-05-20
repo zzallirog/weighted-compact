@@ -33,13 +33,12 @@ a different model family verifies whether the compacted context can still
 answer questions about what was hidden from it.
 
 **Goes toward.** A substrate that does not only remember — it begins to
-*anticipate*. The same signals that rank importance can be inverted to
-predict which corrections you are about to make, which constraints you
-are about to set, which paths you typically reject. Cross-session
-correlation (the `v0.3` direction) is the first step. The horizon is an
-autonomy layer where the memory belongs to you, not to the vendor —
-something an IDE-side assistant could read to pre-empt your moves the
-way Antigravity-style tools pre-empt yours from the vendor's training set.
+*anticipate*. The same signals that rank importance can be inverted:
+predict the corrections you are about to make, the constraints you are
+about to set, the paths you typically reject. Cross-session correlation
+(the `v0.3` direction) is the first step. The endpoint is a local
+forecaster — substrate on disk, an IDE-side assistant reads it as
+lookahead, nothing leaves the host.
 
 ---
 
@@ -430,9 +429,9 @@ Full platform matrix and install footprint: [`docs/install.md`](docs/install.md)
 | Reconstruction-QA loop (W3) | shipped — 50+ baseline accumulating per install |
 | `recon_qa/` package split (5 black boxes) | shipped (`v0.2.0-beta.1`) |
 | `weighted-compact qa-gate` CLI | shipped (`v0.2.0-beta.1`) |
-| W2 — ambient background render | next |
-| Cross-session correlation | v0.3 direction |
-| Decision-anticipation layer | v0.4+ direction |
+| W2 — ambient background render ([roadmap](docs/05-roadmap.md)) | next (target `v0.2.x`) |
+| Cross-session correlation ([roadmap](docs/05-roadmap.md)) | `v0.3` direction |
+| Decision-anticipation layer | `v0.4+` direction |
 
 Beta. Substrate, six-signal mixture, labeler, three inspector views,
 and the reconstruction-QA gate all work end-to-end on a real corpus.
