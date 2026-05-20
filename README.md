@@ -195,6 +195,52 @@ Schema may still shift between beta releases — migration notes ship in
 
 ---
 
+## Results
+
+The numbers below come from a paired ablation on the maintainer's own
+substrate. They are honest, not knockout — fidelity is a 4-valued discrete
+score on 3 questions per pair, and ties dominate at the current sample size.
+
+**Label-weight ablation, 3 disjoint session corpora, N=57 paired pairs:**
+
+| Metric | Value |
+|---|---|
+| Mean Δfidelity, `label_weight=0.15` vs `0.0` | **+0.053** |
+| 95% paired CI | [−0.004, +0.109] |
+| Sign breakdown | 13 positive · 6 negative · 38 ties |
+| Per-corpus direction | positive in all three (A +0.100 · B +0.028 · C +0.021) |
+
+Read: keeping the label signal in the importance mixture helps modestly
+and consistently. CI just barely crosses zero on the lower bound, so this
+is directionally consistent at marginal significance for N=57 — not
+noise, not a knockout. Full table and per-corpus rows in
+[`docs/importance-mixture.md`](docs/importance-mixture.md#ablation-label-weight-effect-on-recon-qa-fidelity).
+
+**What the pipeline catches:**
+
+- Numeric and entity anchors (hostnames, paths, flag names) survive
+  compaction when they land in pairs with high density score
+- Cross-family judge — `gemma3:4b` (Gemma) judging `qwen2.5:7b` (Qwen)
+  reconstructions — catches vague paraphrases a same-family judge waves
+  through; see [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md)
+- Pipeline degrades to a vector baseline if misstep or labels are
+  missing — every signal except `feature_extract` is optional, and the
+  mixture re-weights what remains
+
+**What does not work yet:**
+
+- `recon_qa/gate.py` is scaffold — difficulty bucketing computes correctly
+  but nothing downstream consumes the buckets (W3 work)
+- Per-install ~50-sample baseline accumulation: scores below that
+  threshold should be read as illustrative, not calibrated — see
+  [`docs/03-quality-driver.md`](docs/03-quality-driver.md#the-50-sample-baseline-problem)
+- Misstep predictor AUC 0.665 on the maintainer's corpus — useful as a
+  backbone signal, not yet calibrated across users
+- No shared community weights file; every install starts from scratch
+  and accumulates its own baseline against its own corpus
+
+---
+
 ## Where to read further
 
 | File | Topic |
