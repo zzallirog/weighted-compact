@@ -82,18 +82,20 @@ transcript, not only Claude Code's.
 
 ---
 
-## Direction for v0.1
+## Future direction
 
-Federation patterns are filed for v0.1. The shortlist is captured in
-`docs/federation-patterns.md` (forthcoming):
+Federation patterns are the direction past beta. Two candidates that
+fit the invariants above:
 
 - **Anki model** — shared framework, personal substrate. No central
-  server, no pooled data. This matches invariant 1 cleanly.
-- **Disagreement-as-feature** — peer-to-peer label exchange (Hypercore or
-  Veilid) showing how other users labeled the same pair. Optional opt-in
-  per pair. Sees others' decisions; never merges them into your model.
+  server, no pooled data. Matches invariant 1 cleanly; effectively how
+  the project already operates today.
+- **Disagreement-as-feature** — peer-to-peer label exchange (Hypercore
+  or Veilid) showing how other users labeled the same pair. Optional
+  opt-in per pair. Sees others' decisions; never merges them into your
+  model.
 
-The shortlist explicitly rejects:
+Explicitly rejected directions:
 
 - **Bootstrap baseline + personal fork** — would mix others' definitions
   of "keep" into your starting weights, violating invariant 2.

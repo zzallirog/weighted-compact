@@ -1,5 +1,9 @@
 # 01 — Your sessions are the training corpus
 
+This chapter covers **Layer 1 — Substrate** (boxes 1–2 in the pipeline
+schema: `extract_pairs` → `feature_extract`). What it reads, where it
+writes, why nothing leaves your machine.
+
 `~/.claude/projects/` already contains everything.
 
 Every reply you ever pushed back on. Every number you had to correct twice.

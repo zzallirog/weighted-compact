@@ -6,8 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![v0.2.0-alpha.1](https://img.shields.io/badge/release-v0.2.0--alpha.1-orange)](CHANGELOG.md)
-[![status: alpha](https://img.shields.io/badge/status-alpha-yellow)](CHANGELOG.md)
+[![v0.2.0-beta.1](https://img.shields.io/badge/release-v0.2.0--beta.1-yellow)](CHANGELOG.md)
 
 </div>
 
@@ -180,15 +179,19 @@ Full platform matrix and install footprint: [`docs/install.md`](docs/install.md)
 | Substrate (extract_pairs + e5 features) | shipped |
 | Importance mixture (6 signals) | shipped |
 | Span-level annotations + topic decay | shipped |
-| Drift inspector + iter chain | shipped (`v0.1.0-alpha.2`) |
-| Per-pair fidelity (conflict / fidelity modes) | shipped (`v0.1.0-alpha.2`) |
-| Reconstruction-QA loop (W3) | MVP — 50+ baseline accumulating |
+| Drift inspector + iter chain | shipped (`v0.2.0-beta.1`) |
+| Per-pair fidelity (conflict / fidelity modes) | shipped (`v0.2.0-beta.1`) |
+| Reconstruction-QA loop (W3) | shipped — 50+ baseline accumulating per install |
+| `recon_qa/` package split (5 black boxes) | shipped (`v0.2.0-beta.1`) |
+| `weighted-compact qa-gate` CLI | shipped (`v0.2.0-beta.1`) |
 | W2 — ambient background render | next |
-| Cross-session correlation | v0.2 direction |
+| Cross-session correlation | v0.3 direction |
 
-Alpha. Substrate, mixture, labeler, and three inspector views are working
-end-to-end. Expect schema changes between alpha releases. Architectural
-invariants are locked; the numbers around them are not.
+Beta. Substrate, six-signal mixture, labeler, three inspector views, and
+the reconstruction-QA gate are all working end-to-end on a real corpus.
+Architectural invariants are locked; the numbers around them are not.
+Schema may still shift between beta releases — migration notes ship in
+`CHANGELOG.md` when they do.
 
 ---
 

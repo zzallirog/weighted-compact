@@ -17,7 +17,7 @@ Different problem.
 | **Distillation** | LLM-generated summaries / Mermaid graphs | top-K weighted selection of *original* spans |
 | **Tuning** | hyperparameters, zero-config defaults | continuous mixture of six signals + human labels |
 | **Privacy** | local-first claimed; cloud-friendly | local-only, no cloud option exists |
-| **Maturity** | 1.9k★, polished, multi-user | pre-alpha, personal workbench |
+| **Maturity** | 1.9k★, polished, multi-user | beta, personal workbench |
 
 If you want "agent memory" → use one of the others. If you want "I'm
 hitting context limit, summarize feels lossy, give me a tool that lets me
@@ -101,8 +101,8 @@ session corpus, with one person's labels. Sharing it would either:
    complexity nobody asked for.
 
 Federation patterns for **opt-in label exchange between users** are
-filed for v0.1 — see [`docs/invariants.md`](invariants.md) "Direction
-for v0.1". The shortlist is:
+the direction past beta — see [`docs/invariants.md`](invariants.md)
+"Future direction". The shortlist is:
 
 - **Anki model** (framework shared, substrate private) — already how it
   works today.
@@ -123,13 +123,6 @@ CPU.
 The e5 embedding extraction (`weighted-compact bootstrap` first run)
 is the most CPU-heavy step. On a corpus of 3000 session files it takes
 ~10 minutes on an 8-core laptop, ~2 minutes with a CUDA GPU.
-
-## Why is `version = "0.0.1"` in pyproject.toml?
-
-Pre-alpha. The architectural invariants are locked; the schema is not.
-Expect the substrate format (jsonl line shape, npz array layout) to
-change before `v0.1.0`. Each substrate-breaking change will be flagged
-in `CHANGELOG.md` with a migration note.
 
 ## What does `compat` actually check?
 
@@ -214,13 +207,6 @@ See [`CONTRIBUTING.md`](../CONTRIBUTING.md). Short version:
 - **No**: PRs with labeled data, conversation excerpts, or substrate
   artifacts. Multi-user / server-mode features. Telemetry. Anything
   requiring an external API key.
-
-## Why is the version `0.0.1` and not `0.0.01` like the changelog said?
-
-`0.0.01` is not a valid PEP 440 version — pip normalizes it to `0.0.1`
-on install, which would cause a warning on every pip operation. We
-picked `0.0.1` to keep pip quiet. The "0.0.01 joke" is preserved in
-spirit; the actual string had to be PEP-440-clean.
 
 ## Can I see what others ask?
 

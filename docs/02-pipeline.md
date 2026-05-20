@@ -1,11 +1,15 @@
-# 02 — n black boxes
+# 02 — Eight black boxes
 
-The pipeline is a sequence of modules. Each module is a defined black box:
-known input, known output, the relevant file named explicitly. You can open
-any box, read it, and replace it without touching the others.
+This chapter covers the full pipeline — eight modules wired in order,
+from raw session JSONLs to a fidelity-scored compacted context. Each
+module is a defined black box: known input, known output, the relevant
+file named explicitly. You can open any box, read it, and replace it
+without touching the others. That replaceability is the point — it is
+how the substrate stays Goodhart-resistant and how you stay free to
+swap a signal source without redesigning the rest.
 
-This document walks through each box in pipeline order and notes which ones
-are mature, which are scaffolded, and which are optional.
+This document walks through each box in pipeline order and notes which
+ones are mature, which are scaffolded, and which are optional.
 
 ---
 
@@ -93,9 +97,9 @@ that correction. `misstep_score = 1 - P(stumble)`, giving high scores to
 pairs where the correction resolved a stumble pattern.
 
 **Maturity:** Functional but optional. The misstep predictor is calibrated
-on the user's corpus; AUC 0.665 on the maintainer's substrate as of
-`v0.1.0-alpha.2`. On a fresh install with no prior sessions, this signal
-is absent until the misstep predictor has enough data.
+on the user's corpus; AUC 0.665 on the maintainer's substrate as of the
+`v0.2.0-beta.1` checkpoint. On a fresh install with no prior sessions,
+this signal is absent until the misstep predictor has enough data.
 
 ---
 

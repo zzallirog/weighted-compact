@@ -83,7 +83,7 @@ sensible default.
 | `topic_segments.py` | Unsupervised sliding-window cohesion segmentor | numpy |
 | `misstep_score.py` | Logistic regression on stumble events (optional) | sklearn, duckdb |
 | `importance.py` | Compose six signals into continuous score | numpy |
-| `recon_qa.py` | Reconstruction-QA sample/save/eval/suggest | requests (optional Ollama) |
+| `recon_qa/` | Reconstruction-QA package — 5 sub-modules (context / generator / judge / gate / fidelity) | requests (optional Ollama) |
 | `tool.py` | FastAPI labeler at :18890 | fastapi, uvicorn |
 | `cli.py` | `weighted-compact` entry point | click |
 | `model.py` | Optional 3-tier classifier (attention-pool, deprecated) | torch |
@@ -112,10 +112,10 @@ gitignored.
 | `importance.npz` | rewritten atomically with `.bak.*` snapshot | every mixture recompose |
 
 The `importance.npz.bak.*` snapshots — formerly just rollback insurance —
-became a primary substrate consumer for the Drift Inspector in
-`v0.1.0-alpha.2`. The inspector inner-joins the last N snapshots on
-`pair_idx` to compute per-pair trajectories. Keep them around; deleting
-old snapshots truncates the drift window.
+became a primary substrate consumer for the Drift Inspector starting in
+the `v0.1.0-alpha.2` cut. The inspector inner-joins the last N snapshots
+on `pair_idx` to compute per-pair trajectories. Keep them around;
+deleting old snapshots truncates the drift window.
 
 `fidelity_cache.jsonl` is the per-pair compression-quality cache filled
 by the Fidelity mode. Each entry: pair_idx, fidelity ∈ [0, 1] (judge-yes

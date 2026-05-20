@@ -97,7 +97,7 @@ preserve the multi-source independence that the mixture was designed
 for.
 
 A future grid-search tool (`weighted-compact eval --search`) is planned
-for v0.1, but it will surface candidates for human review, not commit
+post-beta, but it will surface candidates for human review, not commit
 weight changes automatically.
 
 ## Failure modes

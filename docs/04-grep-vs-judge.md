@@ -1,10 +1,15 @@
 # 04 — Cheap grep, expensive judge
 
-Not every signal needs an LLM call.
+This chapter covers the **two-tier signal economics** that sit across
+the pipeline — the cheap (regex over a canon vocabulary) vs the
+expensive (LLM judge) tiers, and the rule that decides when each one
+fires.
 
-The pipeline runs two tiers of signal extraction that differ by orders
-of magnitude in cost. Understanding the split helps you reason about
-why certain signals exist and when to trust each one.
+Not every signal needs an LLM call. The pipeline runs two tiers of signal
+extraction that differ by orders of magnitude in cost. Understanding the
+split lets you reason about why certain signals exist, when to trust each
+one, and how to spend the LLM budget on the uncertain middle rather than
+on cases where a regex would have answered already.
 
 ---
 
@@ -90,11 +95,13 @@ Neither replaces the other.
 
 ## The vocab_canon POC status
 
-As of `v0.1.0-alpha.2`, vocab_canon is a POC signal. The mechanism is
+As of `v0.2.0-beta.1`, vocab_canon is a POC signal. The mechanism is
 implemented; the config surface (how you populate the list) is minimal.
-The goal for W3 is to let the labeler surface frequent terms from your
-session corpus as candidates for canon promotion — a quick way to build
-the list from data rather than from memory.
+The 5-corpus paired ablation in [`CHANGELOG.md`](../CHANGELOG.md) showed
+the flat-bonus variant displaced higher-signal pairs and was dropped from
+the default mixture — the per-Q canon bonus (boost only when a canon
+token appears in BOTH the pair and the question) is the direction
+queued for a future release.
 
 Until then: populate `vocab_canon` in `config.py` manually with the
 five or ten terms most likely to appear in load-bearing pairs. Run the

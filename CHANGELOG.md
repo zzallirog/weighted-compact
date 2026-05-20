@@ -8,6 +8,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.2.0-beta.1] — 2026-05-20
+
+First beta cut. The substrate, six-signal mixture, three-view labeler,
+and reconstruction-QA gate all run end-to-end on a real session corpus.
+Architectural invariants are locked; numbers around them are not.
+
 ### Added
 
 - **`weighted-compact qa-gate` CLI command.** Segments the recon-QA set
@@ -18,6 +24,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ### Changed
 
+- **Status: alpha → beta.** `pyproject.toml` classifier
+  `Pre-Alpha → Beta`; `__version__` and release badge bumped to
+  `0.2.0b1`; README badge dedup (single beta badge replaces the prior
+  release+status pair).
 - **`recon_qa.py` split into a package** (`weighted_compact/recon_qa/`).
   The 600 LOC monolith is now five black-box modules — `context.py`
   (compacted-context assembly + signal loaders), `generator.py`
@@ -43,17 +53,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
   ranked high on misstep/density/label without compensating with
   Q-relevance signal. CANON_TOKENS list and the harness stay in the
   maintainer's private substrate as reference for future ablations.
-  Future direction: per-Q canon bonus (boost
-  only when canon token appears in BOTH the pair and the Q), not a
-  flat flag. Raw results in
+  Future direction: per-Q canon bonus (boost only when canon token
+  appears in BOTH the pair and the Q), not a flat flag. Raw results in
   `~/work/weighted-compact/ablation_vocab_canon_{results.jsonl,summary.json}`.
-- **README rewrite + `docs/01..05`.** Narrative now opens with
-  substrate-and-distillation framing instead of the
-  `/compact`-replacement framing. Five new docs cover the substrate
-  (sessions-as-corpus), pipeline (the black boxes), quality driver
-  (reconstruction-fidelity, not compression ratio), grep-vs-judge
-  signal economics, and roadmap (matrix-importance, cross-session
-  correlation).
+- **README + `docs/01..05` direction-first refine.** Each chapter opens
+  with the pipeline box / layer it covers, then the direction the user
+  cares about, before mechanics. `docs/03-quality-driver.md` rewritten
+  with the "What it grows into" section (vault framing, +4pp fidelity
+  band, `direction not destination`). Stale `v0.1.0-alpha.2` / `v0.0.01`
+  references swept; `Direction for v0.1` renamed `Future direction`
+  across `invariants.md` and `faq.md`.
 - **CLAUDE.md substrate framing section.** Added near top for
   cold-pickup by any LLM walking the repo.
 - **Label-weight ablation result** (`docs/importance-mixture.md` §
@@ -64,6 +73,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
   sign — `label` weight stays load-bearing at the current default
   pending more baseline. Raw runs in
   `~/work/weighted-compact/ablation_label_weight_{results.jsonl,summary.json}`.
+
+### Removed
+
+- **Orphan modules:** `weighted_compact/extract_pairs_incremental.py`
+  and `weighted_compact/feature_extract_incremental.py` — never wired
+  into the pipeline path or any test, only existed as historical
+  early-experiment stubs.
+- **Orphan docs assets:** `docs/img/SHOT-LIST.md` and
+  `docs/img/_take_screenshots.py` — alpha.1 screenshot-capture rig,
+  superseded; PNGs under `docs/img/` are kept since the docs link to
+  them.
 
 ## [0.1.0-alpha.2] — 2026-05-18
 

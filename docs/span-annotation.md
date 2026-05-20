@@ -94,11 +94,10 @@ clipped to `[0, 1]` (a single span can't exceed the turn it's on).
 
 ## Downstream impact on render
 
-This is the part that is most underutilized in v0.0.01.
+This is the part still underutilized at `v0.2.0-beta.1`.
 
 Today, `recon_qa.build_compacted_context` picks top-K pairs by importance
-and inlines them verbatim. The next iteration (W2 ambient render, planned
-v0.1) will:
+and inlines them verbatim. The next iteration (W2 ambient render) will:
 
 - Preserve KEEP spans verbatim.
 - Gist non-annotated regions into 30–80% length.

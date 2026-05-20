@@ -1,10 +1,12 @@
 # 05 — Roadmap
 
-Honest forward look. What is solved, what is scaffolded, what is research.
+This chapter is the honest forward look — what is solved, what is
+scaffolded, what is open research. Read after the pipeline docs to see
+where each box sits on that ladder.
 
 ---
 
-## What is working now (v0.1.0-alpha.2)
+## What is working now (v0.2.0-beta.1)
 
 - **Substrate pipeline end-to-end.** extract_pairs → e5 embeddings →
   six-signal importance mixture → compacted context. Runs on a real
