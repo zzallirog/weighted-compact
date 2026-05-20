@@ -9,9 +9,12 @@ Black box:
          two-axis quality bar + self-check (EN edition).
 """
 import json
+import logging
 import re
 
 from ._constants import MODEL, OLLAMA_URL, SUGGEST_MODEL, _requests
+
+log = logging.getLogger(__name__)
 
 
 def ask_ollama(context, question, timeout=60):
@@ -36,6 +39,7 @@ Answer:"""
         }, timeout=timeout)
         return r.json().get('response', '').strip()
     except Exception as e:
+        log.warning("ask_ollama failed: %s", e)
         return f'<ollama_error: {e}>'
 
 
@@ -165,6 +169,7 @@ Response format — STRICT JSON array (JSON only, no prefixes):
         text = r.json().get('response', '').strip()
         match = re.search(r'\[\s*\{.*?\}\s*\]', text, re.DOTALL)
         if not match:
+            log.warning("suggest_qa: no JSON array in ollama response")
             return []
         try:
             arr = json.loads(match.group(0))
@@ -172,7 +177,9 @@ Response format — STRICT JSON array (JSON only, no prefixes):
                 {'q': str(it.get('q', '')).strip(), 'a_truth': str(it.get('a', '')).strip()}
                 for it in arr if it.get('q') and it.get('a')
             ][:n]
-        except Exception:
+        except (json.JSONDecodeError, AttributeError, TypeError) as e:
+            log.warning("suggest_qa: parse error %s", e)
             return []
-    except Exception:
+    except Exception as e:
+        log.warning("suggest_qa: ollama call failed %s", e)
         return []

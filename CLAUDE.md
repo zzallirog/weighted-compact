@@ -66,7 +66,7 @@ weighted-compact/
 │   │   ├── judge.py                 semantic verdict: question + truth + predicted → yes/no/other
 │   │   ├── gate.py                  difficulty classifier: QA entries → trivial/informative/impossible
 │   │   └── fidelity.py              eval loop: run all QA entries, return per-entry results
-│   ├── importance.py                six-signal mixture
+│   ├── importance.py                seven-signal mixture
 │   ├── extract_pairs.py             session walker (~/.claude/projects/)
 │   ├── feature_extract.py           e5 embeddings → features.npz
 │   ├── density_features.py          density signal extractor
@@ -141,11 +141,12 @@ bonus, not an assumption.
 
 1. → `docs/span-annotation.md` (anti-drift sidebar explanation)
 2. → `weighted_compact/tool.py` (look for `get_anti_drift`)
-3. CLI: `weighted-compact compat --show-drift`
+3. live: open the labeler at `:18890/`, the "anti-drift" sidebar shows
+   five cosine-nearest labeled pairs alongside each candidate
 
 ### "What signals feed the importance mixture?"
 
-1. → `docs/importance-mixture.md` (six signals + weights)
+1. → `docs/importance-mixture.md` (seven signals + weights)
 2. → `weighted_compact/importance.py` (the compose function)
 3. live: open `:18890/` and toggle the ranker between `importance` and
    `density` for A/B comparison.

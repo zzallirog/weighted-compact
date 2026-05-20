@@ -184,18 +184,22 @@ def compat(as_json: bool) -> None:
 @click.option("--dry-run", is_flag=True, help="Show what would be extracted without writing.")
 def bootstrap(dry_run: bool) -> None:
     """Extract conversation pairs from ~/.claude/projects/ into the substrate."""
-    from weighted_compact import extract_pairs as ep
-
     config.workdir().mkdir(parents=True, exist_ok=True)
     config.state_dir().mkdir(parents=True, exist_ok=True)
 
+    # Re-evaluate paths at command time so env overrides exported after the
+    # `weighted_compact` package was imported (e.g. WEIGHTED_COMPACT_DATA set
+    # in a one-shot shell wrapper) actually take effect.
+    dirs = [str(p) for p in config.claude_source_dirs()]
+    out = str(config.pairs_path())
+
     if dry_run:
-        click.echo(f"Would scan: {ep.DIRS}")
-        click.echo(f"Would write: {ep.OUT}")
+        click.echo(f"Would scan: {dirs}")
+        click.echo(f"Would write: {out}")
         return
 
     _run_module_main("extract_pairs")
-    click.echo(f"Wrote pairs to {ep.OUT}")
+    click.echo(f"Wrote pairs to {out}")
 
 
 @main.command()
@@ -215,7 +219,7 @@ def serve(host: str, port: int | None) -> None:
 
 @main.command()
 def importance() -> None:
-    """Recompose the six-signal importance mixture."""
+    """Recompose the seven-signal importance mixture."""
     _run_module_main("importance")
 
 

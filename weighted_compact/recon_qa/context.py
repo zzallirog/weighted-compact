@@ -18,12 +18,24 @@ from ._constants import DENSITY, IMPORTANCE, PAIRS, TOPIC_SEGMENTS
 
 
 def load_pairs():
-    """Load pairs.jsonl, return list of dicts with added 'pair_idx' = enumerate index."""
+    """Load pairs.jsonl, return list of dicts with added 'pair_idx' = enumerate index.
+
+    Tolerant to corrupted lines: a single bad JSON line is logged-as-skip,
+    not raised, because the substrate is appended-to over months and the
+    eval loop should survive one partial-write.
+    """
     pairs = []
-    for i, line in enumerate(open(PAIRS)):
-        r = json.loads(line)
-        r['pair_idx'] = i
-        pairs.append(r)
+    with open(PAIRS, encoding='utf-8') as f:
+        for i, line in enumerate(f):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            r['pair_idx'] = i
+            pairs.append(r)
     return pairs
 
 

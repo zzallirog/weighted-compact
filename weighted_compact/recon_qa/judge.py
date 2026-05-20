@@ -9,11 +9,14 @@ Black box:
 
 `_get_e5_model` lazy ~120MB; only loaded when iter_chain_metrics fires.
 """
+import logging
 import re
 
 import numpy as np
 
 from ._constants import JUDGE_MODEL, OLLAMA_URL, _requests
+
+log = logging.getLogger(__name__)
 
 
 _E5_MODEL = None
@@ -74,6 +77,7 @@ def iter_chain_metrics(new_candidates, prior_candidates, mode):
             out['expected_range'] = list(rng)
             out['in_range'] = bool(rng[0] <= sim <= rng[1])
     except Exception as e:
+        log.warning("iter_chain_metrics: drift compute failed %s", e)
         out['error'] = str(e)
     return out
 
@@ -158,4 +162,5 @@ Only one verdict (yes/no/other) and one reason."""
         verdict = m.group(1).lower() if m else 'other'
         return {'verdict': verdict, 'reasoning': text, 'model': JUDGE_MODEL}
     except Exception as e:
+        log.warning("llm_judge: ollama call failed %s", e)
         return {'verdict': 'other', 'reasoning': f'<judge_error: {e}>', 'model': JUDGE_MODEL}

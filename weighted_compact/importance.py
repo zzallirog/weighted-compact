@@ -5,13 +5,15 @@ Replaces marker-trained 3-tier classifier with a mixture of complementary
 signals. Each signal is normalized to [0, 1]; final importance is a
 weighted sum, clipped to [0, 1].
 
-Signals (default weights):
+Signals (default weights — seven total):
   0.40  misstep_importance     = 1 - P(stumble at correction)   ← continuous backbone
   0.25  density_score          = mean of 16 content-density features (norm via rank)
   0.15  label_keep_indicator   = 1 if labels.jsonl says keep/maybe, else 0
   0.20  span_keep_corr_frac    = char-fraction of correction marked KEEP via UI
-        + 0.10 * span_maybe_corr_frac   ← bonus for MAYBE spans
-        - 0.15 * span_skip_corr_frac    ← penalty for explicit SKIP
+  0.10  span_maybe_corr_frac   = char-fraction marked MAYBE (bonus weight)
+ -0.15  span_skip_corr_frac    = char-fraction marked SKIP (explicit penalty)
+  0.05  span_think_corr_frac   = char-fraction marked THINK (preserve + flag for re-examination,
+                                  lower than KEEP, not a drop)
 
 Rationale (locked architectural invariant — vector-first, classifier-secondary):
   Per CLAUDE.md, classifier can degrade to vector baseline. Here misstep is
@@ -23,11 +25,18 @@ Rationale (locked architectural invariant — vector-first, classifier-secondary
   sparse, misstep is independent corpus, density measures different axis,
   label is noisy. Mixture diffuses overfit risk.
 
+  Graceful degradation: if `features_misstep.npz` is missing (misstep
+  predictor not installed), the misstep column is set to zero and the
+  remaining six signals carry the load. The invariant "vectors first,
+  classifier as refinement" is preserved — density + spans + labels are
+  enough to rank pairs, just less sharply.
+
 Output importance.npz:
   importance        : (N,) ∈ [0, 1]
   pair_indices      : (N,)
-  components        : (N, 6) — [misstep, density, label, span_keep, span_maybe, span_skip]
-  weights           : (6,)
+  components        : (N, 7) — [misstep, density, label,
+                                span_keep, span_maybe, span_skip, span_think]
+  weights           : (7,)
   meta              : json dict of defaults + provenance
 """
 import json
@@ -82,18 +91,24 @@ def load_labels_keep_mask(pair_indices):
 
 
 def main():
-    misstep = np.load(FEATURES_MISSTEP, allow_pickle=True)
     density = np.load(FEATURES_DENSITY, allow_pickle=True)
     spans   = np.load(FEATURES_SPANS, allow_pickle=True)
-
-    pair_indices = misstep['pair_indices']
-    assert np.array_equal(pair_indices, density['pair_indices']), \
-        "misstep ↔ density pair_indices misalignment"
+    pair_indices = density['pair_indices']
     assert np.array_equal(pair_indices, spans['pair_indices']), \
-        "misstep ↔ spans pair_indices misalignment"
+        "density ↔ spans pair_indices misalignment"
 
-    # Signal 1: misstep importance (already 1 - stumble_prob)
-    sig_misstep = misstep['importance']
+    # Signal 1: misstep importance (already 1 - stumble_prob). Optional:
+    # if the misstep predictor was never installed, fall back to a zero
+    # column. The architectural invariant ("vectors first, classifier as
+    # refinement") permits this — density + spans + labels remain.
+    misstep = None
+    if FEATURES_MISSTEP.exists():
+        misstep = np.load(FEATURES_MISSTEP, allow_pickle=True)
+        assert np.array_equal(pair_indices, misstep['pair_indices']), \
+            "density ↔ misstep pair_indices misalignment"
+        sig_misstep = misstep['importance']
+    else:
+        sig_misstep = np.zeros(len(pair_indices), dtype=np.float32)
 
     # Signal 2: density score (mean of 16 features, rank-normalized for scale safety)
     density_mean = density['density'].mean(axis=1)
@@ -122,9 +137,16 @@ def main():
     importance = components @ weight_vec
     importance = np.clip(importance, 0.0, 1.0).astype(np.float32)
 
+    misstep_auc: float | None = None
+    if misstep is not None:
+        try:
+            misstep_auc = json.loads(str(misstep['meta'][0])).get('auc_held_out')
+        except (KeyError, ValueError, IndexError):
+            misstep_auc = None
     meta = {
         'weights': WEIGHTS,
-        'misstep_held_out_auc': json.loads(str(misstep['meta'][0]))['auc_held_out'],
+        'misstep_held_out_auc': misstep_auc,
+        'misstep_present': misstep is not None,
         'span_coverage_count': int((span_mat.sum(axis=1) > 0).sum()),
         'pair_count': int(len(pair_indices)),
         'rationale': 'vector-first/classifier-secondary; mixture diffuses Goodhart',

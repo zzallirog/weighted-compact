@@ -47,14 +47,21 @@ def cos_sim(a, b):
     return float(np.dot(a, b) / (na * nb))
 
 
-def segment_session(pair_indices_in_session, corr_vecs):
-    """Return (topic_ids, cohesions, boundaries) parallel arrays."""
+def segment_session(pair_indices_in_session, vecs_by_pos):
+    """Return (topic_ids, cohesions, boundaries) parallel arrays.
+
+    `vecs_by_pos` is a dict (or array-like) keyed by the items in
+    `pair_indices_in_session` — the caller passes session-local positions
+    (0..n-1), not global pair indices. The name historically was `corr_vecs`
+    which suggested an ndarray; it accepted dicts too, so the parameter is
+    renamed to remove the type ambiguity flagged in the code review.
+    """
     n = len(pair_indices_in_session)
     cohesions = np.ones(n, dtype=np.float32)
     if n < MIN_SESSION_PAIRS:
         return np.zeros(n, dtype=np.int32), cohesions, np.zeros(n, dtype=np.int8)
 
-    embs = np.array([corr_vecs[i] for i in pair_indices_in_session])
+    embs = np.array([vecs_by_pos[i] for i in pair_indices_in_session])
     for i in range(n):
         lo = max(0, i - WINDOW)
         hi = min(n, i + WINDOW)

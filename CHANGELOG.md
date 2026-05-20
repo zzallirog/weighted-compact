@@ -8,6 +8,85 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.2.0-beta.2] — 2026-05-20
+
+Security and correctness pass triggered by a paired audit (security review
++ code review). Architectural invariants unchanged.
+
+### Security
+
+- **Host-header allowlist middleware** (`tool.py`). Defends `/api/*` and `/`
+  against DNS-rebinding CSRF — a hostile DNS that resolves an attacker
+  domain to `127.0.0.1` can bypass loopback bind, but the browser still
+  sets `Host: evil.example`. Middleware now rejects any request whose
+  Host is not in `{127.0.0.1, localhost, ::1}`.
+- **Bearer-token auth on `/api/*`** (`tool.py`). Token lives in
+  `$XDG_RUNTIME_DIR/weighted-compact/token` (mode 0600). The HTML page
+  receives it via server-side template substitution at GET `/`, and a
+  fetch wrapper at the top of the bundled script auto-attaches
+  `Authorization: Bearer <token>` to every same-origin request. Defeats
+  trivial same-host `curl /api/next` exfil paths.
+- **`leak-scan.sh` generalized**. The CI pre-commit script now catches
+  any `/home/<user>/`, `/Users/<user>/`, or `/root/` path — not just the
+  maintainer's own home. README's "leak-scan catches `/home/*/...`" claim
+  is now accurate. `docs/` and `weighted_compact/auto_label.py` (which
+  uses `/home/` as a regex prefix in its own detector) are explicitly
+  excluded to avoid false positives.
+
+### Fixed
+
+- **`/api/recon/eval` returned `passed=0` / `accuracy=0.0` always**
+  (`tool.py`). The handler read a `pass` key that `run_eval()` never
+  produced; the browser UI hid the bug by recomputing locally. Now reads
+  `judge.verdict` and also exposes `passed_substring` for completeness.
+- **`importance.py` documented 6 signals but composed 7.** The actual
+  `WEIGHTS` dict has been carrying `span_think: 0.05` since the alpha
+  series; docstring + README + CLAUDE.md still said "six-signal mixture"
+  and described `components` as `(N, 6)`. Brought docs to match the
+  code (code is the source of truth — `span_think` keeps a small positive
+  weight on "preserve + flag for re-examination" spans).
+- **`importance.compose` crashed when `features_misstep.npz` was missing**
+  even though the "vectors-first, classifier-secondary" invariant says
+  it should degrade gracefully. Misstep column now defaults to zero
+  when the predictor is not installed; the remaining six signals carry
+  the load and `meta.misstep_present` records the status.
+- **File-handle leaks in `recon_qa/context.py` and `recon_qa/fidelity.py`**
+  (`open()` without `with`). Long-running labeler called these on every
+  `/api/recon/*` request; fixed to use context managers.
+- **Inconsistent JSON-decode tolerance across modules.** `extract_pairs.py`
+  tolerated bad JSONL lines; `recon_qa/context.py`, `recon_qa/fidelity.py`
+  and `density_features.py` crashed. Aligned all readers to skip bad
+  lines without raising. The recon-QA set in particular is human-editable
+  and routinely lands a partial line during a manual save.
+- **`weighted-compact ablation` command in README did not exist.** The
+  Quiz Q2 invitation referenced a CLI subcommand that was never wired.
+  Replaced with a two-pass recipe using the existing `importance` +
+  `qa-gate` commands; a proper `ablation` wrapper is filed for v0.3.
+- **`weighted-compact compat --show-drift`** in CLAUDE.md likewise did
+  not exist. Removed.
+
+### Changed
+
+- **CLI bootstrap re-evaluates config at command time** (`cli.py`). Env
+  overrides like `$WEIGHTED_COMPACT_DATA` set after the
+  `weighted_compact` package was imported now take effect.
+- **`_constants._reload_paths()`** helper added for tests that monkeypatch
+  `$WEIGHTED_COMPACT_DATA` mid-session.
+- **`density_features.extract_density()`** sizing derived from
+  `FEATURE_NAMES` list, not hardcoded `8`. The README "30 LOC for a new
+  density feature" claim is now true (was 5 hardcoded sites previously).
+- **Broad `except Exception`** in `recon_qa/generator.py` and
+  `recon_qa/judge.py` now log a warning before swallowing — silent
+  forever-fail was an anti-pattern.
+- **`topic_segments.segment_session()`** parameter renamed
+  `corr_vecs` → `vecs_by_pos`. The function accepts a dict-or-array
+  keyed by session-local position; the old name promised an ndarray.
+- **Lazy `from datetime import datetime` inside two handlers**
+  consolidated to module-top import (`tool.py`).
+- **`/api/recon/save`** now returns `{ok: True, total: N}` instead of
+  `{status: 'ok', total: N}` — minor envelope alignment; full envelope
+  standardization across all endpoints deferred to a separate PR.
+
 ## [0.2.0-beta.1] — 2026-05-20
 
 First beta cut. The substrate, six-signal mixture, three-view labeler,

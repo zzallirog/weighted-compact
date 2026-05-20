@@ -31,9 +31,25 @@ from .judge import llm_judge, score
 
 
 def load_qa_set():
+    """Read recon_qa_set.jsonl, return list of entry dicts.
+
+    Tolerant to corrupted lines: this file is human-readable and frequently
+    edited by hand, so an unterminated last line or a saved-while-writing
+    partial record must not blow up downstream eval.
+    """
     if not RECON_SET.exists():
         return []
-    return [json.loads(line) for line in open(RECON_SET) if line.strip()]
+    out = []
+    with open(RECON_SET, encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                out.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return out
 
 
 def used_pair_idxs():

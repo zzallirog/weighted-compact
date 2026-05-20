@@ -20,12 +20,23 @@ cd "$REPO_ROOT"
 
 # Tunable: identifiers that must never appear in the public repo.
 # Add lowercase substrings here when collaborators report leaks.
+#
+# `/home/<user>/` and `/Users/<user>/` (and `/root/`) are caught via the
+# GENERIC_PATH_REGEX sweep below — this list is for maintainer-specific
+# string identifiers only. README/CLAUDE.md claim leak-scan catches
+# "/home/*/..." paths; the generic sweep makes that claim accurate
+# regardless of which user installed.
 PERSONAL_PATTERNS=(
-    "/home/zzalli"
     "zaikina"
     "radost"
     "strong-host"
 )
+
+# Generic home-path regex. Matches /home/<user>/<file>, /Users/<user>/<file>,
+# /root/<file> — anybody's personal-substrate path looks like a leak. We
+# require *something* after the trailing slash to avoid catching prose like
+# "/home/<user>/" or "/root/" used illustratively in release notes.
+GENERIC_PATH_REGEX='(/home/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|/Users/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|/root/[A-Za-z0-9_.-])'
 
 FORBIDDEN_FILE_PATTERNS=(
     "*.jsonl"
@@ -76,6 +87,20 @@ matches="$(echo "$FILES" | xargs -d '\n' -r grep -lIE --color=never -- "$ere" 2>
 if [ -n "$matches" ]; then
     echo "leak-scan: personal pattern matched (regex: $ere)" >&2
     echo "$matches" | awk '{print "  " $0}' >&2
+    fail=1
+fi
+
+# 3. Generic home-path patterns — /home/<user>/, /Users/<user>/, /root/.
+#    Docs intentionally show placeholder paths (/home/your-name/...) and
+#    weighted_compact/auto_label.py uses /home/ as a path-prefix regex in
+#    its detector. Exclude those from the generic sweep; PERSONAL_PATTERNS
+#    above still scans them for maintainer-specific identifiers.
+GENERIC_EXCLUDE='^docs/|^CHANGELOG\.md$|^weighted_compact/auto_label\.py$'
+generic_targets="$(echo "$FILES" | grep -vE "$GENERIC_EXCLUDE" || true)"
+generic_matches="$(echo "$generic_targets" | xargs -d '\n' -r grep -lIE --color=never -- "$GENERIC_PATH_REGEX" 2>/dev/null || true)"
+if [ -n "$generic_matches" ]; then
+    echo "leak-scan: generic personal-path matched (regex: $GENERIC_PATH_REGEX)" >&2
+    echo "$generic_matches" | awk '{print "  " $0}' >&2
     fail=1
 fi
 

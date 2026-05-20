@@ -25,13 +25,16 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import secrets
+import tempfile
 from contextlib import asynccontextmanager
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -46,6 +49,43 @@ FEATURES = config.features_path()
 ANNOTATIONS = config.annotations_path()
 
 PORT = config.labeler_port()
+
+
+# ── Auth token: defends /api/* against same-host curl exfil (security review V2). ──
+# Stored in $XDG_RUNTIME_DIR/weighted-compact/token (mode 0600). The HTML page
+# accepts the token via `?t=<TOKEN>` URL parameter on first load, then strips
+# it via history.replaceState so it does not stay in the address bar.
+def _runtime_dir() -> Path:
+    base = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
+    return Path(base) / "weighted-compact"
+
+
+def _ensure_token() -> str:
+    rd = _runtime_dir()
+    rd.mkdir(parents=True, exist_ok=True)
+    try:
+        rd.chmod(0o700)
+    except OSError:
+        pass
+    tok_path = rd / "token"
+    if tok_path.exists():
+        try:
+            existing = tok_path.read_text().strip()
+            if existing:
+                return existing
+        except OSError:
+            pass
+    tok = secrets.token_urlsafe(32)
+    tok_path.write_text(tok)
+    try:
+        tok_path.chmod(0o600)
+    except OSError:
+        pass
+    return tok
+
+
+AUTH_TOKEN = _ensure_token()
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 LABEL_NAMES = LABEL_KEY_MAP
 ANNOTATION_MARKERS = set(ANNOTATION_TIERS)
 
@@ -82,13 +122,54 @@ async def lifespan(app: FastAPI):
     qrem = sum(1 for q in STATE['queue'] if not already_tool_labeled(q['pair_idx']))
     log.info(
         "weighted-compact labeler listening on http://localhost:%d "
-        "(labels=%d, queue_remaining=%d, corpus=%d)",
+        "(labels=%d, queue_remaining=%d, corpus=%d, token_file=%s)",
         PORT, len(STATE['labels']), qrem, len(STATE['pairs']),
+        _runtime_dir() / "token",
     )
     yield
 
 
 app = FastAPI(title='weighted-compact labeler', lifespan=lifespan)
+
+
+# ── Security middlewares (review 2026-05-20) ─────────────────────────────────
+#
+# V1 — Host-header allowlist defends against DNS-rebinding CSRF: a hostile DNS
+# can resolve evil.example to 127.0.0.1 to bypass loopback bind, but the
+# browser still sets Host: evil.example. Reject anything not loopback.
+#
+# V2 — Bearer-token check on /api/* defends against any local same-user process
+# trivially curl'ing the endpoints to exfil raw dialog text. Token lives in
+# $XDG_RUNTIME_DIR/weighted-compact/token (mode 0600); the HTML page picks it
+# up from a `?t=<TOKEN>` URL parameter on first load and uses it for every
+# subsequent /api/* call.
+
+@app.middleware("http")
+async def loopback_host_only(request: Request, call_next):
+    host_hdr = (request.headers.get("host") or "").split(":")[0]
+    if host_hdr.startswith("[") and host_hdr.endswith("]"):
+        host_hdr = host_hdr[1:-1]
+    if host_hdr.lower() not in LOOPBACK_HOSTS:
+        return JSONResponse(
+            {"ok": False, "error": "non-loopback host rejected"},
+            status_code=403,
+        )
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def api_bearer_auth(request: Request, call_next):
+    if not request.url.path.startswith("/api/"):
+        return await call_next(request)
+    auth = request.headers.get("authorization", "")
+    if auth.startswith("Bearer "):
+        candidate = auth[7:].strip()
+        if candidate and secrets.compare_digest(candidate, AUTH_TOKEN):
+            return await call_next(request)
+    return JSONResponse(
+        {"ok": False, "error": "missing or invalid token"},
+        status_code=401,
+    )
 
 
 def load_jsonl(path: Path) -> list:
@@ -421,7 +502,6 @@ def api_annotation_add(payload: AnnotationPayload) -> JSONResponse:
     aid = STATE['next_annotation_id']
     STATE['next_annotation_id'] += 1
 
-    from datetime import datetime
     rec = {
         'id': aid,
         'pair_idx': payload.pair_idx,
@@ -447,7 +527,6 @@ def api_annotation_delete(annotation_id: int) -> JSONResponse:
     if not target:
         raise HTTPException(404, f'annotation {annotation_id} not found')
 
-    from datetime import datetime
     tombstone = {
         'id': annotation_id,
         'pair_idx': target['pair_idx'],
@@ -523,7 +602,7 @@ def api_recon_save(payload: ReconSavePayload) -> JSONResponse:
         'source_session_id': payload.source_session_id,
     })
     total = len(recon_qa.load_qa_set())
-    return JSONResponse({'status': 'ok', 'total': total})
+    return JSONResponse({'ok': True, 'total': total})
 
 
 class ReconEvalPayload(BaseModel):
@@ -537,10 +616,27 @@ def api_recon_eval(payload: ReconEvalPayload = ReconEvalPayload()) -> JSONRespon
     results = recon_qa.run_eval(
         k_drop=payload.k_drop, ranker=payload.ranker, topic_decay=payload.topic_decay,
     )
-    passed = sum(1 for r in results if r.get('pass'))
+    # Code-review C1 fix: the prior `r.get('pass')` referenced a key that
+    # `run_eval` never produced — passed/accuracy were silently 0 for every
+    # caller. The real signals are `judge.verdict` (LLM) and `substring_pass`
+    # (cheap substring match). Expose both, default `passed` to judge so the
+    # historical key remains usable but now means something.
+    passed_judge = sum(
+        1 for r in results
+        if (r.get('judge') or {}).get('verdict') == 'yes'
+    )
+    passed_substring = sum(1 for r in results if r.get('substring_pass'))
     total = len(results)
-    accuracy = passed / total if total else 0.0
-    return JSONResponse({'results': results, 'accuracy': accuracy, 'total': total, 'passed': passed})
+    accuracy = passed_judge / total if total else 0.0
+    return JSONResponse({
+        'ok': True,
+        'results': results,
+        'accuracy': accuracy,
+        'total': total,
+        'passed': passed_judge,           # back-compat: now meaningful
+        'passed_judge': passed_judge,
+        'passed_substring': passed_substring,
+    })
 
 
 @app.get('/api/recon/set')
@@ -1047,6 +1143,24 @@ PAGE_HTML = """<!doctype html>
 </div>
 
 <script>
+// ── Auth token (injected by server) ──────────────────────────────────────────
+// Defends /api/* against cross-host CSRF (paired with server Host-header
+// allowlist) and trivial same-host curl exfil. Security review V1+V2.
+// Token rotates per server start when the runtime file is removed; otherwise
+// stable across restarts. Wrapper monkey-patches fetch so every existing
+// `fetch('/api/...')` call automatically carries the bearer header.
+const WC_AUTH_TOKEN = "__WC_AUTH_TOKEN__";
+const _wcOrigFetch = window.fetch.bind(window);
+window.fetch = function(input, init = {}) {
+  const url = typeof input === 'string' ? input : ((input && input.url) || '');
+  if (url.startsWith('/') || url.startsWith(location.origin)) {
+    init.headers = Object.assign({}, init.headers || {}, {
+      'Authorization': 'Bearer ' + WC_AUTH_TOKEN,
+    });
+  }
+  return _wcOrigFetch(input, init);
+};
+
 // ── i18n ─────────────────────────────────────────────────────────────────────
 // Three languages: en (default), ru, uk. Persist user choice in localStorage.
 // Strings split into:
@@ -1999,7 +2113,7 @@ setLang = function(lang) {
 
 @app.get('/', response_class=HTMLResponse)
 def index() -> HTMLResponse:
-    return HTMLResponse(PAGE_HTML)
+    return HTMLResponse(PAGE_HTML.replace("__WC_AUTH_TOKEN__", AUTH_TOKEN))
 
 
 if __name__ == '__main__':

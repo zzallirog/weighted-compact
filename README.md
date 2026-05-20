@@ -9,7 +9,7 @@ toward an autonomy layer that anticipates your next move.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![v0.2.0-beta.1](https://img.shields.io/badge/release-v0.2.0--beta.1-yellow)](CHANGELOG.md)
+[![v0.2.0-beta.2](https://img.shields.io/badge/release-v0.2.0--beta.2-yellow)](CHANGELOG.md)
 
 </div>
 
@@ -28,7 +28,7 @@ wrong. Compression is the *artefact*, not the goal.
 restated, what numbers you forced the model to get right. weighted-compact
 reads them, runs them through eight black boxes with measurable
 contracts, and emits a per-pair importance score gated by a
-reconstruction-QA loop. Six signals compose into that score. A judge from
+reconstruction-QA loop. Seven signals compose into that score. A judge from
 a different model family verifies whether the compacted context can still
 answer questions about what was hidden from it.
 
@@ -49,7 +49,7 @@ Five distinct readers, same substrate underneath. Pick yours.
 | Reader | The hook | Jump |
 |---|---|---|
 | 🌱 &nbsp;**Daily Claude Code user** | The hostname you corrected once an hour ago does not vanish at compaction | [↓](#angle-daily-user) |
-| 🔬 &nbsp;**Memory & distillation researcher** | Six-signal mixture · cross-family judge · N=57 ablation reported honestly | [↓](#angle-researcher) |
+| 🔬 &nbsp;**Memory & distillation researcher** | Seven-signal mixture · cross-family judge · N=57 ablation reported honestly | [↓](#angle-researcher) |
 | 🔧 &nbsp;**Builder / signal hacker** | One file = one black-box contract; 30-line patch lands a new signal | [↓](#angle-builder) |
 | 🕵️ &nbsp;**Dialog reconstructor** | Recon-QA is a fitness function: keep mixing signals until the hidden pair comes back | [↓](#angle-reconstructor) |
 | 🔒 &nbsp;**Local-first / privacy** | Substrate stays in `$XDG_DATA_HOME`; CI scans every commit for leaks | [↓](#angle-privacy) |
@@ -93,11 +93,11 @@ What you get in the roadmap (`v0.3+`, not shipped):
 
 ### 🔬 &nbsp; If you read papers on memory and distillation
 
-*Six signals, cross-family judge, EvoEnv difficulty filter, ablation reported with CI not just point estimate.*
+*Seven signals, cross-family judge, EvoEnv difficulty filter, ablation reported with CI not just point estimate.*
 
-Six-signal weighted mixture: a per-user `misstep` logistic regression
+Seven-signal weighted mixture: a per-user `misstep` logistic regression
 (AUC 0.665 on the maintainer's corpus) + 16-feature density + per-tier
-span coverage + sparse human label. Cross-family judge — `gemma3:4b`
+span coverage (KEEP/MAYBE/SKIP/THINK) + sparse human label. Cross-family judge — `gemma3:4b`
 (Gemma) verifies `qwen2.5:7b` (Qwen) reconstructions to avoid
 same-family agreement bias. EvoEnv-style difficulty filtering
 (arXiv:2605.14392) buckets pairs into trivial / impossible /
@@ -233,8 +233,9 @@ file so you can open it, inspect it, and replace it independently.
     topic_segments      → topic_segments.npz
         |
     importance.compose  → importance.npz
-        = 0.40 × misstep + 0.25 × density + 0.15 × label
-          + 0.20 × span_keep − 0.15 × span_skip + ...
+        = 0.40 × misstep   + 0.25 × density    + 0.15 × label
+        + 0.20 × span_keep + 0.10 × span_maybe
+        − 0.15 × span_skip + 0.05 × span_think
         |
     recon_qa            → judge-yes fraction
         (fidelity gate: can the compacted context answer questions
@@ -285,7 +286,7 @@ you can swap any of these without breaking the rest:
 | Misstep predictor | logistic regression on stumble events (per-user) | Random forest, attention-pool classifier, your own trained model |
 | Span tier set | KEEP / MAYBE / SKIP / THINK | Locked at 4 in current schema — open issue if you need more |
 | Topic segmenter | sliding-window cosine (TextTiling on e5) | BERTopic, supervised classifier, your own boundary detector |
-| Importance composer | weighted sum of 6 signals | Custom mixture, additional signals, gradient-boosted ensemble |
+| Importance composer | weighted sum of 7 signals | Custom mixture, additional signals, gradient-boosted ensemble |
 | Reconstruction model | `qwen2.5:7b` via Ollama | Any model behind an Ollama `/api/generate` endpoint |
 | Judge model | `gemma3:4b` (Gemma — different family) | Different-family constraint is the only rule; pick any other family |
 | Difficulty filter | EvoEnv-style two-`k_drop` bucketing | Your own bucketing logic that returns the four-bucket dict |
@@ -313,16 +314,28 @@ using Claude Code and re-bootstrap in a week.
 
 **Q2 — Reproduce the public ablation on your own corpus.**
 Public number from 3 corpora, N=57: mean Δfidelity = +0.053 (CI
-[−0.004, +0.109]). Run the same ablation on your substrate:
+[−0.004, +0.109]). Reproduce on your substrate by toggling the label
+weight in two passes:
 
 ```bash
-weighted-compact ablation --weights label=0.0,label=0.15
+# Pass A: baseline with label weight as shipped (0.15)
+weighted-compact importance && weighted-compact qa-gate --easy-k 0.0 --hard-k 0.9 --signal judge
+
+# Pass B: drop label weight to 0.0 in weighted_compact/importance.py:WEIGHTS
+# (edit the dict, save) then rerun
+weighted-compact importance && weighted-compact qa-gate --easy-k 0.0 --hard-k 0.9 --signal judge
 ```
 
-If your Δ is positive, your corrections are landing at a layer the
-label signal sees. If your Δ is zero, your sessions correct at a layer
-the labels do not capture — the misstep or density signals are doing
-the work, and your label weight may want to be lower.
+Compare the `informative` bucket pass-rate between A and B. If A > B,
+your corrections are landing at a layer the label signal sees. If
+A ≈ B, your sessions correct at a layer the labels do not capture —
+the misstep or density signals are doing the work, and the label
+weight may want to be lower for you.
+
+> *A proper `weighted-compact ablation --weights …` one-shot wrapper is
+> filed under v0.3 — it would orchestrate the two passes above and
+> compute the paired Δ automatically. Until then the manual recipe is
+> the contract.*
 
 **Q3 — Add a signal in thirty lines.**
 Open `weighted_compact/density_features.py`. Add a 17th feature — a
@@ -422,7 +435,7 @@ Full platform matrix and install footprint: [`docs/install.md`](docs/install.md)
 | Component | Status |
 |---|---|
 | Substrate (extract_pairs + e5 features) | shipped |
-| Importance mixture (6 signals) | shipped |
+| Importance mixture (7 signals) | shipped |
 | Span-level annotations + topic decay | shipped |
 | Drift inspector + iter chain | shipped (`v0.2.0-beta.1`) |
 | Per-pair fidelity (conflict / fidelity modes) | shipped (`v0.2.0-beta.1`) |
@@ -433,7 +446,7 @@ Full platform matrix and install footprint: [`docs/install.md`](docs/install.md)
 | Cross-session correlation ([roadmap](docs/05-roadmap.md)) | `v0.3` direction |
 | Decision-anticipation layer | `v0.4+` direction |
 
-Beta. Substrate, six-signal mixture, labeler, three inspector views,
+Beta. Substrate, seven-signal mixture, labeler, three inspector views,
 and the reconstruction-QA gate all work end-to-end on a real corpus.
 Architectural invariants are locked; the numbers around them are not.
 Schema may still shift between beta releases — migration notes ship in
@@ -453,7 +466,7 @@ Schema may still shift between beta releases — migration notes ship in
 | [`docs/concept.md`](docs/concept.md) | Longer-form take on the problem and the bet behind it |
 | [`docs/invariants.md`](docs/invariants.md) | The three locked design invariants |
 | [`docs/architecture.md`](docs/architecture.md) | Module map and substrate pipeline |
-| [`docs/importance-mixture.md`](docs/importance-mixture.md) | Six-signal mixture, weight by weight + ablation data |
+| [`docs/importance-mixture.md`](docs/importance-mixture.md) | Seven-signal mixture, weight by weight + ablation data |
 | [`docs/reconstruction-qa.md`](docs/reconstruction-qa.md) | Compression-fidelity measurement loop |
 | [`docs/span-annotation.md`](docs/span-annotation.md) | Sub-turn char-range tier design |
 | [`docs/topic-decay.md`](docs/topic-decay.md) | Unsupervised topic segmentation and decay |
