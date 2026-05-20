@@ -40,16 +40,17 @@ from .fidelity import (
     save_qa_entry,
     used_pair_idxs,
 )
-from .gate import _pass_signal, classify_difficulty
+from .gate import classify_difficulty
 from .generator import ask_ollama, suggest_qa
 from .judge import (
     ITER_MODE_RANGES,
-    _embed_candidates,
-    _get_e5_model,
     iter_chain_metrics,
     llm_judge,
     score,
 )
+# Underscore-prefixed internals are reachable via the submodule path
+# (e.g. weighted_compact.recon_qa.judge._embed_candidates) — not re-exported
+# at package level to keep the public surface lean.
 
 __all__ = [
     # constants
