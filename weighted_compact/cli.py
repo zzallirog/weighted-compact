@@ -279,6 +279,7 @@ def eval_cmd() -> None:
                   "importance", "density",
                   "random", "recency",
                   "cosine", "bm25",
+                  "compact_qwen", "compact_sonnet",
               ]))
 @click.option("--signal", default="judge",
               type=click.Choice(["judge", "substring"]),

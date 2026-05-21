@@ -214,6 +214,107 @@ def test_build_compacted_context_callable_requires_query(baseline_fixture):
         )
 
 
+# ----- /compact simulator (Phase 3) ----------------------------------------
+
+
+def test_compact_simulator_constructs(baseline_fixture):
+    """Constructor smoke — no API calls. Verifies backend validation."""
+    from weighted_compact.baselines.compact_simulator import CompactSummarizer
+
+    qwen = CompactSummarizer('qwen2.5:7b', backend='ollama')
+    assert qwen.model == 'qwen2.5:7b'
+    assert qwen.backend == 'ollama'
+    assert qwen.is_compact_bypass is True
+
+    son = CompactSummarizer('claude-sonnet-4-5', backend='anthropic')
+    assert son.is_compact_bypass is True
+
+    with pytest.raises(ValueError, match="unknown backend"):
+        CompactSummarizer('x', backend='gpt')
+
+
+def test_compact_summarizer_prompt_marks_hidden(baseline_fixture):
+    """Verify the prompt marks the source pair as [HIDDEN] and keeps the rest."""
+    from weighted_compact.baselines.compact_simulator import _build_prompt
+    from weighted_compact.recon_qa.context import load_pairs
+
+    pairs = load_pairs()
+    source = pairs[0]
+    session_pairs = [p for p in pairs if p['session_id'] == source['session_id']]
+    prompt = _build_prompt(source, session_pairs)
+    assert "[HIDDEN]" in prompt
+    # Other pairs from same session should appear with real content
+    assert "beta" in prompt or "gamma" in prompt
+    # The source pair's actual text should NOT appear in place of HIDDEN
+    assert "alpha" not in prompt or "[HIDDEN]" in prompt.split("alpha", 1)[0]
+
+
+def test_compact_sonnet_requires_api_key(baseline_fixture, monkeypatch):
+    """compact_sonnet must refuse to call out without ANTHROPIC_API_KEY."""
+    from weighted_compact.baselines.compact_simulator import (
+        CompactSummarizer,
+        _build_prompt,
+    )
+
+    monkeypatch.delenv('ANTHROPIC_API_KEY', raising=False)
+
+    from weighted_compact.baselines.compact_simulator import _call_anthropic
+    with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
+        _call_anthropic("test", model="claude-sonnet-4-5")
+
+
+def test_fidelity_dispatches_compact_bypass(baseline_fixture, monkeypatch):
+    """run_eval with ranker='compact_qwen' should invoke summarize_excluding,
+    not build_compacted_context. Verified by stubbing the summarizer."""
+    from weighted_compact.baselines.compact_simulator import CompactSummarizer
+    from weighted_compact.recon_qa import context as recon_context
+    from weighted_compact.recon_qa import fidelity
+
+    calls = {'summarize': 0, 'build_context': 0}
+
+    def fake_summarize(self, source_pair_idx, pairs, query=None):
+        calls['summarize'] += 1
+        return "[fake summary]"
+
+    monkeypatch.setattr(
+        CompactSummarizer,
+        'summarize_excluding',
+        fake_summarize,
+    )
+
+    original_build = recon_context.build_compacted_context
+
+    def counting_build(*args, **kwargs):
+        calls['build_context'] += 1
+        return original_build(*args, **kwargs)
+
+    monkeypatch.setattr(fidelity, 'build_compacted_context', counting_build)
+
+    # Empty qa_set → no actual iteration; we only check that the loader
+    # path is exercised. Add one synthetic entry to force dispatch.
+    monkeypatch.setattr(
+        fidelity,
+        'load_qa_set',
+        lambda: [{'source_pair_idx': 0, 'q': 'test', 'a_truth': 'x'}],
+    )
+
+    # Stub ask_ollama + llm_judge so we don't actually call LLMs
+    monkeypatch.setattr(fidelity, 'ask_ollama', lambda ctx, q: 'stub answer')
+    monkeypatch.setattr(
+        fidelity,
+        'llm_judge',
+        lambda q, a_truth, pred, source_pair=None: {
+            'verdict': 'no', 'reasoning': 'stub', 'model': 'stub',
+        },
+    )
+
+    results = fidelity.run_eval(ranker='compact_qwen', k_drop=0.5)
+
+    assert calls['summarize'] == 1
+    assert calls['build_context'] == 0
+    assert len(results) == 1
+
+
 def test_cosine_ranker_smoke(baseline_fixture, tmp_path):
     """Synthesize a minimal features.npz and verify CosineRanker scores deterministically.
 

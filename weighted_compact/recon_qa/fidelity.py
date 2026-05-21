@@ -90,6 +90,18 @@ def _load_bm25_ranker():
     return Bm25Ranker()
 
 
+def _load_compact_qwen():
+    """Lazy: local Ollama qwen2.5:7b summarizer."""
+    from weighted_compact.baselines.compact_simulator import build_qwen
+    return build_qwen()
+
+
+def _load_compact_sonnet():
+    """Lazy: Anthropic API Sonnet summarizer (requires ANTHROPIC_API_KEY)."""
+    from weighted_compact.baselines.compact_simulator import build_sonnet
+    return build_sonnet()
+
+
 _RANKER_LOADERS = {
     'importance': load_importance,
     'density': load_density,
@@ -97,6 +109,8 @@ _RANKER_LOADERS = {
     'recency': load_baseline_recency,
     'cosine': _load_cosine_ranker,
     'bm25': _load_bm25_ranker,
+    'compact_qwen': _load_compact_qwen,
+    'compact_sonnet': _load_compact_sonnet,
 }
 
 
@@ -124,16 +138,25 @@ def run_eval(k_drop=0.5, ranker='importance', topic_decay=0.5):
             f'unknown ranker {ranker!r}; '
             f'known: {sorted(_RANKER_LOADERS)}',
         )
-    scoring = loader()  # dict (static) or callable (query-aware)
-    topic_map = load_topic_map() if topic_decay < 1.0 else None
+    scoring = loader()  # dict (static), callable (query-aware), or summarizer
+    is_compact_bypass = getattr(scoring, 'is_compact_bypass', False)
+    topic_map = load_topic_map() if (topic_decay < 1.0 and not is_compact_bypass) else None
     qa_set = load_qa_set()
     results = []
     for entry in qa_set:
-        ctx = build_compacted_context(
-            entry['source_pair_idx'], pairs, scoring, k_drop,
-            topic_decay=topic_decay, topic_map=topic_map,
-            query=entry.get('q'),
-        )
+        if is_compact_bypass:
+            # /compact-style: bypass pair selection, replace context with
+            # full-history LLM summary. k_drop and topic_decay are ignored
+            # — the summary IS the context.
+            ctx = scoring.summarize_excluding(
+                entry['source_pair_idx'], pairs, query=entry.get('q'),
+            )
+        else:
+            ctx = build_compacted_context(
+                entry['source_pair_idx'], pairs, scoring, k_drop,
+                topic_decay=topic_decay, topic_map=topic_map,
+                query=entry.get('q'),
+            )
         if not ctx:
             results.append({
                 **entry,
