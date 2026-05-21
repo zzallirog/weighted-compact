@@ -2,10 +2,10 @@
 
 # weighted-compact
 
-**A substrate for self-distillation from your own Claude Code sessions.**
+**A structured substrate built from your Claude Code sessions.**
 
-*Your session is your flow. The substrate keeps it — shaped by what
-you corrected along the way.*
+*One conversation log parsed once, scored on multiple signals, queried
+by multiple consumers. Compaction is the first published consumer.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
@@ -15,12 +15,42 @@ you corrected along the way.*
 
 ---
 
-## Headline
+## The substrate is the artifact
 
-Structured selection of any kind beats a naive LLM-summary `/compact`
-analog by ~8 percentage points of fidelity. The seven-signal mixture's
-edge over cheap structured baselines (random, recency, cosine) is **not
-yet measurable** at this N under the cheap-judge proxy.
+`~/.claude/projects/` already contains the record of every correction
+you pushed back on, every flag you restated, every constraint the model
+lost track of. weighted-compact reads those files **once**, parses them
+into per-pair objects (correction text, premise text, span tiers,
+session anchors), and decorates each pair with seven independent
+signals: misstep probability, density features, span coverage, topic
+position, label state, recency, cosine neighbourhood.
+
+The decorated substrate lives at `$XDG_DATA_HOME/weighted-compact/` —
+gitignored, never uploaded. It is the artifact. Compaction is the
+first reader; other consumers read the same files.
+
+### Consumers reading this substrate today
+
+| Consumer | What it does with the substrate | Status |
+|---|---|---|
+| **Compaction layer** — `build_compacted_context()` | top-K importance selection → markdown context; exercised today via the `qa-gate` evaluation harness, standalone session-start delivery (W2 ambient render) is the next-targeted feature | **shipped as library + harness — this repo, beta; standalone CLI for session-start delivery `next`** |
+| **Stumble prediction** — misstep | per-user `P(stumble)` from correction embeddings; backbone signal for the mixture | **separate project — AUC 0.665 on maintainer corpus, not yet public** |
+| **Narrative extraction** — session-narrative | Layer 1-5 long-form recall (concept extraction → semantic grep → importance → narrative) | **in development, private** |
+| **Knowledge-gap retrieval** — FKMF | two-layer active + background lookup for fundamental missing fragments | **methodology + skill, no shipped binary** |
+| **Foreign-model observability** — misstep-foreign-models | refusal-drift lens over 3rd-party LLM sessions | **design phase, postulates frozen, pre-implementation** |
+
+Only the compaction consumer is published. The other four are listed
+because they prove the substrate has more than one reader — not as a
+claim of available tooling. If you came for one of them, it does not
+yet ship.
+
+---
+
+## Headline (compaction consumer)
+
+The published consumer is compaction. Its proof is on the
+reconstruction-fidelity loop: hide a pair, ask whether the compacted
+context still answers questions about it.
 
 | Method | Per-Q fidelity (gemma3:4b judge, N=62, k_drop=0.5) |
 |---|---:|
@@ -33,14 +63,24 @@ yet measurable** at this N under the cheap-judge proxy.
 | Naive `/compact` analog (qwen summarize) | **3.2 %** (2/62) |
 
 Reading. The **8 pp gap between any structured selection and the
-summary-bypass** is the strongest signal in the table: discarding pair
-structure for a one-pass LLM summary loses anchors that any reasonable
-ranker preserves. **Within structured selection**, the mixture does
-not yet outperform a uniform random ranker at this N under the gemma3
-judge (κ=0.47 agreement vs Sonnet). The pre-registered narrative
-target — mixture beats cheap baselines by ≥0.05 absolute — is **not
-met**; the mixture's distinguishing claim needs a Sonnet-grade re-judge
-and a larger QA set before it can be made.
+summary-bypass** is the strongest signal in the table: querying the
+substrate beats discarding it for a one-pass LLM summary by 5 questions
+out of 62. **Within structured selection**, the mixture does not yet
+outperform a uniform random ranker at this N under the gemma3 judge
+(κ=0.47 agreement vs Sonnet). The pre-registered narrative target —
+mixture beats cheap baselines by ≥0.05 absolute — is **not met**.
+
+What this proves: the **substrate-vs-summary axis** (parsing into pairs
+and querying beats one-pass summary). What it does not yet prove: the
+**mixture-vs-naive-ranker axis** (which weighting on the substrate is
+best). Both axes matter. The first is the architectural bet; the
+second is open work for v0.3.
+
+**Honest scope of the measurement.** `/compact` in the harness is a
+qwen2.5:7b-driven summariser, not Claude Code's actual `/compact`
+prompt (closed, not in the loop). Replacing the simulator with captured
+real-`/compact` traces is filed for v0.3 — this is the single change
+that would harden the headline most.
 
 **Sonnet calibration sidebar** (different harness, 2026-05-21). The
 earlier Sonnet 4.6 calibration on the larger 1718-triple set reported
@@ -60,45 +100,56 @@ substrate.
 
 ---
 
-## The case
+## The case for a substrate, not a feature
 
-When `/compact` paraphrases your session, the hostname you corrected an
+Today your session log is parsed once by a summariser and tossed.
+Whatever the summariser misses is gone — the hostname you corrected an
 hour ago, the flag you restated three turns up, the edge case you
-described slowly — these vanish. The summarizer makes one forward pass
-over your conversation with no memory of which parts mattered to *you*.
-It guesses.
+described slowly. The summariser is one consumer with one task; its
+output is throwaway.
 
-Your session log already contains the signal. You corrected. You
-restated. You highlighted spans with the labeler. The importance of each
-turn is not in the model's policy — it is in the substrate of your own
-session files. The question is whether that signal can be extracted into
-a usable per-pair score without a stronger external model deciding for
-you.
+The bet behind this project is that **the parsed substrate is more
+valuable than any single output computed from it**. Once a session
+becomes structured per-pair objects with seven signals attached, the
+same artifact can be queried for compaction *and* stumble prediction
+*and* narrative recall *and* knowledge-gap detection *and* foreign-model
+observability. Same data, different readers. The substrate becomes
+infrastructure.
+
+Compaction is the first published reader because it is the most
+tractable proof point — a fidelity loop with a quantifiable answer.
+The numbers above are about that reader. The wider claim — that the
+substrate is the right primary object — is supported by the other
+consumers listed above existing as separate projects at all, not by a
+benchmark on this README.
 
 Seven signals compose into one importance score: a per-user `misstep`
 predictor as backbone, sixteen density features, four span tiers, one
 sparse human label, modulated by an unsupervised topic-decay multiplier.
 Vectors first; the classifier is a refinement layer, not a gatekeeper.
 Reconstruction fidelity — can the compacted context still answer
-questions about what was hidden from it — is the metric. Not compression
-ratio.
+questions about what was hidden from it — is the metric for the
+compaction reader. Not compression ratio.
 
-Today: a substrate that remembers what you marked, ranked by signals you
-can read and replace. The v0.3 direction is cross-session correlation —
-corrections from one session inform ranking in the next, so recurring
-constraints accumulate weight instead of resetting at each compact. The
-v0.4+ direction is the same signals running in reverse: predict the
-corrections you are about to make, the constraints you are about to set,
-the paths you typically reject. Substrate on disk; an IDE-side assistant
-reads it as lookahead; nothing leaves the host. The substrate becomes a
-memory you can interrogate, then a forecaster you can override.
+The v0.3 direction is **cross-session correlation** — corrections from
+one session inform ranking in the next, so recurring constraints
+accumulate weight instead of resetting at each compact. This is where
+substrate-as-substrate starts paying compound interest that a one-shot
+`/compact` cannot: information from session 17 lifting ranking in
+session 84. The v0.4+ direction is the same signals running in
+reverse — predict the corrections you are about to make, the
+constraints you are about to set, the paths you typically reject.
+Substrate on disk; an IDE-side assistant reads it as lookahead; nothing
+leaves the host. The substrate becomes a memory you can interrogate,
+then a forecaster you can override.
 
 ---
 
 ## Numbers and their meaning
 
-Eight tests. Four shipped with numbers; the rest with the gap named.
-Each result cell has the number on line one and the reading on line two.
+Eight tests, all on the compaction reader (the published consumer).
+Four shipped with numbers; the rest with the gap named. Each result
+cell has the number on line one and the reading on line two.
 
 | # | Test | Status | Result |
 |---|---|---|---|
@@ -135,12 +186,15 @@ hostname you typed thirty turns ago. The pain is concrete.
 to hit compact, or you reset between threads instead of compacting. The
 substrate's whole job kicks in at that boundary.
 
-*The claim:* memory that survives compaction by your criteria, not the
-model's guess. Three commands to first run; no daemon required to try it.
+*The claim:* the substrate parses every correction into a queryable
+object. Today the compaction reader uses that to build a refill context
+shaped by what *you* marked. Tomorrow (v0.3) a cross-session reader
+will spot when this session's correction was the third time you made
+the same one across three sessions and weight it accordingly.
 
 *Action:* `pipx install` → `weighted-compact compat` → `bootstrap`. The
 labeler opens at `:18890/`. Twenty pairs, twenty minutes, one sitting. The
-output is a memory shaped by your corrections.
+output is a substrate; the compaction reader is one command on top.
 
 → [Install](#install) · [Q1 — find your own stumble](#quiz--quest)
 
@@ -168,7 +222,7 @@ the needle directionally; six more are uncharted.
 for the full ablation table, reproduce on your own corpus, file an issue
 with the sign agreement (or disagreement) across your sessions.
 
-→ [Results](#headline) · [`docs/05-roadmap.md`](docs/05-roadmap.md)
+→ [Results](#headline-compaction-consumer) · [`docs/05-roadmap.md`](docs/05-roadmap.md)
 
 ---
 
@@ -231,7 +285,7 @@ default pipeline runs entirely on Ollama (`qwen2.5:7b` generator +
 `gemma3:4b` cheap judge). Zero outbound calls on that path.
 
 *Would make this irrelevant to you:* you noticed Sonnet 4.6 in the
-results table. Yes — the calibration in [Headline](#headline) is a
+results table. Yes — the calibration in [Headline](#headline-compaction-consumer) is a
 maintainer-side one-time cloud-judge run, explicitly disclosed. Users
 who want a Sonnet-grade verdict opt in to their own API key; the
 default binds nothing.
@@ -303,6 +357,27 @@ the weighted-sum mixture in part for exactly this property.
   *What this means for you:* your absolute numbers will be different;
   the direction of effects should reproduce, the magnitudes likely will
   not.
+
+- **Four of five substrate consumers are not shipped here.** misstep,
+  session-narrative, FKMF, misstep-foreign-models are listed in the
+  consumer table because they exist and they read this substrate format.
+  They are not packaged in this repo and they are not publicly
+  available. They support the architectural claim ("the substrate has
+  more than one reader"); they do not give you running tools today.
+  *What this means for you:* if you install weighted-compact, you get
+  the compaction reader and the substrate. You do not get the other
+  four. The substrate format itself is what you can build on.
+
+- **The `/compact` comparator is a local-LLM simulation, not the real
+  `/compact`.** The 8-pp gap in the headline is against a
+  `qwen2.5:7b`-driven summariser, because Anthropic's actual `/compact`
+  prompt is closed and not in the harness. Replacing this with captured
+  real-`/compact` traces is filed for v0.3 and is the single change
+  that would harden the headline most.
+  *What this means for you:* read the 8-pp result as "structured
+  selection beats one-pass local-LLM summarisation on this corpus",
+  not "weighted-compact beats Claude Code `/compact`". The second
+  claim has not been measured.
 
 - **Per-question fidelity floor is 3.8 %.** Most pair-specific detail is
   genuinely lost on compaction; what survives is anchor-rich content
@@ -505,12 +580,15 @@ Platform matrix: [`docs/install.md`](docs/install.md).
 
 | Component | Status |
 |---|---|
-| Memory builder (read sessions, embed, score) | shipped |
-| Importance ranker (7-signal mixture) | shipped |
+| Substrate builder (parse sessions, embed, decorate with 7 signals) | shipped |
+| Importance ranker (7-signal mixture — used by compaction reader) | shipped |
 | Labeling UI (CAPTCHA-style, anti-drift) | shipped |
+| Compaction reader (`build_compacted_context()` library + `qa-gate` harness) | shipped |
+| Standalone session-start delivery CLI (W2 ambient render) | next (`v0.2.x`) |
 | Fidelity check (cross-family judge, Sonnet baseline measured 2026-05-21) | shipped |
-| Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | measured 2026-05-21 — see [Headline](#headline) |
-| Cross-session memory (corrections accumulate across sessions) | `v0.3` direction |
+| Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | measured 2026-05-21 — see [Headline](#headline-compaction-consumer) |
+| Substrate consumed by external readers (misstep / narrative / FKMF / foreign-model) | substrate format stable; readers private — see [Consumers reading this substrate today](#consumers-reading-this-substrate-today) |
+| Cross-session correlation reader (corrections accumulate across sessions) | `v0.3` direction |
 
 Beta. Memory builder, ranker, labeler, and fidelity check work
 end-to-end on a real corpus. Architectural invariants are locked; the

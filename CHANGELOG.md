@@ -8,6 +8,52 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Repositioning — 2026-05-22 substrate-first README
+
+The README headline now leads with **the substrate as artifact**;
+compaction is documented as the first published consumer rather than
+the project's primary identity.
+
+- New top section "**The substrate is the artifact**" — explains that
+  `~/.claude/projects/` is parsed once into per-pair objects decorated
+  with seven signals, and that file lives at
+  `$XDG_DATA_HOME/weighted-compact/`.
+- New table "**Consumers reading this substrate today**" — lists five
+  readers with honest per-row status:
+  - Compaction layer (`build_compacted_context()` library + `qa-gate`
+    harness) — shipped, this repo. Standalone session-start CLI is the
+    next-targeted feature (W2 ambient render).
+  - misstep — stumble predictor, AUC 0.665 on maintainer corpus, **not
+    yet public**.
+  - session-narrative — Layer 1-5 long-form recall, **in development,
+    private**.
+  - FKMF — methodology + skill, no shipped binary.
+  - misstep-foreign-models — design phase, pre-implementation.
+  Only compaction is published; the other four are listed because they
+  prove the substrate has more than one reader, not as available
+  tooling.
+- Compaction-specific headline (8-pp gap vs `/compact` simulator, null
+  vs cheap structured baselines) moved under `## Headline (compaction
+  consumer)` — same data, narrower scope.
+- "The case" rewritten as **"The case for a substrate, not a
+  feature"** — the substrate's value is multi-reader infrastructure;
+  compaction is the most tractable proof point because it has a
+  fidelity loop.
+- Honest-limitations addition: **`/compact` comparator is a local-LLM
+  simulation**, not actual Claude Code `/compact`. Capturing real
+  `/compact` output is the single v0.3 change that would harden the
+  headline most.
+- Honest-limitations addition: **four of five consumers are not shipped
+  here.** Substrate format is the contribution; the other readers
+  support the architectural claim but are not available tools.
+- Status table updated: rows reflect substrate-builder vs compaction
+  reader split; new row for "Substrate consumed by external readers"
+  with format-stable / readers-private status.
+- Daily-user "Pick your door" angle reframed: substrate parses every
+  correction; compaction reader is one use; v0.3 cross-session
+  correlation is where substrate compounds.
+- No code changes. Pipeline, harness, install path unchanged.
+
 ### Measured — 2026-05-21 baseline comparison
 
 First end-to-end comparison run against the seven-signal mixture under
