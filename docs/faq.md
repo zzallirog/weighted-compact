@@ -23,6 +23,31 @@ If you want "agent memory" → use one of the others. If you want "I'm
 hitting context limit, summarize feels lossy, give me a tool that lets me
 participate" → weighted-compact.
 
+## Is the seven-signal mixture actually better than picking random pairs?
+
+Honest answer: at the present scale and judge, the data does not show
+it. The 2026-05-21 baseline run (N=62, k_drop=0.5, `gemma3:4b` judge,
+maintainer corpus) put the mixture at **11.3 %** per-Q fidelity and
+random selection at **12.9 %** — within one question of each other,
+inside the κ=0.47 cheap-judge noise envelope. Recency, cosine retrieval
+(e5), density-only and BM25 all land in the same ±1-question band.
+
+What the data **does** show is an ~8-percentage-point gap between any
+structured selection method (mixture, random, recency, cosine, density,
+BM25) and a one-pass LLM summary analog (qwen-summarized `/compact` =
+3.2 %). That gap is the strongest signal in the baseline table.
+
+So: at this N under this judge, the *architecture* (selecting pairs over
+summarising the dialogue) is shown to be the right call; the *specific
+weighting* of the seven signals is not yet shown to beat a uniform
+random ranker. The pre-registered narrative bar (mixture beats cheap
+baselines by ≥0.05 absolute) is not met by this measurement.
+
+The open paths to resolve are filed under `v0.3` — Sonnet re-judge on
+the same 62-entry set, a larger QA set (200–500), and a coefficient
+grid ablation across all seven weights. Methodology and harness in
+[`docs/baselines.md`](baselines.md).
+
 ## Why doesn't it just call an LLM to summarize?
 
 Because LLM summaries on the same conversation, run twice, return

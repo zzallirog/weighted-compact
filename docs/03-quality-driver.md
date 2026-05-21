@@ -30,11 +30,23 @@ your corrections, your phrasing — and shapes its replies against criteria
 that came from you, not from its pre-training.
 
 In measured fidelity (judge-yes fraction in the reconstruction-QA loop),
-the substrate-weighted path runs roughly **+4 percentage points** above a
-vector-only baseline across the band where the loop currently operates
-(judge-yes ~0.70–0.99 depending on session and corpus). Modest in absolute
-terms, load-bearing in practice — the difference between a context that
-loses your hostname and one that keeps it.
+the **shape of the result** at the 2026-05-21 baseline run is this:
+structured selection of any kind beats a naive `/compact` LLM-summary
+analog by ~8 percentage points (mixture 11.3 % vs qwen-summarized
+compaction 3.2 %, N=62, gemma3:4b judge, k_drop=0.5). Within structured
+selection — random, recency, cosine, mixture, density, BM25 — all
+methods cluster within ±1 question on this corpus at this N. The
+mixture's specific edge over cheap structured baselines is **not yet
+measurable** under the cheap-judge proxy at the κ=0.47 noise envelope.
+
+So the gate's verdict so far: selection-over-vectors beats
+summary-bypass; the *particular* seven-signal weighting needs a
+Sonnet-grade re-judge and a larger QA set to show separation from a
+random ranker. The architecture earns its slot through the gap over
+`/compact`; the mixture's coefficients earn theirs through ablation
+(the label-weight slot has been swept; the other six are filed under
+v0.3). Full numbers and methodology in
+[`docs/baselines.md`](baselines.md).
 
 This is a direction, not a destination. The weights tune by hand. The
 substrate grows session by session. The fidelity gate decides whether each
