@@ -4,7 +4,8 @@
 
 **A substrate for self-distillation from your own Claude Code sessions.**
 
-*Your corrections already mark what mattered. Extract the signal.*
+*Your session is your flow. The substrate keeps it — shaped by what
+you corrected along the way.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
@@ -102,10 +103,12 @@ irrelevant to you, the one number that matters for you, and a single action.
 You correct the model. You restate flags. You watch summaries lose the
 hostname you typed thirty turns ago. The pain is concrete.
 
-*Would make this irrelevant to you:* you do not mind that auto-compact is a
-black box. If `/compact` is fine for your workflow, you do not need this.
+*Would make this irrelevant to you:* your sessions never run long enough
+to hit compact, or you reset between threads instead of compacting. The
+substrate's whole job kicks in at that boundary.
 
-*The number:* three commands to first run. No daemon required to try it.
+*The claim:* memory that survives compaction by your criteria, not the
+model's guess. Three commands to first run; no daemon required to try it.
 
 *Action:* `pipx install` → `weighted-compact compat` → `bootstrap`. The
 labeler opens at `:18890/`. Twenty pairs, twenty minutes, one sitting. The
