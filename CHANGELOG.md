@@ -8,6 +8,37 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Measured — 2026-05-21 baseline comparison
+
+First end-to-end comparison run against the seven-signal mixture under
+the cheap-judge proxy (gemma3:4b, N=62, k_drop=0.5):
+
+| Method | Per-Q fidelity (judge-yes) |
+|---|---:|
+| Random selection | 12.9 % (8/62) |
+| 7-signal mixture | 11.3 % (7/62) |
+| Recency-only | 11.3 % (7/62) |
+| Cosine retrieval (e5) | 11.3 % (7/62) |
+| Density (single signal) | 9.7 % (6/62) |
+| BM25 retrieval | 9.7 % (6/62) |
+| qwen-summarized `/compact` analog | 3.2 % (2/62) |
+
+Headline findings:
+
+- **Structured selection of any kind beats LLM-summary `/compact` by
+  ~8 pp.** This is the strongest signal in the table and survives the
+  κ=0.47 cheap-judge envelope easily.
+- **Mixture vs cheap structured baselines: not measurable at N=62.**
+  Random, recency, cosine all match the mixture within ±1 question.
+  The pre-registered "broad highlight" target (Δ ≥ +0.05 vs cheap
+  baseline) is not met. Narrative shifts to **tight register** per
+  the project's pre-registered decision matrix.
+- The 8-pp `/compact` gap is the value-prop the mixture's architecture
+  earns at present. The within-structured ranker edge remains an open
+  v0.3 question pending Sonnet re-judge and larger N.
+
+Results JSON: `<substrate>/baseline_results.json`.
+
 ### Added — baselines harness
 
 - **`weighted_compact/baselines/` package** with six baseline rankers

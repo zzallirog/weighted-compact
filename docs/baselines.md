@@ -106,12 +106,72 @@ records this commitment.
   the maintainer's. The default `baseline run-all` excludes this tier;
   pass `--include all` to opt in.
 
-## Where the results live
+## Results — 2026-05-21 first run
 
-After a `baseline run-all` run:
+Maintainer corpus, recon_qa_set N=62, k_drop=0.5, gemma3:4b judge.
 
-- `<substrate>/baseline_results.json` — JSON with per-ranker fidelity
-  fractions, ready to populate the README §Headline table.
+| Method | judge-yes | per-Q fidelity |
+|---|---:|---:|
+| Random selection (seed 42) | 8/62 | **12.9 %** |
+| 7-signal mixture | 7/62 | **11.3 %** |
+| Recency-only | 7/62 | 11.3 % |
+| Cosine retrieval (e5) | 7/62 | 11.3 % |
+| Density (single signal) | 6/62 | 9.7 % |
+| BM25 retrieval | 6/62 | 9.7 % |
+| qwen-summarized `/compact` analog | 2/62 | **3.2 %** |
 
-The README §Headline placeholder will be filled when the run completes.
-Until then, the table reads as "harness ready, measurement pending".
+### Reading the table
+
+**Strong finding — structured selection > summary-bypass by ~8 pp.**
+Whatever ranker is used, *selecting* pairs beats discarding pair
+structure for a single LLM summary. This is the value-prop the mixture's
+architecture earns under the present measurement.
+
+**Null finding — mixture vs cheap structured baselines.** At N=62 under
+gemma3:4b judge (κ=0.47 vs Sonnet), the mixture is statistically
+indistinguishable from random / recency / cosine. The pre-registered
+"broad highlight" target (Δ ≥ +0.05 absolute vs cheap baseline) is not
+met. Per the project's narrative-positioning decision matrix, this
+shifts the register to **tight**: report magnitude and direction
+honestly, do not claim a mixture advantage that the data does not show.
+
+**Why this isn't formally a "revert".** The honest-revert criterion is
+"any non-`/compact` baseline beats mixture by ≥0.05 absolute". Random
+beat mixture by **0.016 absolute** (1 question out of 62) — that is
+within noise, not a real signal. So neither the broad-positive nor the
+formal-negative bar is crossed; the result sits in the null zone.
+
+### What this changes about the project's claim
+
+Before this measurement, the README's headline rested on a 3.8 % Sonnet
+floor (with the mixture *implied* to lift above that floor when
+deployed). The new measurement clarifies:
+
+- Lifting above naive `/compact` summary is **shown** — ~8 pp.
+- Lifting above cheap structured baselines is **not yet shown** at this
+  scale under this judge.
+
+So the value the mixture currently earns is *not* "the best ranker" but
+"a ranker that beats summary-bypass and is architected for measurement
+discipline" (replaceable parts, held-out fidelity gate, graceful
+degradation). Whether the mixture's *specific* weights beat random
+requires more data and a stricter judge.
+
+### Open paths to resolve
+
+1. **Sonnet re-judge** on the same 62-entry set — apples-to-apples with
+   the existing 3.8 % Sonnet number. Filed for v0.3.
+2. **Larger QA set** — N=62 has wide binomial CI (±~4 % absolute per
+   row). A 200-500 entry set would shrink the noise to where 1-2 pp
+   differences become measurable.
+3. **Full coefficient grid ablation** — currently only the label-weight
+   slot has been swept (Δ=+0.053 under cheap judge, see §Headline).
+4. **Multi-user reproduction** — open invitation in §Status.
+
+### Where the raw results live
+
+- `<substrate>/baseline_results.json` — the JSON dump produced by
+  `baseline run-all`, with per-ranker counts (judge_yes, substring_pass,
+  fractions) and harness metadata (k_drop, signal, n_qa).
+- `<substrate>/baseline_run_<timestamp>.log` — full run log, including
+  per-ranker progress and any model-load notes.

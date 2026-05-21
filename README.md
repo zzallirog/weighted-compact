@@ -17,19 +17,46 @@ you corrected along the way.*
 
 ## Headline
 
-| Metric (maintainer corpus, 2026-05-21) | Value |
-|---|---:|
-| Per-question fidelity floor — Claude Sonnet 4.6 judge, 573 pairs / 1718 Q-A triples | **3.8 %** |
-| Label-weight ablation — mean Δfidelity (paired, N=57, gemma3 cheap-judge) | **+0.053** |
-| Per-corpus sign agreement, 3 disjoint corpora | **3 / 3 positive** |
-| Cheap-judge calibration — Cohen κ (gemma3:4b vs Sonnet 4.6, 1433 paired predictions) | **0.469** |
+Structured selection of any kind beats a naive LLM-summary `/compact`
+analog by ~8 percentage points of fidelity. The seven-signal mixture's
+edge over cheap structured baselines (random, recency, cosine) is **not
+yet measurable** at this N under the cheap-judge proxy.
 
-Read each row plain. **Floor** — how much pair-specific detail you lose
-when a pair is hidden from context. **Δ** — how much one signal lifts
-that floor when you turn it on. **Sign agreement** — whether the lift
-holds across separate session corpora, not just one. **κ** — how much
-the free local judge agrees with the paid cloud judge, scale-aware.
-Numbers are this corpus; the methodology reproduces on yours.
+| Method | Per-Q fidelity (gemma3:4b judge, N=62, k_drop=0.5) |
+|---|---:|
+| Random selection (seed 42) | **12.9 %** (8/62) |
+| 7-signal mixture (this project) | **11.3 %** (7/62) |
+| Recency-only | 11.3 % (7/62) |
+| Cosine retrieval (e5) | 11.3 % (7/62) |
+| Density (single signal) | 9.7 % (6/62) |
+| BM25 retrieval | 9.7 % (6/62) |
+| Naive `/compact` analog (qwen summarize) | **3.2 %** (2/62) |
+
+Reading. The **8 pp gap between any structured selection and the
+summary-bypass** is the strongest signal in the table: discarding pair
+structure for a one-pass LLM summary loses anchors that any reasonable
+ranker preserves. **Within structured selection**, the mixture does
+not yet outperform a uniform random ranker at this N under the gemma3
+judge (κ=0.47 agreement vs Sonnet). The pre-registered narrative
+target — mixture beats cheap baselines by ≥0.05 absolute — is **not
+met**; the mixture's distinguishing claim needs a Sonnet-grade re-judge
+and a larger QA set before it can be made.
+
+**Sonnet calibration sidebar** (different harness, 2026-05-21). The
+earlier Sonnet 4.6 calibration on the larger 1718-triple set reported
+**3.8 %** per-question fidelity under strict vector-and-anchor policy
+when the source pair was hidden. The cheap-judge agreement against that
+Sonnet pass came in at **Cohen κ = 0.469** (precision 0.70, recall 0.51,
+1433 paired predictions) — the noise envelope around the table above.
+An earlier label-weight ablation under the same cheap judge gave
+**Δfidelity = +0.053** (95 % paired CI [−0.004, +0.109], 3/3 corpora
+positive); under the strict-judge view that signal needs to re-test.
+The 3.8 % number sits on a different N, different judge, and different
+test condition (k_drop=0 hide-source-only vs k_drop=0.5 here); apples-
+to-apples comparison is filed under v0.3.
+
+Numbers are this corpus; the methodology reproduces on any user's
+substrate.
 
 ---
 
@@ -79,7 +106,7 @@ Each result cell has the number on line one and the reading on line two.
 | 2 | **Coefficient ablation** — `label_weight ∈ {0, 0.15}` | shipped, partial sweep | Δ=+0.053, 95 % paired CI [−0.004, +0.109]; per-corpus signs 3 / 3 positive.<br>*Turning the human-label term on raises per-Q fidelity by ≈5 percentage points; CI just crosses zero on the lower bound — direction holds, magnitude borderline.* |
 | 3 | **Cross-corpus consistency** — 3 disjoint session corpora | shipped | A +0.100 / B +0.028 / C +0.021; sign breakdown 13 pos · 6 neg · 38 ties.<br>*Three independent maintainer corpora all show positive Δ — the row-2 effect is not an artefact of one session window.* |
 | 4 | **Cheap-judge calibration** — gemma3:4b vs Sonnet 4.6 | shipped | κ = 0.469, precision 0.70, recall 0.51, zero "other" verdicts.<br>*The free local judge agrees with the paid cloud judge at "moderate" Landis-Koch level — cheap enough for continuous monitoring, not strict enough for definitive scoring.* |
-| 5 | **Anti-baseline** — vs naive `/compact` paraphrase | filed | Comparison harness scheduled; current floor is the open-loop measurement.<br>*No number yet for whether weighted-compact beats Claude Code's native `/compact` — row 1 is the absolute floor, not a delta vs naive selection.* |
+| 5 | **Anti-baseline** — mixture vs naive `/compact` summary + cheap structured rankers | shipped | qwen-summarized `/compact` analog: **3.2 %** (2/62). Mixture: 11.3 % (7/62) — **8 pp gap**. Within structured (random / recency / cosine / mixture / density / bm25): all within ±1 question. Same harness, gemma3:4b judge, k_drop=0.5.<br>*Structured selection of any kind beats one-pass summarisation by a substantial margin. The mixture's edge over cheap structured baselines is not yet measurable at this N under the cheap-judge proxy — that's the open question for v0.3.* |
 | 6 | **Full coefficient grid** — all 7 signal weights | filed | `weighted-compact ablation --weights` one-shot wrapper, v0.3.<br>*Only one of the seven mixture weights has been swept so far; the other six contribute under their heuristic defaults.* |
 | 7 | **Compositional / long-run** — fidelity across rolling 48-pair windows | scaffold | `recon_qa/gate.py` computes buckets; downstream routing partial.<br>*Fidelity is scored per pair, not as a function of accumulated history — cannot yet answer "did the last 30 sessions improve or degrade older recall."* |
 | 8 | **Multi-user scaling** — reproduction on second corpus | open invitation | Methodology is the contribution; magnitudes are not portable.<br>*If you run on your corpus, the absolute numbers will not match — but the direction of the label-weight effect should reproduce.* |
@@ -317,10 +344,19 @@ the weighted-sum mixture in part for exactly this property.
   number looks weird, that's expected — keep using Claude Code, let your
   corpus accumulate, re-bootstrap, then trust the number.
 
-- **No comparison number against Anthropic `/compact` yet.** Filed.
-  *What this means for you:* we can say what the absolute floor is
-  (3.8 %); we cannot yet say "X percentage points better than
-  `/compact`". That comparison is the next quality measurement.
+- **Mixture's edge over cheap structured baselines is not yet
+  measurable.** At N=62 under gemma3:4b judge, random / recency /
+  cosine all match the mixture within ±1 question (12.9 % / 11.3 %
+  / 11.3 % / 11.3 %). The 8-pp gap is between any structured ranker
+  and the summary-bypass — that survives. The pre-registered narrative
+  bar (mixture beats cheap baselines by ≥0.05 absolute) is not met by
+  this measurement.
+  *What this means for you:* if you're picking weighted-compact over
+  a uniform random ranker, the case currently rests on (a) the
+  substantial gap over LLM-summary compaction, and (b) the architecture
+  being designed for Sonnet-grade re-judge and larger corpora where the
+  mixture's signal can express — not on a present measured advantage
+  over cheap baselines.
 
 ---
 
@@ -473,7 +509,7 @@ Platform matrix: [`docs/install.md`](docs/install.md).
 | Importance ranker (7-signal mixture) | shipped |
 | Labeling UI (CAPTCHA-style, anti-drift) | shipped |
 | Fidelity check (cross-family judge, Sonnet baseline measured 2026-05-21) | shipped |
-| Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | harness shipped; measurement run pending |
+| Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | measured 2026-05-21 — see [Headline](#headline) |
 | Cross-session memory (corrections accumulate across sessions) | `v0.3` direction |
 
 Beta. Memory builder, ranker, labeler, and fidelity check work
