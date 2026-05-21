@@ -78,23 +78,44 @@ def save_qa_entry(entry):
         f.write(json.dumps(entry, ensure_ascii=False) + '\n')
 
 
+def _load_cosine_ranker():
+    """Lazy: import only when cosine is requested (pulls sentence-transformers)."""
+    from weighted_compact.baselines.cosine_ranker import CosineRanker
+    return CosineRanker()
+
+
+def _load_bm25_ranker():
+    """Lazy: import only when bm25 is requested (pulls rank-bm25)."""
+    from weighted_compact.baselines.bm25_ranker import Bm25Ranker
+    return Bm25Ranker()
+
+
 _RANKER_LOADERS = {
     'importance': load_importance,
     'density': load_density,
     'random': load_baseline_random,
     'recency': load_baseline_recency,
+    'cosine': _load_cosine_ranker,
+    'bm25': _load_bm25_ranker,
 }
 
 
 def run_eval(k_drop=0.5, ranker='importance', topic_decay=0.5):
     """Evaluate all Q&A entries: build context, query ollama, score with substring + LLM judge.
 
-    ranker: one of the registered ranker names — 'importance' (Phase 4C
-        mixture, default), 'density' (legacy fallback), 'random' (uniform
-        baseline), 'recency' (position-in-session baseline). New static
-        rankers register by adding to `_RANKER_LOADERS`.
+    ranker: one of the registered ranker names —
+        - 'importance' (Phase 4C mixture, default static)
+        - 'density' (legacy fallback static)
+        - 'random' / 'recency' (Phase 1 baseline static)
+        - 'cosine' / 'bm25' (Phase 2 baseline, query-aware — context
+          per Q rather than fixed per source_pair)
+        New rankers register by adding to `_RANKER_LOADERS`.
     topic_decay: float ∈ (0, 1]. 1.0 = disabled; 0.5 = halve per topic step;
         0.0 = drop everything outside current topic.
+
+    Fairness note: static rankers see same context for all Qs under a
+    source_pair; query-aware rankers see per-Q context. This asymmetry
+    is the paradigm comparison the baseline table exposes.
     """
     pairs = load_pairs()
     loader = _RANKER_LOADERS.get(ranker)
@@ -103,14 +124,15 @@ def run_eval(k_drop=0.5, ranker='importance', topic_decay=0.5):
             f'unknown ranker {ranker!r}; '
             f'known: {sorted(_RANKER_LOADERS)}',
         )
-    scores = loader()
+    scoring = loader()  # dict (static) or callable (query-aware)
     topic_map = load_topic_map() if topic_decay < 1.0 else None
     qa_set = load_qa_set()
     results = []
     for entry in qa_set:
         ctx = build_compacted_context(
-            entry['source_pair_idx'], pairs, scores, k_drop,
+            entry['source_pair_idx'], pairs, scoring, k_drop,
             topic_decay=topic_decay, topic_map=topic_map,
+            query=entry.get('q'),
         )
         if not ctx:
             results.append({

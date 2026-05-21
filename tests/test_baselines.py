@@ -138,3 +138,113 @@ def test_run_eval_rejects_unknown_ranker(baseline_fixture):
 
     with pytest.raises(ValueError, match="unknown ranker"):
         fidelity.run_eval(ranker="nonexistent")
+
+
+# ----- Query-aware rankers (Phase 2) ---------------------------------------
+
+
+def test_bm25_ranker_scores_pairs_by_lexical_match(baseline_fixture):
+    """Pair text containing the query token should score higher than pairs
+    that do not. Synthetic — no LLM, no embedding."""
+    pytest.importorskip("rank_bm25")
+    from weighted_compact.baselines.bm25_ranker import Bm25Ranker
+
+    ranker = Bm25Ranker()
+    scores = ranker("alpha")
+    # alpha appears only in pair 0's premise → should score highest
+    assert scores[0] > scores[3]
+    assert scores[0] > scores[5]
+    # All pair indices present
+    assert set(scores.keys()) == {0, 1, 2, 3, 4, 5}
+
+
+def test_bm25_ranker_empty_query_returns_zero_scores(baseline_fixture):
+    pytest.importorskip("rank_bm25")
+    from weighted_compact.baselines.bm25_ranker import Bm25Ranker
+
+    ranker = Bm25Ranker()
+    scores = ranker("")
+    assert all(v == 0.0 for v in scores.values())
+
+
+def test_build_compacted_context_accepts_callable_scoring(baseline_fixture):
+    """Phase 2 contract: scoring may be dict OR callable(query) -> dict.
+    Verifies the refactor without invoking ollama."""
+    from weighted_compact.recon_qa.context import (
+        build_compacted_context,
+        load_pairs,
+    )
+
+    pairs = load_pairs()
+
+    def callable_scoring(query: str) -> dict[int, float]:
+        # Score by query length match — deterministic stub
+        return {p["pair_idx"]: float(len(query)) for p in pairs}
+
+    ctx = build_compacted_context(
+        source_pair_idx=0,
+        pairs=pairs,
+        scoring=callable_scoring,
+        k_drop=0.5,
+        topic_decay=1.0,
+        query="hello",
+    )
+    # source_pair_idx=0 is in session s1 — context should include s1's other pairs
+    assert ctx
+    assert "PREMISE:" in ctx
+
+
+def test_build_compacted_context_callable_requires_query(baseline_fixture):
+    from weighted_compact.recon_qa.context import (
+        build_compacted_context,
+        load_pairs,
+    )
+
+    pairs = load_pairs()
+    callable_scoring = lambda q: {p["pair_idx"]: 1.0 for p in pairs}
+
+    with pytest.raises(ValueError, match="requires query"):
+        build_compacted_context(
+            source_pair_idx=0,
+            pairs=pairs,
+            scoring=callable_scoring,
+            k_drop=0.5,
+            topic_decay=1.0,
+            query=None,
+        )
+
+
+def test_cosine_ranker_smoke(baseline_fixture, tmp_path):
+    """Synthesize a minimal features.npz and verify CosineRanker scores deterministically.
+
+    Skips if sentence-transformers cannot load the e5 model (no network /
+    cache miss in CI)."""
+    pytest.importorskip("sentence_transformers")
+    pytest.importorskip("torch")
+
+    from weighted_compact import config
+
+    # Synthetic features.npz: 6 pairs × 3 windows × 384 dims, normalized
+    n, k, d = 6, 3, 384
+    rng = np.random.default_rng(0)
+    raw = rng.standard_normal(size=(n, k, d)).astype(np.float32)
+    norms = np.linalg.norm(raw, axis=2, keepdims=True)
+    norms[norms == 0] = 1.0
+    windows = raw / norms
+    np.savez(
+        config.features_path(),
+        windows=windows,
+        pair_indices=np.array([0, 1, 2, 3, 4, 5], dtype=np.int32),
+        labels_3tier=np.array([2] * 6, dtype=np.int8),
+    )
+
+    try:
+        from weighted_compact.baselines.cosine_ranker import CosineRanker
+        ranker = CosineRanker()
+    except (OSError, RuntimeError) as exc:
+        pytest.skip(f"e5 model unavailable: {exc}")
+
+    scores = ranker("any test query")
+    assert set(scores.keys()) == {0, 1, 2, 3, 4, 5}
+    # Cosine scores must lie in [-1, 1]
+    assert all(-1.0 <= v <= 1.0 for v in scores.values())

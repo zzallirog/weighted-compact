@@ -98,11 +98,17 @@ def load_baseline_recency():
     return _load_baseline_npz(BASELINE_RECENCY, 'recency')
 
 
-def build_compacted_context(source_pair_idx, pairs, scores, k_drop=0.5,
-                            topic_decay=0.5, topic_map=None):
+def build_compacted_context(source_pair_idx, pairs, scoring, k_drop=0.5,
+                            topic_decay=0.5, topic_map=None, query=None):
     """Assemble markdown context for a session, hiding source_pair (ground truth).
 
-    `scores` is a dict pair_idx → ranking score (higher = preserve).
+    `scoring` is one of:
+      - dict[pair_idx, float] — pre-computed static ranking (importance,
+        density, random, recency baselines)
+      - callable(query: str) -> dict[pair_idx, float] — query-aware ranker
+        (cosine, BM25) that recomputes per-pair scores given the question
+
+    For callable rankers, `query` must be provided.
 
     Topic-shift drop (Phase 4E, no classifier — pure embedding cohesion):
       topic_map: dict pair_idx → topic_id.
@@ -110,6 +116,15 @@ def build_compacted_context(source_pair_idx, pairs, scores, k_drop=0.5,
       effective_score = scores[pid] * topic_decay^d.
       Pass topic_map=None (or topic_decay=1.0) to disable.
     """
+    if callable(scoring):
+        if query is None:
+            raise ValueError(
+                'callable scoring (query-aware ranker) requires query argument',
+            )
+        scores = scoring(query)
+    else:
+        scores = scoring
+
     source_pair = pairs[source_pair_idx]
     sess = source_pair['session_id']
     session_pairs = [

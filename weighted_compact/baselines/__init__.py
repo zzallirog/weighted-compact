@@ -1,22 +1,25 @@
 """Baseline rankers for fidelity comparison against the seven-signal mixture.
 
-Each ranker is a drop-in replacement for `importance.npz` — produces an
-npz with two required keys (`pair_indices`, `importance`) plus optional
-`meta`. Fed into `recon_qa.run_eval(ranker=<name>)`.
+Two flavours:
 
-Static rankers (this module shipped first):
+**Static rankers** — produce a drop-in `importance.npz`-shaped artefact
+on disk (pair_indices + importance ∈ [0, 1]). Loaded once into a dict
+and fed to `recon_qa.run_eval(ranker=<name>)`:
     random_ranker   — seeded uniform; absolute lower bound
     recency_ranker  — position-in-session ascending; cheapest baseline
 
-Query-aware rankers (Phase 2, planned):
-    cosine_ranker, bm25_ranker — see plan file.
+**Query-aware rankers** — stateful callable objects, construct once and
+score per Q at fidelity.run_eval call time:
+    cosine_ranker (CosineRanker)  — e5 dense similarity to query
+    bm25_ranker   (Bm25Ranker)    — sparse-IR classical baseline
 
 Naive `/compact` simulator (Phase 3, planned):
-    compact_simulator — bypass pair-selection entirely, summarize via LLM.
+    compact_simulator — bypass pair selection entirely, summarize via LLM.
 
-Each module exposes a `build()` entry point that writes its npz, plus a
-top-level `main()` for CLI dispatch via `weighted-compact baseline build
---ranker X`.
+Each module exposes `build()` (writes npz for static, smoke-constructs
+for query-aware) and `main()` for CLI dispatch via `weighted-compact
+baseline build --ranker X`. Query-aware rankers are also imported lazily
+by `recon_qa.fidelity` so cold-start cost of static rankers is unaffected.
 """
 
 from weighted_compact.baselines import random_ranker, recency_ranker

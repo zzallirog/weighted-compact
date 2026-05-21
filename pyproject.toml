@@ -38,6 +38,10 @@ ml = [
     "scikit-learn>=1.5",
     "sentence-transformers>=3.0",
 ]
+baselines = [
+    "sentence-transformers>=3.0",
+    "rank-bm25>=0.2.2",
+]
 dev = [
     "pytest>=8.3",
     "ruff>=0.7",

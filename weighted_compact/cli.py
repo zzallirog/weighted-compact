@@ -275,7 +275,11 @@ def eval_cmd() -> None:
 @click.option("--hard-k", default=0.9, type=float,
               help="Strong compaction (fraction of pairs dropped).")
 @click.option("--ranker", default="importance",
-              type=click.Choice(["importance", "density", "random", "recency"]))
+              type=click.Choice([
+                  "importance", "density",
+                  "random", "recency",
+                  "cosine", "bm25",
+              ]))
 @click.option("--signal", default="judge",
               type=click.Choice(["judge", "substring"]),
               help="Pass metric: judge (recommended) or substring.")
