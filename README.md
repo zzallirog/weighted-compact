@@ -67,19 +67,19 @@ override.
 
 ## Proof machine
 
-Five tests. Each is either shipped (with numbers below) or filed (with the
-gap named).
+Eight tests. Four shipped with numbers; the rest with the gap named.
+Each result cell has the number on line one and the reading on line two.
 
 | # | Test | Status | Result |
 |---|---|---|---|
-| 1 | **Ground-truth fidelity** under cross-family judge | shipped | Sonnet 4.6, 573 pairs → 3.8 % per-Q fidelity floor; failure split: ~40 % IDK / ~24 % paraphrase / ~6 % ranking error |
-| 2 | **Coefficient ablation** — `label_weight ∈ {0, 0.15}` | shipped, partial sweep | Δ=+0.053, 95 % paired CI [−0.004, +0.109]; per-corpus signs 3 / 3 positive |
-| 3 | **Cross-corpus consistency** — 3 disjoint session corpora | shipped | A +0.100 / B +0.028 / C +0.021; sign breakdown 13 pos · 6 neg · 38 ties |
-| 4 | **Cheap-judge calibration** — gemma3:4b vs Sonnet 4.6 | shipped | κ = 0.469, precision 0.70, recall 0.51, zero "other" verdicts |
-| 5 | **Anti-baseline** — vs naive `/compact` paraphrase | filed | Comparison harness scheduled; current floor is the open-loop measurement |
-| 6 | **Full coefficient grid** — all 7 signal weights | filed | `weighted-compact ablation --weights` one-shot wrapper, v0.3 |
-| 7 | **Compositional / long-run** — fidelity across rolling 48-pair windows | scaffold | `recon_qa/gate.py` computes buckets; downstream routing partial |
-| 8 | **Multi-user scaling** — reproduction on second corpus | open invitation | Methodology is the contribution; magnitudes are not portable |
+| 1 | **Ground-truth fidelity** under cross-family judge | shipped | Sonnet 4.6, 573 pairs → 3.8 % per-Q fidelity floor; failure split: ~40 % IDK / ~24 % paraphrase / ~6 % ranking error.<br>*≈96 % of pair-specific detail vanishes when that pair is hidden from context — the absolute starting point, before the mixture does any work.* |
+| 2 | **Coefficient ablation** — `label_weight ∈ {0, 0.15}` | shipped, partial sweep | Δ=+0.053, 95 % paired CI [−0.004, +0.109]; per-corpus signs 3 / 3 positive.<br>*Turning the human-label term on raises per-Q fidelity by ≈5 percentage points; CI just crosses zero on the lower bound — direction holds, magnitude borderline.* |
+| 3 | **Cross-corpus consistency** — 3 disjoint session corpora | shipped | A +0.100 / B +0.028 / C +0.021; sign breakdown 13 pos · 6 neg · 38 ties.<br>*Three independent maintainer corpora all show positive Δ — the row-2 effect is not an artefact of one session window.* |
+| 4 | **Cheap-judge calibration** — gemma3:4b vs Sonnet 4.6 | shipped | κ = 0.469, precision 0.70, recall 0.51, zero "other" verdicts.<br>*The free local judge agrees with the paid cloud judge at "moderate" Landis-Koch level — cheap enough for continuous monitoring, not strict enough for definitive scoring.* |
+| 5 | **Anti-baseline** — vs naive `/compact` paraphrase | filed | Comparison harness scheduled; current floor is the open-loop measurement.<br>*No number yet for whether weighted-compact beats Claude Code's native `/compact` — row 1 is the absolute floor, not a delta vs naive selection.* |
+| 6 | **Full coefficient grid** — all 7 signal weights | filed | `weighted-compact ablation --weights` one-shot wrapper, v0.3.<br>*Only one of the seven mixture weights has been swept so far; the other six contribute under their heuristic defaults.* |
+| 7 | **Compositional / long-run** — fidelity across rolling 48-pair windows | scaffold | `recon_qa/gate.py` computes buckets; downstream routing partial.<br>*Fidelity is scored per pair, not as a function of accumulated history — cannot yet answer "did the last 30 sessions improve or degrade older recall."* |
+| 8 | **Multi-user scaling** — reproduction on second corpus | open invitation | Methodology is the contribution; magnitudes are not portable.<br>*If you run on your corpus, the absolute numbers will not match — but the direction of the label-weight effect should reproduce.* |
 
 The label-weight ablation clears the positive bar on two independent
 axes: the paired mean (Δ=+0.053) and the per-corpus signs (3/3 positive,
