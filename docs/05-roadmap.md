@@ -22,9 +22,12 @@ where each box sits on that ladder.
   cross-topic selections by `topic_decay ^ |Δtopic|`.
 
 - **Reconstruction-QA loop (MVP).** The loop runs. Q&A sets accumulate.
-  Fidelity scores are informative after ~50 baseline samples.
-  The ablation result (label signal Δ+0.053, CI [−0.004, +0.109])
-  was produced by this loop.
+  Fidelity scores are informative after ~50 baseline samples. The
+  2026-05-21 honest-baseline run below is the loop's gold-standard
+  output under Sonnet 4.6; the earlier label-weight ablation result
+  (gemma3 judge, Δ+0.053, CI [−0.004, +0.109]) is now read as a
+  cheap-judge proxy result with the gemma3 vs Sonnet κ=0.47 noise
+  envelope.
 
 - **recon_qa modularized.** The monolithic `recon_qa.py` is now a
   package with five independent black boxes, each with a documented

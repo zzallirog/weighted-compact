@@ -49,7 +49,7 @@ Five distinct readers, same substrate underneath. Pick yours.
 | Reader | The hook | Jump |
 |---|---|---|
 | 🌱 &nbsp;**Daily Claude Code user** | The hostname you corrected once an hour ago does not vanish at compaction | [↓](#angle-daily-user) |
-| 🔬 &nbsp;**Memory & distillation researcher** | Seven-signal mixture · cross-family judge · N=57 ablation reported honestly | [↓](#angle-researcher) |
+| 🔬 &nbsp;**Memory & distillation researcher** | Seven-signal mixture · cross-family judge · Sonnet 4.6 ground-truth baseline on 573 pairs + gemma3 cheap-judge proxy (κ=0.47) | [↓](#angle-researcher) |
 | 🔧 &nbsp;**Builder / signal tinkerer** | One file = one black-box contract; 30-line patch lands a new signal | [↓](#angle-builder) |
 | 🕵️ &nbsp;**Dialog reconstructor** | Recon-QA is a fitness function: keep mixing signals until the hidden pair comes back | [↓](#angle-reconstructor) |
 | 🔒 &nbsp;**Local-first / privacy** | Substrate stays in `$XDG_DATA_HOME`; CI scans every commit for leaks | [↓](#angle-privacy) |
@@ -93,22 +93,34 @@ What you get in the roadmap (`v0.3+`, not shipped):
 
 ### 🔬 &nbsp; If you read papers on memory and distillation
 
-*Seven signals, cross-family judge, EvoEnv difficulty filter, ablation reported with CI not just point estimate.*
+*Seven-signal mixture (plus topic-decay multiplier = 8 modules), cross-family judge in two tiers — Sonnet 4.6 as ground truth, gemma3:4b as cheap proxy with measured agreement.*
 
-Seven-signal weighted mixture: a per-user `misstep` logistic regression
-(AUC 0.665 on the maintainer's corpus) + 16-feature density + per-tier
-span coverage (KEEP/MAYBE/SKIP/THINK) + sparse human label. Cross-family judge — `gemma3:4b`
-(Gemma) verifies `qwen2.5:7b` (Qwen) reconstructions to avoid
+Seven-signal weighted sum: a per-user `misstep` logistic regression
+(misstep-predictor AUC 0.665 on the maintainer's corpus — backbone signal, not a
+fidelity proxy) + 16-feature density + per-tier span coverage
+(KEEP/MAYBE/SKIP/THINK) + sparse human label. A topic-decay multiplier
+penalizes cross-topic selections on top of the sum. Cross-family judge —
+`gemma3:4b` (Gemma) verifies `qwen2.5:7b` (Qwen) reconstructions to avoid
 same-family agreement bias. EvoEnv-style difficulty filtering
-(arXiv:2605.14392) buckets pairs into trivial / impossible /
-informative. Per-pair fidelity is a 4-valued discrete score on 3
-questions, baseline-gated at ~50 samples.
+(arXiv:2605.14392) buckets pairs into trivial / impossible / informative.
+Per-pair fidelity is a 4-valued discrete score on 3 questions.
 
-Reported ablation (in-repo, not journal): label weight `0.0` vs `0.15`,
-N=57 paired — underpowered, treat as directional. Mean Δfidelity =
-**+0.053**, 95% CI [−0.004, +0.109], positive direction in 3/3 corpora.
-Lower-bound just touches zero — honest "marginal significance,
-consistent sign", not a published result claim.
+**Two-tier judge results, 2026-05-21 maintainer baseline:**
+
+- *Ground truth (Sonnet 4.6, 573 pairs, 1718 Q/A triples).* Per-question
+  fidelity **3.8 %** under strict vector-AND-anchor policy. Two pairs at
+  1.0; 518 of 573 at 0.0. Most pair-specific detail is genuinely lost on
+  compaction — what survives is anchor-rich content (entities, numbers,
+  paths). This is the floor weighted-compact has to lift; see
+  [`docs/05-roadmap.md`](docs/05-roadmap.md) for the failure breakdown.
+- *Cheap-judge proxy (gemma3:4b vs Sonnet, same 1433 predictions).*
+  Cohen κ = 0.469, precision 0.70, recall 0.51. Viable for continuous
+  monitoring with caveats; not a substitute for Sonnet on definitive
+  scoring.
+- *Label-weight ablation (gemma3 judge, N=57 paired).* Mean Δfidelity =
+  **+0.053**, 95 % CI [−0.004, +0.109], positive in 3/3 corpora. Read this
+  as directional under the cheap-judge proxy; the κ=0.47 dispersion is the
+  noise floor. Re-running this ablation under Sonnet is filed.
 
 → [Results](#results) · [`docs/importance-mixture.md`](docs/importance-mixture.md)
 
@@ -193,9 +205,9 @@ hypothesis about what signal catches what:
 - Anything else you can write a regex or a classifier for
 
 Add the signal. Re-run the loop. The numbers tell you whether your
-hypothesis holds up under [paired evaluation](#results) — currently
-N=57 pairs across 3 disjoint corpora, underpowered, read as
-directional.
+hypothesis holds up under [paired evaluation](#results) — currently a
+two-tier judge stack (Sonnet 4.6 ground truth on 573 pairs; gemma3:4b
+cheap proxy at κ=0.47 for ablations like the N=57 label-weight run).
 
 → [Quiz / Quest Q3](#quiz--quest) · [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md)
 
@@ -205,19 +217,30 @@ directional.
 
 ### 🔒 &nbsp; If you care about local-first and privacy
 
-*Substrate lives in `$XDG_DATA_HOME`. Never uploaded. CI scans every commit for leaks.*
+*Default pipeline is local. Substrate lives in `$XDG_DATA_HOME`. Never uploaded. CI scans every commit for leaks.*
 
 Substrate lives in `$XDG_DATA_HOME/weighted-compact/`. Gitignored.
-Never uploaded. No telemetry. No cloud sync. No federation. Each
-install grows its own substrate from its own sessions — there is no
-shared baseline, by design.
+No telemetry. No cloud sync. No federation. Each install grows its
+own substrate from its own sessions — there is no shared baseline,
+by design. The default pipeline runs entirely on Ollama
+(`qwen2.5:7b` generator + `gemma3:4b` cheap judge); nothing leaves
+the host on that path.
 
-`scripts/leak-scan.sh` enforces this in CI: every commit is grepped
-for substrate filename patterns (`*.jsonl`, `*.npz`, `*.model`) and
-hardcoded `/home/*/...` paths. The remote repo is an orphan-cut
-branch carrying only framework code; the maintainer's substrate, with
-personal session history, lives on a private mirror and never touches
-GitHub.
+**Disclosure for the published numbers.** The Sonnet 4.6 ground-truth
+calibration in the [Results](#results) section was produced by sending
+QA triples through the Anthropic API as a one-time maintainer-side
+gold-standard run, not by the default pipeline. The local-only
+guarantee holds for the user's pipeline; the maintainer's calibration
+chose a cloud judge for that specific run and discloses it here.
+Users who want a Sonnet-grade verdict opt in explicitly; the default
+binds nothing to the API.
+
+`scripts/leak-scan.sh` enforces local-substrate isolation in CI:
+every commit is grepped for substrate filename patterns (`*.jsonl`,
+`*.npz`, `*.model`) and hardcoded personal-home paths (`/home/*/...`,
+`/Users/*/...`, `/root/*/...`). The remote repo is an orphan-cut branch carrying
+only framework code; the maintainer's substrate, with personal
+session history, lives on a private mirror and never touches GitHub.
 
 → [Architectural invariants](#architectural-invariants) · [`docs/invariants.md`](docs/invariants.md)
 
@@ -320,10 +343,13 @@ stabilised after. Were they? If yes, the predictor caught your
 stumbles. If not, your corpus is below the training threshold — keep
 using Claude Code and re-bootstrap in a week.
 
-**Q2 — Reproduce the public ablation on your own corpus.**
-Public number from 3 corpora, N=57: mean Δfidelity = +0.053 (CI
-[−0.004, +0.109]). Reproduce on your substrate by toggling the label
-weight in two passes:
+**Q2 — Run the label-weight ablation on your own corpus.**
+On the maintainer's corpus, gemma3-judged N=57 paired pairs across 3
+corpora gave mean Δfidelity = +0.053 (CI [−0.004, +0.109]). Treat that
+as the cheap-judge proxy direction — gemma3 has κ=0.47 vs Sonnet, so
+your local re-run will sit inside the same noise envelope. The goal is
+to see whether the **sign** matches on your corpus, not to reproduce
+the magnitude.
 
 ```bash
 # Pass A: baseline with label weight as shipped (0.15)
@@ -338,7 +364,8 @@ Compare the `informative` bucket pass-rate between A and B. If A > B,
 your corrections are landing at a layer the label signal sees. If
 A ≈ B, your sessions correct at a layer the labels do not capture —
 the misstep or density signals are doing the work, and the label
-weight may want to be lower for you.
+weight may want to be lower for you. Expected gemma3 noise on a single
+run is large; multiple seeds or a Sonnet-grade judge tighten it.
 
 > *A proper `weighted-compact ablation --weights …` one-shot wrapper is
 > filed under v0.3 — it would orchestrate the two passes above and
@@ -358,24 +385,67 @@ shipped a signal-level improvement to your own substrate.
 
 ## Results
 
-The numbers below come from a paired ablation on the maintainer's own
-substrate. They are honest, not knockout — fidelity is a 4-valued
-discrete score on 3 questions per pair, and ties dominate at the
-current sample size.
+Two judges, two numbers, two reading rules. Both come from the
+maintainer's own substrate; methodology reproduces on any user's
+corpus, magnitudes will not.
 
-**Label-weight ablation, 3 disjoint session corpora, N=57 paired pairs:**
+### Ground-truth baseline — Claude Sonnet 4.6 judge, 573 pairs
+
+The 2026-05-21 honest-baseline run: every pair gets 3 questions
+generated by `qwen2.5:7b`, context with the source pair hidden is
+handed to the same generator, the predicted answer is judged by
+Claude Sonnet 4.6 against the truth answer under a strict
+vector-AND-anchor policy. See [`docs/05-roadmap.md#2026-05-21`](docs/05-roadmap.md#2026-05-21--honest-baseline-run-substrate-snapshot) for the full breakdown.
+
+| Metric | Value |
+|---|---|
+| Per-question fidelity (Sonnet 4.6) | **3.8 %** |
+| Pairs at fidelity 1.0 / 0.0 | 2 / 518 (out of 573) |
+| Failure: generator returned IDK | ~40 % of misses |
+| Failure: vague paraphrase (anchor dropped) | ~24 % |
+| Failure: actual ranking error (`direction_wrong`) | ~6 % |
+| Sample yes-verdict patterns | technical identifiers, file paths, numeric ranges, short verbatim |
+
+Read: most pair-specific detail is genuinely lost on compaction. What
+survives is anchor-rich content. This is the floor weighted-compact
+has to lift — not a regression, the absolute starting position. The
+narrower-than-expected ranking-failure share (~6 %) means the
+importance-scoring debug target is smaller than it first looked; the
+larger lever is anchor-aware rendering (W2) and stronger generators.
+
+> *Disclosure: the Sonnet calibration is a maintainer-side cloud-judge
+> run, not the user's default pipeline. See
+> [privacy angle](#angle-privacy).*
+
+### Cheap-judge proxy — gemma3:4b vs Sonnet on the same predictions
+
+| Metric | Value |
+|---|---|
+| Cohen κ (gemma3:4b vs Sonnet 4.6) | 0.469 |
+| Precision · recall | 0.70 · 0.51 |
+| "other" verdicts | 0 |
+
+Read: gemma3 is a viable cheap proxy for continuous monitoring with
+known dispersion. Not a substitute for Sonnet on definitive scoring.
+The earlier informal "10× inflation" reading of older gemma3 runs was
+pipeline drift between cached predictions, not judge leniency — the
+calibration above is the correct number.
+
+### Label-weight ablation — under the cheap-judge proxy, N=57
+
+Older paired run, gemma3 judge, 3 disjoint session corpora:
 
 | Metric | Value |
 |---|---|
 | Mean Δfidelity, `label_weight=0.15` vs `0.0` | **+0.053** |
-| 95% paired CI | [−0.004, +0.109] |
+| 95 % paired CI | [−0.004, +0.109] |
 | Sign breakdown | 13 positive · 6 negative · 38 ties |
 | Per-corpus direction | positive in all three (A +0.100 · B +0.028 · C +0.021) |
 
-Read: keeping the label signal in the importance mixture helps modestly
-and consistently. CI just barely crosses zero on the lower bound, so
-this is directionally consistent at marginal significance for N=57 —
-not noise, not a knockout. Full table and per-corpus rows in
+Read: directionally consistent under gemma3 — but with κ=0.47 noise
+floor, the magnitude is not stable. The sign matched on 3/3 corpora;
+that is what the result actually buys. Re-running this ablation under
+Sonnet is filed. Full table and per-corpus rows in
 [`docs/importance-mixture.md`](docs/importance-mixture.md#ablation-label-weight-effect-on-recon-qa-fidelity).
 
 **What the pipeline catches:**
@@ -397,7 +467,11 @@ not noise, not a knockout. Full table and per-corpus rows in
   threshold should be read as illustrative, not calibrated — see
   [`docs/03-quality-driver.md`](docs/03-quality-driver.md#the-50-sample-baseline-problem)
 - Misstep predictor AUC 0.665 on the maintainer's corpus — useful as a
-  backbone signal, not yet calibrated across users
+  backbone signal for importance ranking, not yet calibrated across
+  users. Distinct from the fidelity-proxy classifier (a separate
+  attempt to predict Sonnet's fidelity verdict from engineered
+  features, AUC ≈ 0.5, parked — see
+  [`docs/05-roadmap.md`](docs/05-roadmap.md))
 - No shared community weights file; every install starts from scratch
   and accumulates its own baseline against its own corpus
 
@@ -432,7 +506,11 @@ Requirements:
 - `~/.claude/projects/` populated — you have used Claude Code on this host
 - Optional: `sentence-transformers` for re-embedding fresh corpora
 - Optional: [Ollama](https://ollama.com) with `qwen2.5:7b` + `gemma3:4b`
-  for the reconstruction-QA loop
+  for the default local reconstruction-QA loop (cheap-judge proxy,
+  κ=0.47 vs Sonnet — see [Results](#results))
+- Optional: an Anthropic API key for a Sonnet-grade judge on top of
+  the local pipeline — opt-in, not the default; published Sonnet
+  numbers used this path
 
 Full platform matrix and install footprint: [`docs/install.md`](docs/install.md).
 
@@ -447,7 +525,7 @@ Full platform matrix and install footprint: [`docs/install.md`](docs/install.md)
 | Span-level annotations + topic decay | shipped |
 | Drift inspector + iter chain | shipped (`v0.2.0-beta.1`) |
 | Per-pair fidelity (conflict / fidelity modes) | shipped (`v0.2.0-beta.1`) |
-| Reconstruction-QA loop (W3) | shipped — honest baseline established (Sonnet judge over 573 pairs, [roadmap §2026-05-21](docs/05-roadmap.md)) |
+| Reconstruction-QA loop (W3) | loop end-to-end + Sonnet baseline measured (573 pairs, [roadmap §2026-05-21](docs/05-roadmap.md)); gate→labeling-queue routing partial |
 | `recon_qa/` package split (5 black boxes) | shipped (`v0.2.0-beta.1`) |
 | `weighted-compact qa-gate` CLI | shipped (`v0.2.0-beta.1`) |
 | Cheap-judge calibration (cross-family agreement) | shipped — κ=0.47 vs Sonnet on local gemma3:4b, viable proxy with caveats |

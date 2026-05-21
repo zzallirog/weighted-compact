@@ -4,8 +4,8 @@
 > this checkout, read this file first and then jump to the relevant subdir.
 > Do not read every file — use the map below.
 
-**Repo version:** 0.0.01 (first public cut, 2026-05-16)
-**Status:** pre-alpha. Architectural invariants locked. Numbers tunable.
+**Repo version:** v0.2.0-beta.2 (cut 2026-05-20; honest baseline run 2026-05-21)
+**Status:** beta. Architectural invariants locked. Numbers tunable.
 
 ---
 
@@ -40,9 +40,12 @@ If you are an LLM reading this repo to answer a question or make a change:
   history using **vectors first, classifier as a refinement layer**, with a
   CAPTCHA-style labeler for human-in-the-loop tuning.
 - **Architecture:** three independent layers — substrate (`extract_pairs` +
-  `feature_extract` over `~/.claude/projects/`) → importance mixture (six
-  signals composed continuously) → reconstruction-QA (compression-fidelity
-  gate). Each layer disables cleanly if its dependencies are missing.
+  `feature_extract` over `~/.claude/projects/`) → importance mixture (seven
+  signals composed continuously, plus a topic-decay multiplier on top) →
+  reconstruction-QA (compression-fidelity gate, default local gemma3 judge
+  with Sonnet 4.6 ground-truth calibration runs reported in
+  `docs/05-roadmap.md`). Each layer disables cleanly if its dependencies are
+  missing.
 - **Where it runs:** localhost only, FastAPI on `:18890`, no external services.
 - **Privacy:** substrate carries raw conversation text. Stays under
   `$XDG_DATA_HOME/weighted-compact/`, gitignored, never uploaded.
