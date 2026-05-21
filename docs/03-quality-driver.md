@@ -193,4 +193,4 @@ Full ablation details in [`docs/importance-mixture.md`](importance-mixture.md).
 - [`docs/02-pipeline.md`](02-pipeline.md) — where fidelity sits in the pipeline
 - [`docs/reconstruction-qa.md`](reconstruction-qa.md) — the eval loop in full detail
 - [`docs/04-grep-vs-judge.md`](04-grep-vs-judge.md) — two-tier signal economics
-- [`docs/importance-mixture.md`](importance-mixture.md) — the six signals and the ablation data
+- [`docs/importance-mixture.md`](importance-mixture.md) — the seven signals and the ablation data

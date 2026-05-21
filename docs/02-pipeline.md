@@ -187,7 +187,7 @@ importance = (
 )
 ```
 
-**How it opens.** Weighted sum of six signals (see
+**How it opens.** Weighted sum of seven signals (see
 [`docs/importance-mixture.md`](importance-mixture.md) for the full formula
 and the ablation data). Weights are heuristic defaults; adjust in
 `importance.py:WEIGHTS` and re-run. The reconstruction-QA loop tells you

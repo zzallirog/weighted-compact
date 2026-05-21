@@ -127,6 +127,15 @@ How load-bearing is the `label` slot? The
 [reconstruction-QA loop](reconstruction-qa.md) is the tool that
 answers this — flip the weight, re-run, see the score move.
 
+> **Cheap-judge proxy result, read accordingly.** The ablation below
+> uses `gemma3:4b` as judge — the cheap-judge tier of the recon-QA
+> stack. Subsequent calibration against Claude Sonnet 4.6 on the same
+> substrate gave Cohen κ = 0.47 (see [`docs/05-roadmap.md#2026-05-21`](05-roadmap.md#2026-05-21--honest-baseline-run-substrate-snapshot)),
+> so the magnitude below sits inside a known dispersion envelope. The
+> result that survives the κ=0.47 noise floor is the **sign**: positive
+> in 3/3 corpora. Re-running this ablation under Sonnet is filed under
+> v0.3.
+
 Setup (run 2026-05-19):
 
 - Ablation grid: `label_weight ∈ {0.0, 0.15}` × `seed ∈ {1..5}` × three

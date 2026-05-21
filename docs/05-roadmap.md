@@ -9,8 +9,9 @@ where each box sits on that ladder.
 ## What is working now (v0.2.0-beta.1)
 
 - **Substrate pipeline end-to-end.** extract_pairs → e5 embeddings →
-  six-signal importance mixture → compacted context. Runs on a real
-  session corpus. Output is a ranked selection from your own turns.
+  seven-signal importance mixture (plus topic-decay multiplier) →
+  compacted context. Runs on a real session corpus. Output is a
+  ranked selection from your own turns.
 
 - **Labeler with anti-drift.** Quiz / Drift Inspector / Fidelity views
   over one substrate. All three views write to the same `labels.jsonl`.

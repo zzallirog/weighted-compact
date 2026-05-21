@@ -15,8 +15,8 @@ Different problem.
 | **Goal** | long-term agent memory across sessions | rebuilding *one* session that hit context limit |
 | **Operator model** | "the agent" | "the user co-designing how the agent gets compressed" |
 | **Distillation** | LLM-generated summaries / Mermaid graphs | top-K weighted selection of *original* spans |
-| **Tuning** | hyperparameters, zero-config defaults | continuous mixture of six signals + human labels |
-| **Privacy** | local-first claimed; cloud-friendly | local-only, no cloud option exists |
+| **Tuning** | hyperparameters, zero-config defaults | continuous mixture of seven signals + human labels |
+| **Privacy** | local-first claimed; cloud-friendly | local-only by default; optional opt-in cloud judge for ground-truth calibration runs (see [privacy angle](../README.md#angle-privacy)) |
 | **Maturity** | 1.9k★, polished, multi-user | beta, personal workbench |
 
 If you want "agent memory" → use one of the others. If you want "I'm
