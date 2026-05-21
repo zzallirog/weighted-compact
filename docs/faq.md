@@ -37,7 +37,7 @@ compaction itself is deterministic.)
 ## Why human-in-the-loop? Can't this be automated?
 
 It can be partially automated. The Phase 4 mixture weights already are —
-six independent signals compose continuously, no hand-labels needed for
+seven independent signals compose continuously, no hand-labels needed for
 the basic case.
 
 But: the *direction* of the weighting is a personal choice. What you

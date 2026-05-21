@@ -48,7 +48,7 @@ to the importance score, and the substrate is honest about that.
 - **Compact** — the goal is to fit a long session into the working context
   budget. The output is a compacted context, not a summary.
 - **Weighted** — every span carries a continuous importance score derived
-  from six independent signals, not a binary keep/drop verdict. The
+  from seven independent signals, not a binary keep/drop verdict. The
   budget allocation is a weighted top-K, not a threshold cut.
 
 The classifier exists to refine the weighting, not to gate it. If the

@@ -1,6 +1,6 @@
 # Importance mixture
 
-The continuous importance score for each pair is a weighted sum of six
+The continuous importance score for each pair is a weighted sum of seven
 independent signals, clipped to `[0, 1]`. Each signal measures something
 different about the underlying pair, so no single source can produce a
 Goodhart artifact by itself.
