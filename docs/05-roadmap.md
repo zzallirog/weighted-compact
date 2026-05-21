@@ -32,19 +32,85 @@ where each box sits on that ladder.
 
 ---
 
+## 2026-05-21 — honest baseline run (substrate snapshot)
+
+The reconstruction-QA loop was run end-to-end with Claude Sonnet 4.6 as
+the cross-family judge over the maintainer's substrate (573 pairs, 1718
+question-answer triples). Numbers are corpus-specific; methodology is
+reproducible on any user's substrate.
+
+**Headline.**
+
+- Sonnet 4.6 with strict vector-AND-anchor policy: **3.8% per-question
+  fidelity** when the source pair is hidden from context. Two pairs at
+  fidelity 1.0; 518 of 573 at 0.0.
+- The honest framing: most pair-specific detail is genuinely lost on
+  compaction; what survives is anchor-rich content (specific entities,
+  numbers, file paths). The substrate framing holds — this is the floor
+  weighted-compact has to lift, not a regression.
+
+**What 4% survives.** Sample yes-verdict patterns from the Sonnet judge:
+verbatim matches on short technical identifiers (`compute.slice`,
+`ollama.service`, file paths, numeric ranges like `0-3,8-11`),
+entity-preserving paraphrase ("3+ repeats → alert"), session-scoped
+semantic equivalents where multiple phrasings point at the same
+concrete artefact. This is the catalogue that drives W2 verbatim-tier
+policy.
+
+**Where the 96% goes.**
+
+- ~40% of failure verdicts: the **generator** itself returned an explicit
+  "I don't know" (qwen-7b on this hardware). This is a generator-quality
+  bottleneck, not a retrieval failure — switching to a stronger generator
+  may recover anchors without changing retrieval at all.
+- ~24%: vague paraphrase — context held the topic, anchor dropped.
+- ~6%: actual ranking failure (`direction_wrong`) — chain selected wrong
+  neighbours.
+
+The smaller-than-expected ranking-failure share is itself a finding: the
+debug target for importance scoring is narrower than it looked.
+
+**Cheap-judge calibration.** gemma3:4b as judge against Sonnet 4.6 on the
+same 1433 predictions: Cohen κ = 0.469, precision 0.70, recall 0.51, no
+"other" verdicts. gemma3 is viable for routine continuous monitoring;
+Sonnet remains the ground-truth judge for definitive scoring. The earlier
+informal "10× inflation" reading of historical cache mismatch was wrong —
+that was pipeline drift between runs, not judge leniency.
+
+**Iter-chain QC verdict (newly known limitation).** Mode calibration on 45
+real chains (15 pairs × complement/refine/deepen) showed all three modes
+cluster in `[0.95, 1.00]` cosine drift; the hardcoded heuristic ranges
+(0.45-0.93) achieved 0/45 in-range. The generator does not differentiate
+modes at the mean-vec-cosine level under the current prompt + qwen-7b +
+e5-mean-pool combination. Calibrated p10-p90 bands would be too tight
+(σ ≈ 0.005-0.012) to be meaningful. The framework needs a redesign step
+— stronger generator, explicit mode prompts that reference prior items
+by ID, per-Q max-cosine instead of mean-of-means, or accept that modes
+don't differentiate and drop the in-range check — before iter-chain QC
+can be re-shipped as a useful signal.
+
+**Classifier-as-fidelity-proxy verdict.** A first attempt at training a
+predictor for Sonnet fidelity from the engineered substrate features
+(e5 + density + misstep + spans, 411 dims, 572 pairs, 54 positive)
+landed at AUC ≈ 0.5 across LR / RF / GB. The engineered signals don't
+predict the fidelity label as currently formulated; either the sample
+is too small for the imbalance, the features were optimised for a
+different target (importance ranking, not fidelity prediction), or the
+fidelity signal is emergent from retrieval+generator interaction rather
+than an intrinsic pair property. Parked; not a current dev target.
+
+---
+
 ## What is partially done
 
 ### W3 — reconstruction-QA baseline accumulation
 
-The loop is built; the baseline is accumulating. Practical calibration
-(iter-chain mode ranges, judge confidence thresholds) requires 50+
-baseline samples from your actual corpus. Scores before that threshold
-are directional, not definitive.
-
-The gate difficulty bucketing (`recon_qa/gate.py`) is scaffolded: it
-correctly classifies QA entries into trivial / informative / impossible /
-inverted buckets, but the downstream step — routing informative pairs
-into the labeling queue automatically — is not yet wired.
+The loop is built; the Sonnet baseline above made it measured. Practical
+calibration of judge confidence thresholds, anchor-density features, and
+the gate difficulty bucketing (`recon_qa/gate.py` — which classifies QA
+entries into trivial / informative / impossible / inverted) still needs
+the downstream wiring that routes informative pairs into the labeling
+queue automatically.
 
 ### W2 — ambient background render
 

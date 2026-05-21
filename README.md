@@ -447,18 +447,25 @@ Full platform matrix and install footprint: [`docs/install.md`](docs/install.md)
 | Span-level annotations + topic decay | shipped |
 | Drift inspector + iter chain | shipped (`v0.2.0-beta.1`) |
 | Per-pair fidelity (conflict / fidelity modes) | shipped (`v0.2.0-beta.1`) |
-| Reconstruction-QA loop (W3) | shipped — 50+ baseline accumulating per install |
+| Reconstruction-QA loop (W3) | shipped — honest baseline established (Sonnet judge over 573 pairs, [roadmap §2026-05-21](docs/05-roadmap.md)) |
 | `recon_qa/` package split (5 black boxes) | shipped (`v0.2.0-beta.1`) |
 | `weighted-compact qa-gate` CLI | shipped (`v0.2.0-beta.1`) |
-| W2 — ambient background render ([roadmap](docs/05-roadmap.md)) | next (target `v0.2.x`) |
+| Cheap-judge calibration (cross-family agreement) | shipped — κ=0.47 vs Sonnet on local gemma3:4b, viable proxy with caveats |
+| Anchor-pattern catalogue (what survives compaction) | shipped — technical identifiers + numeric anchors + short verbatim ([roadmap](docs/05-roadmap.md)) |
+| W2 — ambient render layer ([roadmap](docs/05-roadmap.md)) | next (target `v0.2.x`) — anchor patterns identified, verbatim-tier policy waiting |
+| Iter-chain mode-distinction QC | needs redesign — modes show bleed under qwen-7b generator, current ranges 0/45 in-range |
+| Classifier-as-fidelity-proxy | parked — current engineered features don't predict Sonnet labels (AUC ≈ 0.5) |
 | Cross-session correlation ([roadmap](docs/05-roadmap.md)) | `v0.3` direction |
 | Decision-anticipation layer | `v0.4+` direction |
 
 Beta. Substrate, seven-signal mixture, labeler, three inspector views,
 and the reconstruction-QA gate all work end-to-end on a real corpus.
-Architectural invariants are locked; the numbers around them are not.
-Schema may still shift between beta releases — migration notes ship in
-`CHANGELOG.md` when they do.
+The 2026-05-21 honest-baseline run with Sonnet 4.6 as cross-family judge
+turned several scaffolded items into measured ones — and surfaced two
+known limitations now tracked in the roadmap (iter-chain mode bleed,
+classifier-proxy not learning). Architectural invariants are locked;
+the numbers around them are not. Schema may still shift between beta
+releases — migration notes ship in `CHANGELOG.md` when they do.
 
 ---
 
