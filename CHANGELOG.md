@@ -8,6 +8,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added — baselines harness
+
+- **`weighted_compact/baselines/` package** with six baseline rankers
+  for fidelity comparison against the seven-signal mixture:
+  - `random_ranker`, `recency_ranker` — static drop-in npz (Phase 1)
+  - `cosine_ranker`, `bm25_ranker` — query-aware, per-Q context (Phase 2)
+  - `compact_simulator` — full-history LLM summary bypass:
+    `compact_qwen` (Ollama, default) + `compact_sonnet` (Anthropic API,
+    opt-in via ANTHROPIC_API_KEY) (Phase 3)
+- **`build_compacted_context` refactored** to accept either a static
+  scoring dict OR a callable `scoring(query) -> dict[pair_idx, float]`
+  for query-aware rankers. Backward-compatible.
+- **CLI**:
+  - `weighted-compact baseline build --ranker {random|recency}`
+  - `weighted-compact baseline run-all` — sequential evaluation of all
+    rankers against the same qa_set, emits
+    `<substrate>/baseline_results.json`
+  - `weighted-compact qa-gate --ranker` choices extended to
+    `{importance|density|random|recency|cosine|bm25|compact_qwen|compact_sonnet}`
+- **Optional extras**: `[baselines]` (sentence-transformers + rank-bm25),
+  `[baselines-cloud]` (anthropic). Lazy imports keep static-baseline
+  cold-start cost unchanged.
+- **Tests**: `tests/test_baselines.py` — 15 tests covering build, load,
+  reproducibility, query-aware contract, BM25 lexical match,
+  `/compact`-bypass dispatch via `is_compact_bypass` marker. 40 tests
+  pass total.
+- **Documentation**: `docs/baselines.md` — methodology, fairness
+  disclosures, honest revert commitment.
+
 ### Tests
 
 - **CI regression-guard for v0.2.0-beta.2 batch.** Added `tests/test_security.py`

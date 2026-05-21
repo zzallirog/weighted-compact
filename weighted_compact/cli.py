@@ -257,6 +257,122 @@ def baseline_build(ranker: str, seed: int) -> None:
     )
 
 
+_BASELINE_RUN_ALL_DEFAULT = (
+    "importance,density,random,recency,cosine,bm25,compact_qwen"
+)
+
+
+@baseline.command(name="run-all")
+@click.option(
+    "--include",
+    default=_BASELINE_RUN_ALL_DEFAULT,
+    help=(
+        "Comma-separated ranker names. Default excludes compact_sonnet "
+        "(cloud, opt-in). Pass 'all' to include every registered ranker."
+    ),
+)
+@click.option("--k-drop", default=0.5, type=float,
+              help="Compaction strength: fraction of pairs dropped.")
+@click.option("--signal", default="judge",
+              type=click.Choice(["judge", "substring"]))
+@click.option("--output", default=None,
+              help="Path to write JSON results; default <substrate>/baseline_results.json")
+def baseline_run_all(include: str, k_drop: float, signal: str,
+                      output: str | None) -> None:
+    """Run recon-QA evaluation for each baseline; emit a comparison table.
+
+    Static baselines are auto-built if their .npz is missing. Each ranker
+    runs through the same `run_eval(k_drop, ranker)` pipeline against the
+    same qa_set, producing a judge-yes fraction directly comparable to
+    the mixture's headline number.
+
+    Output JSON shape:
+
+        {
+          "harness": {"k_drop": …, "signal": …, "n_qa": …},
+          "results": {
+            "importance": {"judge_yes_fraction": …, "substring_pass_fraction": …, …},
+            "random":     {…},
+            …
+          }
+        }
+
+    Expensive — each ranker is one full eval pass over the qa_set. Plan
+    overnight runs accordingly.
+    """
+    from weighted_compact import recon_qa
+    from weighted_compact.recon_qa.fidelity import _RANKER_LOADERS
+
+    if include == "all":
+        names = list(_RANKER_LOADERS)
+    else:
+        names = [n.strip() for n in include.split(",") if n.strip()]
+    unknown = [n for n in names if n not in _RANKER_LOADERS]
+    if unknown:
+        raise click.ClickException(
+            f"unknown rankers: {unknown}; "
+            f"known: {sorted(_RANKER_LOADERS)}"
+        )
+
+    # Auto-build static baselines if their npz is missing
+    if "random" in names and not config.baseline_random_path().exists():
+        click.echo("Building baseline_random.npz …")
+        from weighted_compact.baselines import random_ranker
+        random_ranker.build()
+    if "recency" in names and not config.baseline_recency_path().exists():
+        click.echo("Building baseline_recency.npz …")
+        from weighted_compact.baselines import recency_ranker
+        recency_ranker.build()
+
+    qa_set = recon_qa.load_qa_set()
+    results: dict[str, Any] = {
+        "harness": {
+            "k_drop": k_drop,
+            "signal": signal,
+            "n_qa": len(qa_set),
+        },
+        "results": {},
+    }
+
+    for name in names:
+        click.echo(f"\n=== Running ranker={name} ===")
+        try:
+            run = recon_qa.run_eval(k_drop=k_drop, ranker=name)
+        except Exception as exc:
+            click.echo(f"  ERROR: {exc}")
+            results["results"][name] = {"error": str(exc)}
+            continue
+        n = len(run)
+        if n == 0:
+            results["results"][name] = {"n": 0, "note": "empty qa_set"}
+            click.echo("  qa_set is empty — nothing to evaluate")
+            continue
+        sub_pass = sum(1 for r in run if r.get("substring_pass"))
+        judge_yes = sum(
+            1 for r in run if r.get("judge", {}).get("verdict") == "yes"
+        )
+        results["results"][name] = {
+            "n": n,
+            "substring_pass_fraction": sub_pass / n,
+            "judge_yes_fraction": judge_yes / n,
+            "judge_yes": judge_yes,
+            "substring_pass": sub_pass,
+        }
+        click.echo(
+            f"  n={n}  judge_yes={judge_yes}/{n} ({judge_yes / n:.3f})  "
+            f"substring_pass={sub_pass}/{n} ({sub_pass / n:.3f})"
+        )
+
+    out_path = (
+        Path(output).expanduser()
+        if output
+        else (config.workdir() / "baseline_results.json")
+    )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(results, indent=2, ensure_ascii=False))
+    click.echo(f"\nResults: {out_path}")
+
+
 @main.command()
 def train() -> None:
     """Fit the classifier on the current substrate."""

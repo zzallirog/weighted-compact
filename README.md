@@ -473,7 +473,7 @@ Platform matrix: [`docs/install.md`](docs/install.md).
 | Importance ranker (7-signal mixture) | shipped |
 | Labeling UI (CAPTCHA-style, anti-drift) | shipped |
 | Fidelity check (cross-family judge, Sonnet baseline measured 2026-05-21) | shipped |
-| Compact comparison vs Anthropic `/compact` | filed |
+| Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | harness shipped; measurement run pending |
 | Cross-session memory (corrections accumulate across sessions) | `v0.3` direction |
 
 Beta. Memory builder, ranker, labeler, and fidelity check work
@@ -494,6 +494,7 @@ Contributor-grade full component table (17 rows): [`docs/status.md`](docs/status
 | [`docs/03-quality-driver.md`](docs/03-quality-driver.md) | Why fidelity, not compression ratio |
 | [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md) | Two-tier signal economics: cheap regex vs LLM judge |
 | [`docs/05-roadmap.md`](docs/05-roadmap.md) | Open items, honest forward look, 2026-05-21 baseline |
+| [`docs/baselines.md`](docs/baselines.md) | Baseline rankers — methodology + how to run the comparison |
 | [`docs/concept.md`](docs/concept.md) | Longer-form take on the problem |
 | [`docs/invariants.md`](docs/invariants.md) | Three locked design invariants |
 | [`docs/architecture.md`](docs/architecture.md) | Module map and substrate pipeline |
