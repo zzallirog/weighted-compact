@@ -24,49 +24,51 @@ you corrected along the way.*
 | Per-corpus sign agreement, 3 disjoint corpora | **3 / 3 positive** |
 | Cheap-judge calibration — Cohen κ (gemma3:4b vs Sonnet 4.6, 1433 paired predictions) | **0.469** |
 
-Read: the **floor** is where naive selection lands; the **direction** is what
-the mixture moves under a single coefficient flip; the **sign agreement** is
-what survives the κ=0.47 noise envelope. The numbers are corpus-specific;
-the methodology reproduces on any user's substrate.
+Read each row plain. **Floor** — how much pair-specific detail you lose
+when a pair is hidden from context. **Δ** — how much one signal lifts
+that floor when you turn it on. **Sign agreement** — whether the lift
+holds across separate session corpora, not just one. **κ** — how much
+the free local judge agrees with the paid cloud judge, scale-aware.
+Numbers are this corpus; the methodology reproduces on yours.
 
 ---
 
-## The bet — in four paragraphs
+## The case
 
-**The problem.** When `/compact` paraphrases your session, the hostname you
-corrected an hour ago, the flag you restated three turns up, the edge case
-you described slowly — these vanish. The summarizer makes one forward pass
-over your conversation with no memory of which parts mattered to *you*. It
-guesses.
+When `/compact` paraphrases your session, the hostname you corrected an
+hour ago, the flag you restated three turns up, the edge case you
+described slowly — these vanish. The summarizer makes one forward pass
+over your conversation with no memory of which parts mattered to *you*.
+It guesses.
 
-**The latent capability.** Your session log already contains the signal. You
-corrected. You restated. You highlighted spans with the labeler. The
-importance of each turn is *not* in the model's policy — it is in the
-substrate of your own session files. The question is whether the signal can
-be extracted into a usable per-pair score without a stronger external model
-deciding for you.
+Your session log already contains the signal. You corrected. You
+restated. You highlighted spans with the labeler. The importance of each
+turn is not in the model's policy — it is in the substrate of your own
+session files. The question is whether that signal can be extracted into
+a usable per-pair score without a stronger external model deciding for
+you.
 
-**The move.** Seven signals compose into one importance score: a per-user
-`misstep` predictor as backbone, sixteen density features, four span tiers,
-one sparse human label, modulated by an unsupervised topic-decay multiplier.
+Seven signals compose into one importance score: a per-user `misstep`
+predictor as backbone, sixteen density features, four span tiers, one
+sparse human label, modulated by an unsupervised topic-decay multiplier.
 Vectors first; the classifier is a refinement layer, not a gatekeeper.
-Reconstruction fidelity — can the compacted context still answer questions
-about what was hidden from it — is the metric. Not compression ratio.
+Reconstruction fidelity — can the compacted context still answer
+questions about what was hidden from it — is the metric. Not compression
+ratio.
 
-**The trajectory.** Today: a substrate that remembers what you marked,
-ranked by signals you can read and replace. v0.3 direction: cross-session
-correlation — corrections from one session inform ranking in the next, so
-recurring constraints accumulate weight instead of resetting at each
-compact. v0.4+ direction: the same signals that score importance run in
-reverse — predict the corrections you are about to make, the constraints
-you are about to set, the paths you typically reject. Substrate on disk;
-an IDE-side assistant reads it as lookahead; nothing leaves the host. The
-substrate becomes a memory you can interrogate, then a forecaster you can
-override.
+Today: a substrate that remembers what you marked, ranked by signals you
+can read and replace. The v0.3 direction is cross-session correlation —
+corrections from one session inform ranking in the next, so recurring
+constraints accumulate weight instead of resetting at each compact. The
+v0.4+ direction is the same signals running in reverse: predict the
+corrections you are about to make, the constraints you are about to set,
+the paths you typically reject. Substrate on disk; an IDE-side assistant
+reads it as lookahead; nothing leaves the host. The substrate becomes a
+memory you can interrogate, then a forecaster you can override.
 
 ---
 
-## Proof machine
+## Numbers and their meaning
 
 Eight tests. Four shipped with numbers; the rest with the gap named.
 Each result cell has the number on line one and the reading on line two.
@@ -93,8 +95,7 @@ direction.
 
 ## Pick your door
 
-Same substrate, five readers. Each letter names what would make this
-irrelevant to you, the one number that matters for you, and a single action.
+Same substrate, five readers. The one that names you is yours.
 
 <a id="angle-daily-user"></a>
 
@@ -223,47 +224,46 @@ guarantee.
 
 ---
 
-## Where this departs from the obvious playbook
+## What we crossed
 
-The obvious playbook for a paper-shaped pitch on this kind of work
-would be: train a teacher, distill it into the policy, claim a Pareto
-curve on a synthetic benchmark, headline the point estimate. Some
-specific places where the substrate framing changes the contract.
+Concepts the project ran into on the way. Each one forced a design
+decision — named, so you can see what the choice was.
 
-**Cross-family judging is the architecture, not the ablation.** Same-family
-judge agreement is a known confound; Gemma judging Qwen is the
-*default* in this pipeline, not a robustness check. The cheap-judge
-calibration against Sonnet (κ=0.47) measures how much the cross-family
+**Goodhart's law.** Optimize a metric long enough and the metric stops
+being a metric. We do not gradient-descent the mixture weights against
+the recon-QA fidelity score — the loop is held out as a fitness gate,
+not used as a training loss. Mixture weights are heuristic and fixed
+before recon-QA runs. The price is that the weights are not optimal;
+the price of the alternative is that the score becomes meaningless.
+
+**Cohen's κ and the Landis-Koch scale.** A free local judge is cheap to
+run but suspect; a paid cloud judge is the reference but cannot be the
+default. Cohen's κ between `gemma3:4b` and Sonnet 4.6 on identical
+predictions came in at **0.469** — "moderate" agreement per the
+Landis-Koch convention. Usable as a routine cheap proxy; not a
+substitute for definitive scoring. We publish κ instead of raw
+accuracy so the dispersion is legible.
+
+**Same-family judge agreement.** When the judge model and the generator
+model share a backbone or training corpus, they tend to concur unfairly.
+The pipeline avoids this by contract: Gemma judges Qwen reconstructions;
+no Qwen judging Qwen. The cross-family choice is the architecture, not
+a robustness ablation. The cheap-judge κ above measures how much this
 default already costs you.
 
-**Magnitude and direction agree, CI is the qualifier.** The label-weight
-ablation's mean Δ=+0.053 lands above the pre-registered positive
-threshold on the paired mean; the per-corpus signs (+0.100 / +0.028 /
-+0.021) are 3/3 positive. The 95 % paired CI is [−0.004, +0.109] —
-disclosed because it crosses zero on the lower bound under the
-cheap-judge κ=0.47 noise envelope. Two independent signals agree on the
-positive direction; the CI is the honest qualifier on the magnitude,
-not a retraction of the result.
+**Sign agreement under a noisy magnitude.** The label-weight ablation
+produced Δ=+0.053 with 95 % paired CI [−0.004, +0.109] — the magnitude
+crosses zero on the lower bound. The per-corpus signs, separately, were
+3 / 3 positive (+0.100 / +0.028 / +0.021). Direction reproduces;
+magnitude wobbles. We report both and call the CI a qualifier on the
+magnitude, not a retraction of the direction.
 
-**Reconstruction-QA is held out, not the training target.** The mixture
-weights are heuristic, fixed before the recon-QA loop runs. The loop is a
-fitness function, not an optimization target — no gradient descent on
-mixture weights against the score. (Goodhart trap.)
-
-**Limitations are mechanistic, not abstract.** The iter-chain
-mode-distinction QC failure is "0 / 45 in-range, σ ≈ 0.005-0.012 under
-qwen-7b generator with current prompt". The classifier-as-fidelity-proxy
-parking is "AUC ≈ 0.5 across LR/RF/GB on 411-dim features, 54-positive
-imbalance". The 50-sample baseline is a stated threshold below which the
-score is illustrative, not calibrated. Each limitation has a diagnosis
-and a filed candidate fix.
-
-**Graceful degradation is the contract.** Every signal except
-`feature_extract` is optional. Missing misstep → mixture re-weights the
-remaining six. Missing labels → re-weights five. Missing spans → all
-four span terms collapse to zero. The pipeline degrades to a vector
-baseline; it does not break. Single-classifier-as-gatekeeper designs
-have no analog for this.
+**Graceful degradation as contract.** A pipeline that breaks when one
+piece fails is brittle. Each signal in the mixture is optional — missing
+misstep, the weights re-balance; missing spans, the four tier-terms
+collapse to zero. The system degrades to a vector baseline. A
+single-classifier gatekeeper design has no analog for this; we picked
+the weighted-sum mixture in part for exactly this property.
 
 ---
 
@@ -273,58 +273,79 @@ have no analog for this.
   sessions. Magnitudes are not portable; the methodology is what
   reproduces. A scaling story across users does not exist yet — it
   requires others running on their own substrate and reporting back.
+  *What this means for you:* your absolute numbers will be different;
+  the direction of effects should reproduce, the magnitudes likely will
+  not.
+
 - **Per-question fidelity floor is 3.8 %.** Most pair-specific detail is
   genuinely lost on compaction; what survives is anchor-rich content
   (entities, paths, numbers, short verbatim). This is the absolute
   starting position, not a regression.
+  *What this means for you:* expect that most fine detail vanishes at
+  the compact boundary without intervention. The substrate's job is to
+  make what survives match what you marked — not to restore everything.
+
 - **Misstep AUC 0.665 on the maintainer's corpus** — useful as a backbone
   signal, not yet calibrated cross-user.
+  *What this means for you:* if your sessions look very different from
+  the maintainer's (different language, very short, very technical), the
+  misstep signal may be weaker for you. Drop its weight or replace with
+  your own predictor.
+
 - **Classifier-as-fidelity-proxy is parked.** A first attempt at training a
   Sonnet-fidelity predictor from 411-dim engineered features landed at
   AUC ≈ 0.5. Either the sample is too small for the imbalance, the
   features are optimised for ranking rather than fidelity prediction, or
   fidelity is emergent from retrieval+generator interaction. Not a
   current dev target.
+  *What this means for you:* the substrate runs on the seven-signal
+  mixture; the parked classifier you may see in logs is not weighted
+  into the score. Nothing user-facing depends on it shipping.
+
 - **Iter-chain mode-distinction QC is parked.** All three modes
   (complement / refine / deepen) cluster in cosine drift `[0.95, 1.00]`
   under the current generator+prompt; calibrated bands would be too
   tight (σ ≈ 0.005-0.012) to be useful.
+  *What this means for you:* the iter-chain modes in the inspector look
+  usable but their quality signal doesn't differentiate yet. Treat those
+  rows as illustrative until the redesign ships.
+
 - **50-sample baseline is the threshold** for individual scores to read
   as calibrated rather than illustrative. Below that, you have an
   importance ranking; you do not yet have a stable fidelity measurement.
+  *What this means for you:* if you just installed and the fidelity
+  number looks weird, that's expected — keep using Claude Code, let your
+  corpus accumulate, re-bootstrap, then trust the number.
+
 - **No comparison number against Anthropic `/compact` yet.** Filed.
+  *What this means for you:* we can say what the absolute floor is
+  (3.8 %); we cannot yet say "X percentage points better than
+  `/compact`". That comparison is the next quality measurement.
 
 ---
 
 ## What the pipeline does
 
+Session files in. Eight modules score each turn against seven signals.
+The most important content rebuilds the compacted context. A judge from
+a different model family checks whether the result still answers
+questions about what got cut.
+
+The composer formula:
+
 ```
-~/.claude/projects/
-        |
-    extract_pairs       → pairs.jsonl
-        |
-    feature_extract     → features.npz (e5 embeddings)
-    density_features    → features_density.npz
-    misstep_score       → features_misstep.npz
-    span_features       → features_spans.npz
-    topic_segments      → topic_segments.npz
-        |
-    importance.compose  → importance.npz
-        = 0.40 × misstep   + 0.25 × density    + 0.15 × label
-        + 0.20 × span_keep + 0.10 × span_maybe
-        − 0.15 × span_skip + 0.05 × span_think
-        |
-    recon_qa            → judge-yes fraction
-        (fidelity gate: can the compacted context answer questions
-         about the pair that was hidden from it?)
+importance = 0.40 × misstep + 0.25 × density + 0.15 × label
+           + 0.20 × span_keep + 0.10 × span_maybe
+           − 0.15 × span_skip + 0.05 × span_think
 ```
 
-The eight modules are independent black boxes. Each is documented at the
-top of its own file. The quality metric driving development is
-*reconstruction fidelity*, not compression ratio — ratio is easy to
-game, fidelity is harder. See
+The eight modules are independent black boxes — each documented at the
+top of its own file, replaceable individually. The quality metric
+driving development is *reconstruction fidelity*, not compression
+ratio: ratio is easy to game, fidelity is harder. See
 [`docs/03-quality-driver.md`](docs/03-quality-driver.md) for the
-argument.
+argument, [`docs/architecture.md`](docs/architecture.md) for the
+module map.
 
 ---
 
@@ -332,28 +353,35 @@ argument.
 
 Three commitments — full text in [`docs/invariants.md`](docs/invariants.md).
 
-1. **Vectors first, classifier as refinement.** Every turn becomes an
-   e5-multilingual-small embedding. The importance mixture runs on those
-   vectors. The classifier is a *weighting* layer on top, not a
+1. **The system won't break when something's missing.** Every turn becomes
+   an e5-multilingual-small embedding. The importance mixture runs on
+   those vectors. The classifier is a *weighting* layer on top, not a
    gatekeeper. If it degrades or is missing, the pipeline degrades to a
-   vector baseline.
+   vector baseline. (Vectors first, classifier as refinement.)
 
-2. **CAPTCHA labeling — gap-fill and ambiguity-merge, not bulk.** Two
-   triggers: an inline marker in a live session, or classifier
-   disagreement. Twenty pairs in one sitting when there is a reason. The
-   UI shows five cosine-nearest prior labels alongside the current pair —
-   anti-drift scaffolding so you match your own past judgment, not the
-   model's.
+2. **You label only when there's a real reason to.** Two triggers: an
+   inline marker in a live session, or classifier disagreement. Twenty
+   pairs in one sitting when there is a reason. The UI shows five
+   cosine-nearest prior labels alongside the current pair — anti-drift
+   scaffolding so you match your own past judgment, not the model's.
+   (CAPTCHA labeling: gap-fill + ambiguity-merge, not bulk.)
 
-3. **Independent of any agent-harness API.** No assumed system-message
-   slot. No vendor hooks. Markdown output, paste-delivery, runs
-   standalone.
+3. **No Anthropic-side dependencies.** A *harness* is the side that hosts
+   an assistant — Claude Code itself, ChatGPT's app, Cursor's IDE plugin.
+   Each one decides what system message goes in, what tools are exposed,
+   how output gets delivered. weighted-compact assumes none of those
+   privileges: it writes Markdown, you paste it, it runs standalone. If a
+   future harness exposes more privileged delivery, that is a bonus, not
+   a dependency.
 
 ---
 
 <a id="what-is-pluggable"></a>
 
 ## What is pluggable
+
+Every replacement point is named. Swap a component, rerun the recon-QA
+loop, watch Δfidelity — the loop tells you whether your version helped.
 
 | Replacement point | Default | What you can replace with |
 |---|---|---|
@@ -367,9 +395,6 @@ Three commitments — full text in [`docs/invariants.md`](docs/invariants.md).
 | Reconstruction model | `qwen2.5:7b` via Ollama | Anything behind an Ollama `/api/generate` endpoint |
 | Judge model | `gemma3:4b` (Gemma family) | Any other family — distinct-family constraint is the only rule |
 | Difficulty filter | EvoEnv-style two-`k_drop` bucketing | Your own bucketer returning the four-bucket dict |
-
-The recon-QA loop is the fitness function for every replacement. Swap a
-component, rerun, watch Δfidelity.
 
 → Module-by-module contracts: [`docs/02-pipeline.md`](docs/02-pipeline.md)
 
@@ -444,31 +469,19 @@ Platform matrix: [`docs/install.md`](docs/install.md).
 
 | Component | Status |
 |---|---|
-| Substrate (extract_pairs + e5 features) | shipped |
-| Importance mixture (7 signals + topic-decay multiplier) | shipped |
-| Span-level annotations | shipped |
-| Drift inspector + iter chain | shipped (`v0.2.0-beta.1`) |
-| Per-pair fidelity (conflict / fidelity modes) | shipped (`v0.2.0-beta.1`) |
-| Reconstruction-QA loop (W3) | end-to-end + Sonnet baseline measured 2026-05-21; gate→labeling-queue routing partial |
-| `recon_qa/` package split (5 black boxes) | shipped (`v0.2.0-beta.1`) |
-| `weighted-compact qa-gate` CLI | shipped |
-| Cheap-judge calibration (cross-family) | shipped — κ=0.47 vs Sonnet on gemma3:4b |
-| Anchor-pattern catalogue (what survives compaction) | shipped — technical identifiers + numeric anchors + short verbatim |
-| W2 — ambient render layer | next (target `v0.2.x`) — anchor patterns identified, verbatim-tier policy waiting |
-| Full coefficient-grid ablation (`--weights` wrapper) | filed (`v0.3`) |
-| Anti-baseline vs `/compact` | filed |
-| Iter-chain mode-distinction QC | parked — modes show bleed under qwen-7b, redesign filed |
-| Classifier-as-fidelity-proxy | parked — current features don't predict Sonnet labels (AUC ≈ 0.5) |
-| Cross-session correlation | `v0.3` direction |
-| Decision-anticipation layer | `v0.4+` direction |
+| Memory builder (read sessions, embed, score) | shipped |
+| Importance ranker (7-signal mixture) | shipped |
+| Labeling UI (CAPTCHA-style, anti-drift) | shipped |
+| Fidelity check (cross-family judge, Sonnet baseline measured 2026-05-21) | shipped |
+| Compact comparison vs Anthropic `/compact` | filed |
+| Cross-session memory (corrections accumulate across sessions) | `v0.3` direction |
 
-Beta. Substrate, seven-signal mixture, labeler, three inspector views, and
-the reconstruction-QA gate work end-to-end on a real corpus. The
-2026-05-21 honest-baseline run with Sonnet 4.6 turned several scaffolded
-items into measured ones — and surfaced two known limitations now tracked
-above. Architectural invariants are locked; the numbers around them are
-not. Schema may still shift between beta releases; migration notes in
-`CHANGELOG.md`.
+Beta. Memory builder, ranker, labeler, and fidelity check work
+end-to-end on a real corpus. Architectural invariants are locked; the
+numbers around them are not. Schema may still shift between beta
+releases; migration notes in `CHANGELOG.md`.
+
+Contributor-grade full component table (17 rows): [`docs/status.md`](docs/status.md).
 
 ---
 
