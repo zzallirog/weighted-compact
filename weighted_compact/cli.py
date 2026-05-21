@@ -223,6 +223,40 @@ def importance() -> None:
     _run_module_main("importance")
 
 
+@main.group(name="baseline")
+def baseline() -> None:
+    """Baseline rankers for fidelity comparison against the mixture."""
+
+
+@baseline.command(name="build")
+@click.option("--ranker",
+              type=click.Choice(["random", "recency"]),
+              required=True,
+              help="Which baseline ranker to (re)generate.")
+@click.option("--seed", default=42, type=int,
+              help="Random seed (random ranker only).")
+def baseline_build(ranker: str, seed: int) -> None:
+    """Generate the baseline ranker's npz artefact.
+
+    The resulting file lives at `<substrate>/baseline_<ranker>.npz` and is
+    a drop-in replacement for `importance.npz` (same schema). Consume it via
+    `weighted-compact qa-gate --ranker <ranker>`.
+    """
+    if ranker == "random":
+        from weighted_compact.baselines import random_ranker as mod
+        summary = mod.build(seed=seed)
+    elif ranker == "recency":
+        from weighted_compact.baselines import recency_ranker as mod
+        summary = mod.build()
+    else:
+        raise click.ClickException(f"unknown baseline ranker: {ranker}")
+    click.echo(f"Output: {summary['path']}")
+    click.echo(
+        f"N={summary['n']}  "
+        f"min={summary['min']:.3f} mean={summary['mean']:.3f} max={summary['max']:.3f}"
+    )
+
+
 @main.command()
 def train() -> None:
     """Fit the classifier on the current substrate."""
@@ -241,7 +275,7 @@ def eval_cmd() -> None:
 @click.option("--hard-k", default=0.9, type=float,
               help="Strong compaction (fraction of pairs dropped).")
 @click.option("--ranker", default="importance",
-              type=click.Choice(["importance", "density"]))
+              type=click.Choice(["importance", "density", "random", "recency"]))
 @click.option("--signal", default="judge",
               type=click.Choice(["judge", "substring"]),
               help="Pass metric: judge (recommended) or substring.")

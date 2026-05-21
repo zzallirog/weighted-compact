@@ -21,6 +21,8 @@ from collections import Counter
 from ._constants import JUDGE_MODEL, RECON_SET
 from .context import (
     build_compacted_context,
+    load_baseline_random,
+    load_baseline_recency,
     load_density,
     load_importance,
     load_pairs,
@@ -76,15 +78,32 @@ def save_qa_entry(entry):
         f.write(json.dumps(entry, ensure_ascii=False) + '\n')
 
 
+_RANKER_LOADERS = {
+    'importance': load_importance,
+    'density': load_density,
+    'random': load_baseline_random,
+    'recency': load_baseline_recency,
+}
+
+
 def run_eval(k_drop=0.5, ranker='importance', topic_decay=0.5):
     """Evaluate all Q&A entries: build context, query ollama, score with substring + LLM judge.
 
-    ranker: 'importance' (Phase 4C mixture, default) or 'density' (legacy).
+    ranker: one of the registered ranker names — 'importance' (Phase 4C
+        mixture, default), 'density' (legacy fallback), 'random' (uniform
+        baseline), 'recency' (position-in-session baseline). New static
+        rankers register by adding to `_RANKER_LOADERS`.
     topic_decay: float ∈ (0, 1]. 1.0 = disabled; 0.5 = halve per topic step;
         0.0 = drop everything outside current topic.
     """
     pairs = load_pairs()
-    scores = load_importance() if ranker == 'importance' else load_density()
+    loader = _RANKER_LOADERS.get(ranker)
+    if loader is None:
+        raise ValueError(
+            f'unknown ranker {ranker!r}; '
+            f'known: {sorted(_RANKER_LOADERS)}',
+        )
+    scores = loader()
     topic_map = load_topic_map() if topic_decay < 1.0 else None
     qa_set = load_qa_set()
     results = []

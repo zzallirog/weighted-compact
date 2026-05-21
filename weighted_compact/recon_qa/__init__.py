@@ -16,6 +16,8 @@ For new code, prefer explicit imports from submodules.
 """
 
 from ._constants import (
+    BASELINE_RANDOM,
+    BASELINE_RECENCY,
     DENSITY,
     IMPORTANCE,
     JUDGE_MODEL,
@@ -28,6 +30,8 @@ from ._constants import (
 )
 from .context import (
     build_compacted_context,
+    load_baseline_random,
+    load_baseline_recency,
     load_density,
     load_importance,
     load_pairs,
@@ -55,10 +59,12 @@ from .judge import (
 __all__ = [
     # constants
     'RECON_SET', 'PAIRS', 'DENSITY', 'IMPORTANCE', 'TOPIC_SEGMENTS',
+    'BASELINE_RANDOM', 'BASELINE_RECENCY',
     'OLLAMA_URL', 'MODEL', 'JUDGE_MODEL', 'SUGGEST_MODEL',
     'ITER_MODE_RANGES',
     # context
     'load_pairs', 'load_density', 'load_importance', 'load_topic_map',
+    'load_baseline_random', 'load_baseline_recency',
     'build_compacted_context',
     # generator
     'ask_ollama', 'suggest_qa',

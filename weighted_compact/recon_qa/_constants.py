@@ -24,11 +24,14 @@ def _reload_paths() -> None:
     need the recon_qa sub-package to pick up the new substrate location.
     """
     global RECON_SET, PAIRS, DENSITY, IMPORTANCE, TOPIC_SEGMENTS
+    global BASELINE_RANDOM, BASELINE_RECENCY
     RECON_SET = config.recon_qa_set_path()
     PAIRS = config.pairs_path()
     DENSITY = config.features_density_path()
     IMPORTANCE = config.importance_path()
     TOPIC_SEGMENTS = config.topic_segments_path()
+    BASELINE_RANDOM = config.baseline_random_path()
+    BASELINE_RECENCY = config.baseline_recency_path()
 
 
 RECON_SET = config.recon_qa_set_path()
@@ -36,6 +39,8 @@ PAIRS = config.pairs_path()
 DENSITY = config.features_density_path()
 IMPORTANCE = config.importance_path()
 TOPIC_SEGMENTS = config.topic_segments_path()
+BASELINE_RANDOM = config.baseline_random_path()
+BASELINE_RECENCY = config.baseline_recency_path()
 
 OLLAMA_URL = os.environ.get(
     'WEIGHTED_COMPACT_OLLAMA_URL', 'http://localhost:11434/api/generate'

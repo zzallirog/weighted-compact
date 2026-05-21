@@ -85,6 +85,8 @@ FEATURES_SPANS_FILE = "features_spans.npz"
 TOPIC_SEGMENTS_FILE = "topic_segments.npz"
 IMPORTANCE_FILE = "importance.npz"
 CLASSIFIER_FILE = "classifier.model"
+BASELINE_RANDOM_FILE = "baseline_random.npz"
+BASELINE_RECENCY_FILE = "baseline_recency.npz"
 
 
 def pairs_path() -> Path: return workdir() / PAIRS_FILE
@@ -103,6 +105,8 @@ def features_spans_path() -> Path: return workdir() / FEATURES_SPANS_FILE
 def topic_segments_path() -> Path: return workdir() / TOPIC_SEGMENTS_FILE
 def importance_path() -> Path: return workdir() / IMPORTANCE_FILE
 def classifier_path() -> Path: return workdir() / CLASSIFIER_FILE
+def baseline_random_path() -> Path: return workdir() / BASELINE_RANDOM_FILE
+def baseline_recency_path() -> Path: return workdir() / BASELINE_RECENCY_FILE
 
 
 # Default labeler port. Override with $WEIGHTED_COMPACT_PORT.

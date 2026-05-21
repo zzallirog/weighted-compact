@@ -14,7 +14,14 @@ import json
 
 import numpy as np
 
-from ._constants import DENSITY, IMPORTANCE, PAIRS, TOPIC_SEGMENTS
+from ._constants import (
+    BASELINE_RANDOM,
+    BASELINE_RECENCY,
+    DENSITY,
+    IMPORTANCE,
+    PAIRS,
+    TOPIC_SEGMENTS,
+)
 
 
 def load_pairs():
@@ -67,6 +74,28 @@ def load_topic_map():
     npz = np.load(TOPIC_SEGMENTS, allow_pickle=True)
     return {int(npz['pair_indices'][i]): int(npz['topic_id'][i])
             for i in range(len(npz['pair_indices']))}
+
+
+def _load_baseline_npz(path, ranker_name):
+    """Shared loader for baseline ranker npz files (same schema as importance.npz)."""
+    if not path.exists():
+        raise FileNotFoundError(
+            f'{path} not found — run `weighted-compact baseline build '
+            f'--ranker {ranker_name}` first',
+        )
+    npz = np.load(path, allow_pickle=True)
+    return {int(npz['pair_indices'][i]): float(npz['importance'][i])
+            for i in range(len(npz['importance']))}
+
+
+def load_baseline_random():
+    """Load baseline_random.npz → dict pair_idx → score ∈ [0, 1]."""
+    return _load_baseline_npz(BASELINE_RANDOM, 'random')
+
+
+def load_baseline_recency():
+    """Load baseline_recency.npz → dict pair_idx → score ∈ [0, 1]."""
+    return _load_baseline_npz(BASELINE_RECENCY, 'recency')
 
 
 def build_compacted_context(source_pair_idx, pairs, scores, k_drop=0.5,
