@@ -46,6 +46,52 @@ yet ship.
 
 ---
 
+## The substrate is structurally personal
+
+The artifact described above is a record of one person's corrections,
+stumbles, span decisions, and labels. That shape has four properties
+that make it a different *category of object* from a vendor-shipped
+memory feature — not better, different.
+
+**Local persistence.** Conversation text lives on disk under
+`$XDG_DATA_HOME/weighted-compact/`, in a path no remote service writes
+to. A vendor whose revenue model is cloud uplink does not put a
+writable user-controlled persistent store on your machine. Comparable
+"local" vendor patterns (Apple Intelligence, Microsoft Recall) still
+route memory through their sync infrastructure.
+
+**Anti-drift labeling.** The labeler's anti-drift sidebar shows the
+five cosine-nearest prior labels alongside each candidate. This
+optimizes for **you converging to yourself over time**, not for you
+converging to the model's policy. A vendor's incentive runs the other
+direction — the more predictable a user is to the model, the better
+the model serves that user inside the vendor's product. The mechanism
+is structurally adversarial to vendor goals.
+
+**Per-user predictor.** The misstep signal is a logistic regression
+trained on **your** stumble events from **your** correction
+embeddings; AUC numbers are corpus-dependent. A vendor's foundation
+model is one model serving millions; per-user trained auxiliary
+predictors at that scale are not economic. Any cloud-side approximation
+collapses to an averaged stumble pattern — which is exactly the loss
+of per-user shape that makes the substrate yours.
+
+**Multi-consumer substrate.** misstep / session-narrative / FKMF /
+misstep-foreign-models all read the same per-pair files. A vendor
+ships memory as a feature embedded in one product. Substrate-as-
+substrate, queried by multiple independently developed readers, is a
+different shipping unit — and it requires open, scriptable, user-owned
+substrate.
+
+These four properties compose into one statement: the substrate
+**carries you**, not a generalized inference about you. A vendor's
+memory feature can be more polished, better integrated, faster to
+adopt — and still be a categorically different object from this one.
+That difference is not a moat claim; it is a description of the
+shape, and the shape is what defines the project.
+
+---
+
 ## Headline (compaction consumer)
 
 The published consumer is compaction. Its proof is on the

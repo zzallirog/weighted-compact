@@ -8,6 +8,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added — 2026-05-22 "The substrate is structurally personal" section
+
+Mini-section inserted between consumer table and Headline. Four
+structural properties (local persistence / anti-drift labeling /
+per-user predictor / multi-consumer substrate) explain why this
+substrate is a different *category of object* from a vendor-shipped
+memory feature — descriptive claim, not moat claim. Frames the
+compaction-headline numbers that follow in a substrate-not-feature
+register.
+
 ### Repositioning — 2026-05-22 substrate-first README
 
 The README headline now leads with **the substrate as artifact**;
