@@ -143,6 +143,10 @@ def main(verbose: bool) -> None:
     _setup_logging(verbose)
 
 
+from weighted_compact.schema_extraction.cli import schema_group as _schema_group  # noqa: E402
+main.add_command(_schema_group)
+
+
 @main.command()
 @click.option("--json", "as_json", is_flag=True, help="Emit machine-readable JSON.")
 def compat(as_json: bool) -> None:

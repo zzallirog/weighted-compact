@@ -1,6 +1,6 @@
 [project]
 name = "weighted-compact"
-version = "0.2.0b2"
+version = "0.2.0b3"
 description = "Trainable context-compaction substrate for Claude Code — vector-first, classifier-secondary, human-in-the-loop"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -31,6 +31,7 @@ dependencies = [
     "pydantic>=2.9",
     "numpy>=1.26",
     "click>=8.1",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]

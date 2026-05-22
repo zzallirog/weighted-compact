@@ -8,6 +8,35 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added — 2026-05-22 schema-extraction sub-package (`weighted_compact/schema_extraction/`)
+
+Third retrieval tier proof-of-concept: extract reusable rules from your
+own memory dir as `(trigger, rule, anti-pattern, stable_since)` schemas,
+sitting above existing chunk/episode retrieval as the cheap top-tier.
+
+- New CLI subgroup: `weighted-compact schema {build-bank, run, all, paths}`
+- `bank_builder` — heuristic scan of `~/.claude/projects/*/memory/` +
+  `~/.claude/work/` for files with stability markers (DONE/SHIPPED/RESOLVED
+  + dates); each candidate passed to local gemma3:4b to extract structured
+  TRIGGER/RULE/ANTI block, dropped if `NO_RULE`.
+- `synthesizer` + `judge` — episode content → rule, then MATCH/NEAR/MISMATCH
+  verdict via same-model judge (gemma3 κ=0.47 calibration, documented in
+  upstream WC warnings as viable cheap proxy).
+- `pipeline.run_pipeline()` — orchestrate full validation; writes per-case
+  JSON + summary markdown to `$XDG_DATA_HOME/weighted-compact/schema-runs/`.
+- Bank file (`schema-bank.yaml`) lives under XDG data dir, gitignored.
+  Real banks carry user-specific content and are never committed.
+- First-run proof on maintainer corpus: **18/20 MATCH = 90% strict**,
+  20/20 MATCH+NEAR = 100% loose, no tuning, ~70s on gemma3:4b. P6
+  ship-gate (≥60% strict) PASS first try.
+- Added `pyyaml>=6.0` to core deps (bank format).
+- Version bump 0.2.0b2 → 0.2.0b3.
+
+Design notes: `docs/schema-extraction.md`. Architectural alignment with
+the locked invariant (vectors-first, classifier-secondary): schemas are a
+**refinement tier** atop existing retrieval, not a gatekeeper. If
+extraction degrades, chunk retrieval keeps working unchanged.
+
 ### Added — 2026-05-22 "The substrate is structurally personal" section
 
 Mini-section inserted between consumer table and Headline. Four

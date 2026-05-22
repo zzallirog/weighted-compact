@@ -27,6 +27,15 @@ data/
 # Backups created by feature extractors / labelers (`.bak.YYYYMMDD-HHMMSS`)
 *.bak.*
 
+# Schema-extraction artifacts — schema-bank.yaml is built from the user's
+# memory dir and contains personal infrastructure references. Reports
+# carry full episode content. Both stay strictly under $XDG_DATA_HOME and
+# must never enter the checkout. Example template is in examples/ and is OK.
+schema-bank.yaml
+schema-runs/
+**/schema-bank.yaml
+**/schema-runs/
+
 # Python
 __pycache__/
 *.py[cod]

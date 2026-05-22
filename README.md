@@ -38,11 +38,12 @@ first reader; other consumers read the same files.
 | **Narrative extraction** — session-narrative | Layer 1-5 long-form recall (concept extraction → semantic grep → importance → narrative) | **in development, private** |
 | **Knowledge-gap retrieval** — FKMF | two-layer active + background lookup for fundamental missing fragments | **methodology + skill, no shipped binary** |
 | **Foreign-model observability** — misstep-foreign-models | refusal-drift lens over 3rd-party LLM sessions | **design phase, postulates frozen, pre-implementation** |
+| **Schema extraction** — third retrieval tier | extracts reusable `(trigger, rule, anti-pattern, stable_since)` rules from your memory dir; sits above chunk/episode retrieval as the cheap top-tier — when a recurring pattern fires, you get the rule, not raw chunks | **shipped beta — this repo, v0.2.0b3, `weighted-compact schema {build-bank,run,all}`; first proof 18/20 strict MATCH on maintainer corpus, gate ≥60% PASS** |
 
-Only the compaction consumer is published. The other four are listed
-because they prove the substrate has more than one reader — not as a
-claim of available tooling. If you came for one of them, it does not
-yet ship.
+Two consumers ship in this repo today: compaction and schema extraction.
+The other four are listed because they prove the substrate has more than
+two readers — not as a claim of available tooling. If you came for one of
+the unshipped four, it does not yet ship.
 
 ---
 
@@ -635,6 +636,7 @@ Platform matrix: [`docs/install.md`](docs/install.md).
 | Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | measured 2026-05-21 — see [Headline](#headline-compaction-consumer) |
 | Substrate consumed by external readers (misstep / narrative / FKMF / foreign-model) | substrate format stable; readers private — see [Consumers reading this substrate today](#consumers-reading-this-substrate-today) |
 | Cross-session correlation reader (corrections accumulate across sessions) | `v0.3` direction |
+| Schema extraction (third retrieval tier — `weighted-compact schema {build-bank,run,all}`) | shipped beta `v0.2.0b3` — 18/20 strict MATCH on maintainer corpus, gate ≥60% PASS first run |
 
 Beta. Memory builder, ranker, labeler, and fidelity check work
 end-to-end on a real corpus. Architectural invariants are locked; the
@@ -655,6 +657,7 @@ Contributor-grade full component table (17 rows): [`docs/status.md`](docs/status
 | [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md) | Two-tier signal economics: cheap regex vs LLM judge |
 | [`docs/05-roadmap.md`](docs/05-roadmap.md) | Open items, honest forward look, 2026-05-21 baseline |
 | [`docs/baselines.md`](docs/baselines.md) | Baseline rankers — methodology + how to run the comparison |
+| [`docs/schema-extraction.md`](docs/schema-extraction.md) | Third retrieval tier — auto-extracted rules above chunks |
 | [`docs/concept.md`](docs/concept.md) | Longer-form take on the problem |
 | [`docs/invariants.md`](docs/invariants.md) | Three locked design invariants |
 | [`docs/architecture.md`](docs/architecture.md) | Module map and substrate pipeline |

@@ -89,6 +89,10 @@ BASELINE_RANDOM_FILE = "baseline_random.npz"
 BASELINE_RECENCY_FILE = "baseline_recency.npz"
 
 
+def schema_bank_path() -> Path: return workdir() / "schema-bank.yaml"
+def schema_runs_dir() -> Path: return workdir() / "schema-runs"
+
+
 def pairs_path() -> Path: return workdir() / PAIRS_FILE
 def labels_path() -> Path: return workdir() / LABELS_FILE
 def queue_path() -> Path: return workdir() / QUEUE_FILE
