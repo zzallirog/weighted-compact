@@ -140,7 +140,11 @@ def _run_one(case: dict, extract_model: str, judge_model: str) -> CaseResult:
             judge_time_s=0.0,
         )
 
-    generated, extract_t = synthesize_rule(content, extract_model)
+    generated, extract_t = synthesize_rule(
+        content,
+        extract_model,
+        trigger=case.get("trigger_phrase"),
+    )
     verdict, judge_raw, judge_t = judge_rule(
         case.get("trigger_phrase", ""),
         case.get("expected_rule", ""),

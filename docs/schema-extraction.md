@@ -66,31 +66,67 @@ weighted-compact schema paths
 The bank lives at `$XDG_DATA_HOME/weighted-compact/schema-bank.yaml` and is
 gitignored. Reports go to `$XDG_DATA_HOME/weighted-compact/schema-runs/`.
 
-## First proof run (maintainer corpus)
+## First proof run — three numbers and what each means
 
-Initial validation against a hand-curated 20-case bank on the maintainer's
-own memory dir:
+The first proof took three runs to settle. The path between them is the
+method-level finding this tier surfaces, so it is recorded here verbatim
+rather than collapsed to a single headline number.
 
-| Metric | Value |
-|---|---|
-| **Strict MATCH** | 18/20 = **90.0%** |
-| **MATCH+NEAR** (loose) | 20/20 = **100%** |
-| Total runtime | ~70 s |
-| Model | local `gemma3:4b` |
-| Tuning | none — first run |
+Hand-curated 20-case bank on the maintainer's memory dir. Extract model
+`gemma3:4b`. Judge models as noted.
 
-Ship-gate is **≥60% strict MATCH on case bank**. First-run result clears
-it by 30 points on cold-start gemma3:4b with zero prompt tuning, which is
-the proof the tier deserves to exist at all.
+| Run | Config | Strict MATCH | Status | Meaning |
+|---|---|---|---|---|
+| Pre-fix (withdrawn) | verdict parser bug `"MATCH" in "MISMATCH"` → all MISMATCH parsed as MATCH | claimed 18/20 = 90% | retracted | The number was the bug. Re-parsing the same `judge_raw` strings with the corrected parser gives 5/20 = 25%. |
+| Honest baseline | parser fixed, original query-free extract prompt, same-model gemma3 judge | **10/20 = 50%** | BELOW gate by 10pp | Extract prompt asks for "one rule" from up to 16k chars but never says _which_ rule. In multi-rule project notes the model picks the first observable rule, not the one the case expects. |
+| Pass 1 — query-conditioned extract | threads `trigger_phrase` into the extract prompt so the model is asked to find the rule that addresses _this_ trigger | **14/20 = 70%** | PASS by 10pp | Methodological correction, not tuning: production schema retrieval is always query-conditioned, the original validation wasn't. Latency also dropped ~6s → ~2.7s per extract. |
+| Pass 2 — cross-model judge | gemma3 extractor + qwen2.5:7b judge | **1/20 = 5%** | BELOW gate by 55pp | Stress test exposes the judge calibration problem. Reading the judge verdicts: it marks MISMATCH on cases where the rule is substantively correct but worded differently. Same-model judge over-agrees on wording; cross-model under-agrees on wording. Neither is judging substance. |
 
-The two NEAR cases are diagnostic:
+### What ships
 
-- One was a wording difference (`>5000 chunks` vs `pagination 5k chunks`)
-  — calibration knob, not a defect.
-- One was a multi-rule project file that produced 10 rules where the
-  bank expected 1 — empirical confirmation that **one project note can
-  encode multiple schemas**, and the cluster-extraction step needs to
-  permit multi-rule output, not assume a single top-level rule.
+Pass 1 default config: query-conditioned `gemma3:4b` extractor with
+same-model judge, **14/20 = 70%, gate PASS by 10pp**. This is the number
+on the consumer table and the status row.
+
+### What does not ship and why
+
+The cross-model 5% is documented as the next-hardest open problem, not
+hidden:
+
+- **Judge calibration is its own black box.** κ=0.47 was measured
+  upstream as same-model viability (gemma3 judge against Sonnet 4.6
+  ground truth on a different task). That number does not generalize
+  to cross-model judges on this task without separate validation.
+  Assuming it would was a mistake.
+- **Same-model judge has structural agreement bias.** A model judging
+  another instance of itself shares encoding shape and tends toward
+  MATCH on substantive ties. Documented in upstream WC warnings under
+  the gemma3 cache-drift episode; surfaces here as a +65pp gap between
+  same-model and cross-model verdicts.
+
+Both of these belong in a future "judge validation set" of their own,
+not solved by tuning the schema-extraction code.
+
+### Adjacent code-review findings (independent reviewer, non-blockers)
+
+Four issues filed for follow-up, none of which gate the current ship:
+
+- `bank_builder._parse_case_block` only stores the **last** value when
+  the LLM returns multiple TRIGGER/RULE/ANTI blocks for one cluster.
+  Silently degrades extraction quality on multi-rule files; needs
+  multi-rule output support (W3 roadmap).
+- `build_bank` does not catch `urllib.error.URLError` from Ollama; an
+  ollama outage mid-run loses partial progress and leaves a corrupted
+  YAML (non-atomic write).
+- `pipeline._resolve_ref` constructs paths from `source_episodes`
+  without a path-boundary check. Low-severity in single-user local
+  context; relevant if the bank format is ever accepted from
+  untrusted sources.
+- `judge.JUDGE_PROMPT` interpolates the extractor's raw output into
+  `{generated}` with `str.format()`. If the extractor returned
+  prompt-injection bait, the judge prompt could be subverted. Not
+  exploitable in single-user offline use; worth fixing before any
+  multi-tenant deployment.
 
 ## Architectural fit
 

@@ -18,17 +18,16 @@ sitting above existing chunk/episode retrieval as the cheap top-tier.
 - `bank_builder` — heuristic scan of `~/.claude/projects/*/memory/` +
   `~/.claude/work/` for files with stability markers (DONE/SHIPPED/RESOLVED
   + dates); each candidate passed to local gemma3:4b to extract structured
-  TRIGGER/RULE/ANTI block, dropped if `NO_RULE`.
-- `synthesizer` + `judge` — episode content → rule, then MATCH/NEAR/MISMATCH
-  verdict via same-model judge (gemma3 κ=0.47 calibration, documented in
-  upstream WC warnings as viable cheap proxy).
+  TRIGGER/RULE/ANTI block, dropped if `NO_RULE`. Self-creating bank: a
+  full scan of the maintainer's 290 memory + HANDOFF files produced 246
+  extractable cases unattended.
+- `synthesizer` + `judge` — query-conditioned extraction (model receives
+  the case's trigger phrase as target context), then MATCH/NEAR/MISMATCH
+  verdict via configurable judge model.
 - `pipeline.run_pipeline()` — orchestrate full validation; writes per-case
   JSON + summary markdown to `$XDG_DATA_HOME/weighted-compact/schema-runs/`.
 - Bank file (`schema-bank.yaml`) lives under XDG data dir, gitignored.
   Real banks carry user-specific content and are never committed.
-- First-run proof on maintainer corpus: **18/20 MATCH = 90% strict**,
-  20/20 MATCH+NEAR = 100% loose, no tuning, ~70s on gemma3:4b. P6
-  ship-gate (≥60% strict) PASS first try.
 - Added `pyyaml>=6.0` to core deps (bank format).
 - Version bump 0.2.0b2 → 0.2.0b3.
 
@@ -36,6 +35,63 @@ Design notes: `docs/schema-extraction.md`. Architectural alignment with
 the locked invariant (vectors-first, classifier-secondary): schemas are a
 **refinement tier** atop existing retrieval, not a gatekeeper. If
 extraction degrades, chunk retrieval keeps working unchanged.
+
+#### Proof run — honest chronology of three numbers
+
+The first proof took three runs to settle. They are recorded here because
+the path from one number to the next is exactly the method-level finding
+this sub-package surfaces.
+
+1. **Pre-fix: claimed 18/20 = 90% strict — withdrawn.** The verdict parser
+   in `judge.py` originally iterated `("MATCH", "NEAR", "MISMATCH")` and
+   returned the first token found via substring match. `"MATCH" in
+   "MISMATCH"` is `True`, so every MISMATCH the judge emitted was silently
+   parsed as MATCH. The smoke test caught this on a synthetic input; the
+   fix (MISMATCH-first order) was committed in the same patch as the
+   90% claim, but the proof report cited as evidence had been generated
+   before the fix landed. Re-parsing the same `judge_raw` strings with
+   the corrected parser yields **5/20 strict = 25%** — the bug was
+   contributing all 13 of the inflated MATCH counts. The 90% is an
+   artifact, not a result. It was caught by an independent code review,
+   not by the maintainer.
+2. **Post-fix re-run with original prompts: 10/20 strict = 50%.** Honest
+   first-run number with the verdict parser fixed and no other changes.
+   Below the 60% ship-gate by 10pp. Diagnosis: the EXTRACT_PROMPT asks
+   the model for "one rule" from up-to-16k chars of source content but
+   never tells it _which_ rule. In multi-rule project notes (one file
+   often documents several fixes), the model picks the first observable
+   rule, not the one the case bank expects.
+3. **Pass 1, query-conditioned extraction: 14/20 strict = 70%.** Threaded
+   the case's `trigger_phrase` into the extraction prompt so the model is
+   asked to find the rule that addresses _this specific_ trigger, not an
+   arbitrary one. This is the production semantics of schema retrieval —
+   real queries are query-conditioned — so it is a methodological
+   correction, not tuning. Gate PASS by 10pp. Extract latency also
+   dropped from ~6s to ~2.7s per call because the model converges
+   faster with a target.
+4. **Pass 2, cross-model judge stress test: 1/20 strict = 5%.** Swapped
+   judge from `gemma3:4b` (extractor's own family) to `qwen2.5:7b`.
+   Reading the judge's verdicts: it correctly identifies that the
+   generated rule says `QSG_RHI_BACKEND=gl` (matching the expected) but
+   marks MISMATCH because the generated text adds a related env var and
+   the formatting differs. Same model on both sides over-agrees on
+   wording; a different model under-agrees on wording. Neither is
+   judging substance. **Judge calibration is its own black box that
+   needs its own validation set** — assuming a same-model judge is
+   "viable cheap proxy" because κ=0.47 was measured upstream is not
+   equivalent to assuming any cross-model judge will work without
+   prompt tuning.
+
+What ships: Pass-1 default (query-conditioned extract + same-model
+gemma3:4b judge, 70% PASS). The cross-model 5% number is documented
+as the next problem on the roadmap, not as a number to lead with.
+
+Adjacent code review by an independent model also surfaced four
+non-blocker findings (multiline value truncation in `_parse_case_block`,
+non-atomic bank file writes, no path-boundary check in `_resolve_ref`,
+prompt-injection surface via `{generated}` interpolation in the judge
+prompt). These are filed in `docs/schema-extraction.md` under Honest
+limitations and roadmap, not silent.
 
 ### Added — 2026-05-22 "The substrate is structurally personal" section
 

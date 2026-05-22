@@ -11,7 +11,13 @@ import time
 import urllib.request
 from typing import Any
 
-from ._constants import EXTRACT_MODEL, EXTRACT_PROMPT, OLLAMA_TIMEOUT_S, OLLAMA_URL
+from ._constants import (
+    EXTRACT_MODEL,
+    EXTRACT_PROMPT,
+    EXTRACT_PROMPT_GUIDED,
+    OLLAMA_TIMEOUT_S,
+    OLLAMA_URL,
+)
 
 
 def ollama_generate(model: str, prompt: str, timeout: int = OLLAMA_TIMEOUT_S) -> tuple[str, float]:
@@ -28,11 +34,23 @@ def ollama_generate(model: str, prompt: str, timeout: int = OLLAMA_TIMEOUT_S) ->
     return body.get("response", "").strip(), time.time() - t0
 
 
-def synthesize_rule(context: str, model: str = EXTRACT_MODEL) -> tuple[str, float]:
+def synthesize_rule(
+    context: str,
+    model: str = EXTRACT_MODEL,
+    trigger: str | None = None,
+) -> tuple[str, float]:
     """Extract one schema rule (TRIGGER/RULE/ANTI) from episode content.
+
+    If `trigger` is provided, uses query-conditioned extraction — the model is
+    instructed to find the rule that addresses the trigger specifically, rather
+    than extracting an arbitrary rule from the content. This matches production
+    retrieval semantics, where schema lookup is always query-conditioned.
 
     Returns raw generated text + elapsed seconds. Caller parses or judges.
     'NO_RULE' is a valid response indicating no extractable rule in this content.
     """
-    prompt = EXTRACT_PROMPT.format(context=context)
+    if trigger:
+        prompt = EXTRACT_PROMPT_GUIDED.format(trigger=trigger, context=context)
+    else:
+        prompt = EXTRACT_PROMPT.format(context=context)
     return ollama_generate(model, prompt)

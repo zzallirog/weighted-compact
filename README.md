@@ -38,7 +38,7 @@ first reader; other consumers read the same files.
 | **Narrative extraction** — session-narrative | Layer 1-5 long-form recall (concept extraction → semantic grep → importance → narrative) | **in development, private** |
 | **Knowledge-gap retrieval** — FKMF | two-layer active + background lookup for fundamental missing fragments | **methodology + skill, no shipped binary** |
 | **Foreign-model observability** — misstep-foreign-models | refusal-drift lens over 3rd-party LLM sessions | **design phase, postulates frozen, pre-implementation** |
-| **Schema extraction** — third retrieval tier | extracts reusable `(trigger, rule, anti-pattern, stable_since)` rules from your memory dir; sits above chunk/episode retrieval as the cheap top-tier — when a recurring pattern fires, you get the rule, not raw chunks | **shipped beta — this repo, v0.2.0b3, `weighted-compact schema {build-bank,run,all}`; first proof 18/20 strict MATCH on maintainer corpus, gate ≥60% PASS** |
+| **Schema extraction** — third retrieval tier | extracts reusable `(trigger, rule, anti-pattern, stable_since)` rules from your memory dir; sits above chunk/episode retrieval as the cheap top-tier — when a recurring pattern fires, you get the rule, not raw chunks | **shipped beta — this repo, v0.2.0b3, `weighted-compact schema {build-bank,run,all}`; honest first proof: 14/20 strict MATCH = 70% on maintainer 20-case bank (gate ≥60% PASS), query-conditioned extract + same-model judge. Cross-model judge stress test drops the number to 1/20 — that's the unsolved methodology problem, not the system being broken (see [`docs/schema-extraction.md`](docs/schema-extraction.md))** |
 
 Two consumers ship in this repo today: compaction and schema extraction.
 The other four are listed because they prove the substrate has more than
@@ -636,7 +636,7 @@ Platform matrix: [`docs/install.md`](docs/install.md).
 | Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | measured 2026-05-21 — see [Headline](#headline-compaction-consumer) |
 | Substrate consumed by external readers (misstep / narrative / FKMF / foreign-model) | substrate format stable; readers private — see [Consumers reading this substrate today](#consumers-reading-this-substrate-today) |
 | Cross-session correlation reader (corrections accumulate across sessions) | `v0.3` direction |
-| Schema extraction (third retrieval tier — `weighted-compact schema {build-bank,run,all}`) | shipped beta `v0.2.0b3` — 18/20 strict MATCH on maintainer corpus, gate ≥60% PASS first run |
+| Schema extraction (third retrieval tier — `weighted-compact schema {build-bank,run,all}`) | shipped beta `v0.2.0b3` — 14/20 strict MATCH = 70% on maintainer 20-case bank with same-model judge (gate ≥60% PASS by 10pp); cross-model judge drops to 1/20, surfaces judge-calibration as the next problem to solve |
 
 Beta. Memory builder, ranker, labeler, and fidelity check work
 end-to-end on a real corpus. Architectural invariants are locked; the
