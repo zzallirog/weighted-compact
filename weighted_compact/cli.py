@@ -222,7 +222,6 @@ def quickstart(no_bootstrap: bool) -> None:
     click.echo(f"Substrate: {sub['path']} ({'exists' if sub['exists'] else 'absent'})")
     click.echo(f"  pairs.jsonl  {sub.get('pairs', 0)} bytes")
     click.echo(f"  features.npz {'present' if sub.get('features') else 'absent'}")
-    directive = _next_step(sub)
 
     # ── step 2: bootstrap ────────────────────────────────────────────────────
     need_bootstrap = sub.get("pairs", 0) == 0 and not no_bootstrap
@@ -293,7 +292,7 @@ def quickstart(no_bootstrap: bool) -> None:
     if final:
         click.secho(final, fg="cyan")
     click.echo()
-    click.echo(f"  Open the labeler: weighted-compact serve")
+    click.echo("  Open the labeler: weighted-compact serve")
     click.echo(f"  then visit      : http://127.0.0.1:{config.labeler_port()}/welcome")
 
 

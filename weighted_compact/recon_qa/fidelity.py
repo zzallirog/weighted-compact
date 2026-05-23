@@ -172,8 +172,9 @@ def _load_compact_sonnet():
 # Ship the eight built-in rankers through the public registry. External
 # packages register their own via `weighted_compact.ranker.register(...)`
 # — the registry is the single source of truth; `_RANKER_LOADERS` below
-# is a thin compatibility view that points at it.
-from weighted_compact.ranker import RANKER_REGISTRY
+# is a thin compatibility view that points at it. Import is intentionally
+# late so the loader closures above are defined before registration runs.
+from weighted_compact.ranker import RANKER_REGISTRY  # noqa: E402
 
 RANKER_REGISTRY.add(
     'importance', load_importance,
