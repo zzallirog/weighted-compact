@@ -93,9 +93,11 @@ fi
 # 3. Generic home-path patterns — /home/<user>/, /Users/<user>/, /root/.
 #    Docs intentionally show placeholder paths (/home/your-name/...) and
 #    weighted_compact/auto_label.py uses /home/ as a path-prefix regex in
-#    its detector. Exclude those from the generic sweep; PERSONAL_PATTERNS
-#    above still scans them for maintainer-specific identifiers.
-GENERIC_EXCLUDE='^docs/|^CHANGELOG\.md$|^weighted_compact/auto_label\.py$'
+#    its detector. docker-compose.yml mounts container-internal /root/.ollama
+#    (canonical home for the root user inside the ollama image, not a leak).
+#    Exclude those from the generic sweep; PERSONAL_PATTERNS above still
+#    scans them for maintainer-specific identifiers.
+GENERIC_EXCLUDE='^docs/|^CHANGELOG\.md$|^weighted_compact/auto_label\.py$|^docker-compose\.yml$'
 generic_targets="$(echo "$FILES" | grep -vE "$GENERIC_EXCLUDE" || true)"
 generic_matches="$(echo "$generic_targets" | xargs -d '\n' -r grep -lIE --color=never -- "$GENERIC_PATH_REGEX" 2>/dev/null || true)"
 if [ -n "$generic_matches" ]; then
