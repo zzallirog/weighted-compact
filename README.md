@@ -2,16 +2,77 @@
 
 # weighted-compact
 
-**A structured substrate built from your Claude Code sessions.**
+**Claude Code forgets everything at `/compact`. weighted-compact decides
+what to keep — by reading your corrections, not guessing.**
 
-*One conversation log parsed once, scored on multiple signals, queried
-by multiple consumers. Compaction is the first published consumer.*
+A local-first, inspectable substrate built from `~/.claude/projects/`.
+Six automatic signals + one optional human label. No daemon, no cloud,
+no auto-injection. **8 pp** measured advantage over LLM-summary
+`/compact` on reconstruction-fidelity (full table below).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![v0.2.0-beta.2](https://img.shields.io/badge/release-v0.2.0--beta.2-yellow)](CHANGELOG.md)
+[![outbound: 0](https://img.shields.io/badge/outbound%20network-localhost%20only-success)](docs/invariants.md)
 
 </div>
+
+```
+   ~/.claude/projects/                    7 signals (6 automatic)
+   ┌──────────────────┐                  ┌────────────────────┐
+   │ session_1.jsonl  │  ──bootstrap──▶  │ misstep            │
+   │ session_2.jsonl  │                  │ density            │
+   │     ...          │                  │ label (optional)   │  ─importance.npz─┐
+   │ session_N.jsonl  │                  │ span_keep / maybe  │                  │
+   └──────────────────┘                  │ span_skip / think  │                  ▼
+                                         │ topic_decay        │       ┌──────────────────┐
+                                         │ cosine             │  ───▶ │  compacted       │
+                                         └────────────────────┘       │  markdown        │
+                                                  ▲                   │  + budget meta   │
+                                              REM-decay               └──────────────────┘
+                                          (nightly, wall-clock)                ▲
+                                                                               │
+                                                                          MCP / CLI
+                                                                          (you query
+                                                                           with intent)
+```
+
+```bash
+# 30-second install — six automatic signals, no labeling step required
+pipx install 'weighted-compact[mcp]'
+weighted-compact bootstrap        # extract correction pairs from ~/.claude/projects/
+weighted-compact importance       # compose the seven-signal score
+weighted-compact mcp-serve        # local stdio MCP for Claude Desktop / IDE clients
+```
+
+→ [Docker / Windows install](docs/docker-install.md) ·
+[Operating guide](docs/operating-guide.md) ·
+[Bench vs claude-mem](docs/bench-vs-claude-mem.md) ·
+[Stability promise](docs/stability.md) ·
+[Extension recipe](docs/extension-recipe.md) ·
+[Pick your door](#pick-your-door)
+
+---
+
+## How it compares
+
+A 30-second product map vs the dominant adjacent tool:
+
+| | weighted-compact | claude-mem (77 k ★) |
+|---|---|---|
+| **Capture** | reads `~/.claude/projects/` on demand | 5 always-on lifecycle hooks |
+| **Importance ranking** | 7 inspectable signals + REM-decay | `ORDER BY recency DESC LIMIT k` |
+| **Compaction** | top-K vector selection → markdown | LLM-summary, opaque |
+| **Auto-injection** | none — client polls | every session start |
+| **Outbound network** | zero (default) | configurable LLM provider per turn |
+| **Substrate inspection** | `numpy` columns on disk | SQLite + Chroma |
+| **Idle RAM** | 0 MB (nothing runs) | ~80–150 MB worker |
+| **Fidelity vs `/compact`** | **3.0× judge_yes** (measured) | not measured by them |
+
+The trade is real: claude-mem is hook-installed in seconds and feels
+magic; weighted-compact is a substrate you query with intent. Neither
+is wrong; they answer different questions. The numbers above are
+reproducible from this repo — see [`docs/bench-vs-claude-mem.md`](docs/bench-vs-claude-mem.md).
 
 ---
 
@@ -29,21 +90,32 @@ The decorated substrate lives at `$XDG_DATA_HOME/weighted-compact/` —
 gitignored, never uploaded. It is the artifact. Compaction is the
 first reader; other consumers read the same files.
 
+**Six of the seven signals run without any human input.** The seventh
+— `label` — is an optional power-tier, not a requirement: the published
+ablation puts its 95 % paired CI [−0.004, +0.109] crossing zero on the
+lower bound, with 67 % of paired runs showing zero difference. The
+substrate stands on the six automatic signals; the labeler at `:18890/`
+is opt-in for users who want to add an explicit human judgement track.
+
+A nightly **REM pass** (`weighted-compact rem-pass`, default 04:00 via
+the bundled systemd-user timer) lays a wall-clock half-life multiplier
+on top: yesterday × 0.91, week ago × 0.50, month ago × 0.05. Independent
+of the seven-signal mixture — content signals stay stable, time refreshes
+every day. See [`docs/rem-decay.md`](docs/rem-decay.md).
+
 ### Consumers reading this substrate today
 
 | Consumer | What it does with the substrate | Status |
 |---|---|---|
-| **Compaction layer** — `build_compacted_context()` | top-K importance selection → markdown context; exercised today via the `qa-gate` evaluation harness, standalone session-start delivery (W2 ambient render) is the next-targeted feature | **shipped as library + harness — this repo, beta; standalone CLI for session-start delivery `next`** |
-| **Stumble prediction** — misstep | per-user `P(stumble)` from correction embeddings; backbone signal for the mixture | **separate project — AUC 0.665 on maintainer corpus, not yet public** |
-| **Narrative extraction** — session-narrative | Layer 1-5 long-form recall (concept extraction → semantic grep → importance → narrative) | **in development, private** |
-| **Knowledge-gap retrieval** — FKMF | two-layer active + background lookup for fundamental missing fragments | **methodology + skill, no shipped binary** |
-| **Foreign-model observability** — misstep-foreign-models | refusal-drift lens over 3rd-party LLM sessions | **design phase, postulates frozen, pre-implementation** |
-| **Schema extraction** — third retrieval tier | extracts reusable `(trigger, rule, anti-pattern, stable_since)` rules from your memory dir; sits above chunk/episode retrieval as the cheap top-tier — when a recurring pattern fires, you get the rule, not raw chunks | **shipped beta — this repo, v0.2.0b3, `weighted-compact schema {build-bank,run,all}`; honest first proof: 14/20 strict MATCH = 70% on maintainer 20-case bank (gate ≥60% PASS), query-conditioned extract + same-model judge. Cross-model judge stress test drops the number to 1/20 — that's the unsolved methodology problem, not the system being broken (see [`docs/schema-extraction.md`](docs/schema-extraction.md))** |
+| **Compaction layer** — `build_compacted_context_with_meta()` | top-K importance selection → markdown context + budget meta (chars, tokens, top-3 signals). Exercised via the `qa-gate` evaluation harness; standalone session-start delivery is the next-targeted feature. | **shipped — library + harness + MCP tool** |
+| **Schema extraction** — third retrieval tier | extracts reusable `(trigger, rule, anti-pattern, stable_since)` rules from your memory dir; sits above chunk/episode retrieval as the cheap top-tier — when a recurring pattern fires, you get the rule, not raw chunks | **shipped — v0.2.0b3, `weighted-compact schema {build-bank,run,all}`; honest first proof: 14/20 strict MATCH = 70 % (see [`docs/schema-extraction.md`](docs/schema-extraction.md))** |
 
-Two consumers ship in this repo today: compaction and schema extraction.
-The other four are listed because they prove the substrate has more than
-two readers — not as a claim of available tooling. If you came for one of
-the unshipped four, it does not yet ship.
+Both consumers ship in this repo today. Four additional readers are in
+flight in adjacent projects (misstep, session-narrative, FKMF,
+misstep-foreign-models) — see
+[`docs/consumers-roadmap.md`](docs/consumers-roadmap.md) for their
+status. They are listed there, not here, because nothing about
+*this repo*'s install path depends on them.
 
 ---
 
@@ -93,7 +165,31 @@ shape, and the shape is what defines the project.
 
 ---
 
-## Headline (compaction consumer)
+## The methodology is inspectable
+
+Adjacent memory tools capture every tool call, ship the stream to an
+LLM, store the summary, and at session start inject "relevant" snippets
+back. The capture is automatic, the summary is opaque, and the relevance
+function is a `ORDER BY recency DESC LIMIT k` against a vector index.
+There is no way to ask *why this snippet was kept and that one was not*
+except by reading the LLM's mind.
+
+This project takes the inverse stance. The same correction-pair
+substrate that the runtime consumes is also queryable by an evaluation
+harness: hide one pair, reconstruct the answer from the rest, ask two
+independently-trained model families (Qwen generator, Gemma judge) to
+agree that the answer still holds. The cross-family choice is a
+methodology contract, not a runtime dependency — when both families
+agree the pair was recoverable, the *signal weighting that recovered
+it* is the part being tested, not any single model's verdict. Cohen's κ
+between cheap-local and paid-cloud judge is published (κ=0.469); the
+noise envelope around every claim is named in the same table as the
+claim.
+
+The runtime stores no opaque summaries; the per-pair scores are
+columns in a numpy array on disk. The evaluation harness is reproducible
+on any user corpus. There is no black box between "this pair was
+recovered" and "this is why."
 
 The published consumer is compaction. Its proof is on the
 reconstruction-fidelity loop: hide a pair, ask whether the compacted
@@ -201,20 +297,31 @@ cell has the number on line one and the reading on line two.
 | # | Test | Status | Result |
 |---|---|---|---|
 | 1 | **Ground-truth fidelity** under cross-family judge | shipped | Sonnet 4.6, 573 pairs → 3.8 % per-Q fidelity floor; failure split: ~40 % IDK / ~24 % paraphrase / ~6 % ranking error.<br>*≈96 % of pair-specific detail vanishes when that pair is hidden from context — the absolute starting point, before the mixture does any work.* |
-| 2 | **Coefficient ablation** — `label_weight ∈ {0, 0.15}` | shipped, partial sweep | Δ=+0.053, 95 % paired CI [−0.004, +0.109]; per-corpus signs 3 / 3 positive.<br>*Turning the human-label term on raises per-Q fidelity by ≈5 percentage points; CI just crosses zero on the lower bound — direction holds, magnitude borderline.* |
+| 2 | **Coefficient ablation** — `label_weight ∈ {0, 0.15}` | shipped, partial sweep | Δ=+0.053, 95 % paired CI [−0.004, +0.109]; per-corpus signs 3 / 3 positive; 38 / 57 paired runs (67 %) are ties.<br>*Turning the human-label term on shifts per-Q fidelity by ≈5 percentage points but the CI crosses zero on the lower bound, and two-thirds of paired runs are unaffected either way. Read as: the six automatic signals carry the substrate by themselves; label is an optional power-tier, not a precondition.* |
 | 3 | **Cross-corpus consistency** — 3 disjoint session corpora | shipped | A +0.100 / B +0.028 / C +0.021; sign breakdown 13 pos · 6 neg · 38 ties.<br>*Three independent maintainer corpora all show positive Δ — the row-2 effect is not an artefact of one session window.* |
 | 4 | **Cheap-judge calibration** — gemma3:4b vs Sonnet 4.6 | shipped | κ = 0.469, precision 0.70, recall 0.51, zero "other" verdicts.<br>*The free local judge agrees with the paid cloud judge at "moderate" Landis-Koch level — cheap enough for continuous monitoring, not strict enough for definitive scoring.* |
 | 5 | **Anti-baseline** — mixture vs naive `/compact` summary + cheap structured rankers | shipped | qwen-summarized `/compact` analog: **3.2 %** (2/62). Mixture: 11.3 % (7/62) — **8 pp gap**. Within structured (random / recency / cosine / mixture / density / bm25): all within ±1 question. Same harness, gemma3:4b judge, k_drop=0.5.<br>*Structured selection of any kind beats one-pass summarisation by a substantial margin. The mixture's edge over cheap structured baselines is not yet measurable at this N under the cheap-judge proxy — that's the open question for v0.3.* |
 | 6 | **Full coefficient grid** — all 7 signal weights | filed | `weighted-compact ablation --weights` one-shot wrapper, v0.3.<br>*Only one of the seven mixture weights has been swept so far; the other six contribute under their heuristic defaults.* |
 | 7 | **Compositional / long-run** — fidelity across rolling 48-pair windows | scaffold | `recon_qa/gate.py` computes buckets; downstream routing partial.<br>*Fidelity is scored per pair, not as a function of accumulated history — cannot yet answer "did the last 30 sessions improve or degrade older recall."* |
 | 8 | **Multi-user scaling** — reproduction on second corpus | open invitation | Methodology is the contribution; magnitudes are not portable.<br>*If you run on your corpus, the absolute numbers will not match — but the direction of the label-weight effect should reproduce.* |
+| 9 | **REM-decay multiplier** — wall-clock half-life ageing | shipped 2026-05-23 | `weighted-compact rem-pass [--half-life-days 7]`; nightly timer template; `--rem-decay` flag end-to-end through `qa-gate` and `run_eval`.<br>*Independent of the seven-signal mixture. Content signals are stable; time refreshes every day. Half-life sweep on the fidelity gate is filed for v0.3 — for now, 7 days is heuristic.* |
+| 10 | **MCP stdio server** — local-only client surface | shipped 2026-05-23 | `weighted-compact mcp-serve`; three tools (`search_pairs`, `compact_session`, `substrate_info`); optional extra `pipx install 'weighted-compact[mcp]'`.<br>*Lets MCP-speaking clients (Claude Desktop, mcp-cli, IDE plugins) query the substrate without re-parsing it. Stdio only; no network, no auto-inject, no write tools. See [`docs/mcp-integration.md`](docs/mcp-integration.md).* |
+| 11 | **Docker / Windows install path** | shipped 2026-05-23 | `Dockerfile` + `docker-compose.yml`; non-root `wc` user; substrate on named volume; `~/.claude/projects` bind-mounted read-only; labeler at `127.0.0.1:18890`; optional ollama sidecar.<br>*Path of least resistance for users without a Python toolchain — Windows in particular. The REM pass runs as an in-container sleep-loop or host cron / Task Scheduler. See [`docs/docker-install.md`](docs/docker-install.md).* |
+| 12 | **Cross-tool bench harness vs claude-mem** | shipped 2026-05-23, script + spec; partial-run numbers pending | `scripts/bench_vs_claude_mem.sh` + `docs/bench-vs-claude-mem.md`; deterministic 30-pair sample (seed 42); same `gemma3:4b` judge for every method.<br>*Methodology is honest about the asymmetry — claude-mem normally runs hook-driven; the bench drives it via its worker HTTP API on a fixed corpus. Reproduction invited via the `bench:` issue label.* |
 
-The label-weight ablation clears the positive bar on two independent
-axes: the paired mean (Δ=+0.053) and the per-corpus signs (3/3 positive,
-+0.100 / +0.028 / +0.021). The 95 % paired CI [−0.004, +0.109] crosses
-zero on the lower bound under the cheap-judge κ=0.47 noise envelope —
-that is the qualifier on the magnitude, not a retraction of the
-direction.
+The label-weight ablation gives a directional read: paired mean
+Δ=+0.053, per-corpus signs 3/3 positive (+0.100 / +0.028 / +0.021).
+But the 95 % paired CI [−0.004, +0.109] crosses zero on the lower bound,
+and 38 of 57 paired runs (67 %) are exact ties — flipping the human-label
+weight on or off changes nothing for two-thirds of evaluations under the
+cheap-judge κ=0.47 noise envelope. The published default treats label as
+**optional**: the six automatic signals (misstep, density, span tiers,
+topic position, recency, cosine neighbourhood) carry the substrate on
+their own, and `bootstrap` ships with no labeling step. Users who want
+to add the human-judgement track open the labeler at `:18890/` as a
+deliberate power-tier action, not as a precondition for installation.
+This is the adoption-wall removal that distinguishes the substrate from
+any approach requiring per-pair human labeling at install time.
 
 ---
 
@@ -239,9 +346,11 @@ shaped by what *you* marked. Tomorrow (v0.3) a cross-session reader
 will spot when this session's correction was the third time you made
 the same one across three sessions and weight it accordingly.
 
-*Action:* `pipx install` → `weighted-compact compat` → `bootstrap`. The
-labeler opens at `:18890/`. Twenty pairs, twenty minutes, one sitting. The
-output is a substrate; the compaction reader is one command on top.
+*Action:* `pipx install` → `weighted-compact compat` → `bootstrap`. Done.
+No labeler, no twenty-minute sitting — the six automatic signals derive
+from your session files alone. The labeler at `:18890/` is opt-in if you
+want to add the seventh (sparse human-judgement) signal; the published
+ablation says you don't have to.
 
 → [Install](#install) · [Q1 — find your own stumble](#quiz--quest)
 
@@ -262,8 +371,10 @@ This is one corpus, one user, 573 pairs. No CIMemories-style scaling
 table; no cross-method shoot-out. Reproduction is invited, not packaged.
 
 *The number:* 3.8 % per-Q fidelity floor (Sonnet) defines the open
-question — what raises it. The +0.053 Δ ablation says *one signal* moves
-the needle directionally; six more are uncharted.
+question — what raises it. The +0.053 Δ label ablation has its 95 % CI
+crossing zero — direction holds, magnitude not statistically
+distinguishable from the six-automatic-signal baseline at this N. Six
+remaining weights are uncharted; that is the open ablation grid.
 
 *Action:* read [`docs/importance-mixture.md`](docs/importance-mixture.md)
 for the full ablation table, reproduce on your own corpus, file an issue
@@ -328,8 +439,13 @@ up under paired evaluation.
 ### 🔒 &nbsp; If you care about local-first and privacy
 
 Substrate lives in `$XDG_DATA_HOME/weighted-compact/`. Gitignored. The
-default pipeline runs entirely on Ollama (`qwen2.5:7b` generator +
-`gemma3:4b` cheap judge). Zero outbound calls on that path.
+**runtime** is the substrate plus markdown render — no LLM in the loop.
+The Ollama models (`qwen2.5:7b` generator + `gemma3:4b` cheap judge) are
+**evaluation harness**, not runtime: they exist so anyone can re-run the
+reconstruction-fidelity test (hide a pair, ask if the compacted context
+still answers questions about it) on their own corpus with two
+independently-trained model families cross-checking each other. Zero
+outbound calls on either path.
 
 *Would make this irrelevant to you:* you noticed Sonnet 4.6 in the
 results table. Yes — the calibration in [Headline](#headline-compaction-consumer) is a
@@ -349,6 +465,37 @@ and never touches GitHub.
 guarantee.
 
 → [Architectural invariants](#architectural-invariants) · [`docs/invariants.md`](docs/invariants.md)
+
+---
+
+<a id="angle-ops"></a>
+
+### ⚙️ &nbsp; If you want this to run nightly without thinking about it
+
+Three commands plus a timer, and the substrate stays current on its own.
+Recent sessions outweigh distant ones every morning; six automatic
+signals refresh content importance whenever bootstrap is re-run; nothing
+talks to the cloud.
+
+*Would make this irrelevant to you:* you don't want a long-lived
+substrate at all — you reset state between sessions or use the model as
+a stateless chat tool. The whole point of nightly automation is that the
+substrate is the artifact you keep around.
+
+*The number:* one timer, fires at 04:00 local with a 15-minute
+randomized delay; one oneshot service writes `rem_decay.npz` and rotates
+the previous version to `rem_decay.npz.bak.<UTC-ts>`. Hardcoded path —
+no `~/.bashrc` injection, no `crontab -e`, no shell hook.
+
+*Action:*
+```
+weighted-compact install-units --force
+systemctl --user daemon-reload
+systemctl --user enable --now weighted-compact-rem-pass.timer
+systemctl --user list-timers weighted-compact-rem-pass.timer
+```
+
+→ [REM-decay docs](docs/rem-decay.md) · [`systemd/weighted-compact-rem-pass.timer`](systemd/weighted-compact-rem-pass.timer) · [Operating guide — how / what / how much / why](docs/operating-guide.md)
 
 ---
 

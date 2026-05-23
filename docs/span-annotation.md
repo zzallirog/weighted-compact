@@ -53,6 +53,24 @@ entries `deleted`. Filter-out happens after the replay so deletion is
 non-destructive — the original ranges stay in the file for forensic
 inspection.
 
+### Optional `reason` field
+
+New annotations may carry an optional `reason` string (free-text, trimmed,
+empty when absent) written next to `marker` — the user's own justification
+for *why* the span matters. It is captured from the "why (optional)" input
+in the span popup. A reason-bearing annotation is treated as a stronger
+affirmation than a bare tier tap: downstream the classifier and importance
+mixture can weight such labels higher (the field exists today as the
+substrate signal; weighting policy is intentionally not baked in yet).
+
+Records written before this change have no `reason` key. Both the loader
+and the renderer coerce a missing key to an empty string, so older lines
+parse and behave exactly as before — no migration, no schema bump.
+
+```jsonl
+{"id": 3, "pair_idx": 18, "side": "correction", "char_range": [0, 32], "marker": "keep", "note": "", "reason": "exact path is load-bearing for repro"}
+```
+
 ## Inline-syntax bootstrapping
 
 If you type `(mark)` or `(think)` inside a live Claude

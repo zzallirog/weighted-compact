@@ -233,6 +233,37 @@ See [`CONTRIBUTING.md`](../CONTRIBUTING.md). Short version:
   artifacts. Multi-user / server-mode features. Telemetry. Anything
   requiring an external API key.
 
+## Why is my fidelity number not improving?
+
+Work through the steps below in order. Each one narrows down where the
+pipeline is stalling.
+
+1. `weighted-compact compat`
+   — Confirms the substrate is populated and Ollama is reachable. If
+   anything is missing, fix it before proceeding.
+
+2. `weighted-compact metrics`
+   — Confirms `rem_decay.npz` is fresh and `pair_count >= 100`. Below 100
+   pairs the mixture weights are unreliable; bootstrap more sessions first.
+
+3. `weighted-compact qa-gate --ranker importance --hard-k 0.5 --signal judge`
+   — Establishes your current baseline fidelity score. Note the number.
+
+4. `weighted-compact qa-gate --ranker recency --hard-k 0.5 --signal judge`
+   — Comparison row. If recency >= importance, the mixture is not earning
+   its weight on your corpus — file an issue with both numbers attached.
+
+5. `weighted-compact qa-gate --ranker compact_qwen --hard-k 0.5 --signal judge`
+   — Sanity check that the substrate-vs-summary gap holds. If your result
+   is less than +5 pp above the qwen baseline, the substrate is too sparse
+   — bootstrap more sessions before tuning weights.
+
+6. If all three numbers from steps 3–5 are within ±2 pp of each other,
+   you are at the noise floor of `gemma3:4b` (κ=0.469 calibration). Either
+   grow `N` (more entries in `recon_qa_set.jsonl`) or run the Sonnet
+   rejudge (`scripts/sonnet_rejudge.py`, requires `OPENROUTER_API_KEY`) to
+   get a higher-confidence reading on the same QA set.
+
 ## Can I see what others ask?
 
 Filing issues and discussions on the public repo is the place. There is
