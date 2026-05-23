@@ -46,6 +46,9 @@ baselines = [
 baselines-cloud = [
     "anthropic>=0.40",
 ]
+mcp = [
+    "mcp>=1.0.0",
+]
 dev = [
     "pytest>=8.3",
     "ruff>=0.7",

@@ -1,0 +1,14 @@
+[Unit]
+Description=weighted-compact REM pass — daily trigger (04:00 local)
+Documentation=https://github.com/zzallirog/weighted-compact
+
+[Timer]
+# Fires at 04:00 each day. RandomizedDelaySec smears wakeup across machines
+# so a fleet of installs doesn't hammer disks simultaneously.
+OnCalendar=*-*-* 04:00:00
+RandomizedDelaySec=15m
+Persistent=true
+Unit=weighted-compact-rem-pass.service
+
+[Install]
+WantedBy=timers.target

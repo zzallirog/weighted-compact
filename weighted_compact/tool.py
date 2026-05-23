@@ -369,6 +369,7 @@ class AnnotationPayload(BaseModel):
     char_end: int         # exclusive
     marker: str           # 'keep' | 'maybe' | 'skip' | 'think'
     note: str = ''
+    reason: str = ''      # optional free-text "why this span matters" (weak-supervision signal)
 
 
 @app.get('/api/next')
@@ -508,6 +509,10 @@ def api_annotation_add(payload: AnnotationPayload) -> JSONResponse:
         'snippet': text[payload.char_start:payload.char_end][:200],
         'marker': payload.marker,
         'note': payload.note,
+        # Optional weak-supervision signal: a reason-bearing annotation is a
+        # stronger affirmation than a bare tier tap. Trim whitespace; empty
+        # string (not null) so the field is present and stable to read.
+        'reason': (payload.reason or '').strip(),
         'created_at': datetime.now(UTC).isoformat(timespec='seconds'),
         'labeled_via': 'tool',
     }
@@ -978,6 +983,8 @@ PAGE_HTML = """<!doctype html>
     border-radius: 6px; padding: 6px;
     box-shadow: 0 4px 14px rgba(0,0,0,0.45);
     display: none; gap: 4px;
+    /* Wrap so the reason row lays under the tier buttons */
+    flex-wrap: wrap; max-width: 320px;
   }
   .ann-popup button {
     padding: 4px 10px; font-size: 11px;
@@ -990,6 +997,20 @@ PAGE_HTML = """<!doctype html>
   .ann-popup .b-skip:hover  { background: rgba(107,114,128,0.18); border-color: var(--skip); }
   .ann-popup .b-think:hover { background: rgba(179,157,240,0.18); border-color: #b39df0; }
   .ann-popup .b-cancel { color: var(--fg-dim); font-size: 10px; padding: 2px 8px; }
+  .ann-popup .ann-reason-row {
+    flex-basis: 100%;
+    display: flex; align-items: center; gap: 4px;
+    margin-top: 2px;
+  }
+  .ann-popup .ann-reason-row label {
+    font-size: 10px; color: var(--fg-dim);
+  }
+  .ann-popup input.ann-reason {
+    flex: 1 1 auto; min-width: 0;
+    padding: 3px 6px; font-size: 11px;
+    background: var(--bg2); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 4px;
+  }
 </style>
 </head>
 <body>
@@ -1354,12 +1375,20 @@ function esc(s) {
 // ── Inline annotations ────────────────────────────────────────────────────────
 
 let pendingRange = null;  // {side, start, end} awaiting tier choice
+let lastTierUsed = null;  // remembered tier for Enter-to-submit on the reason input
 
 function renderAnnotated(text, annotations, side) {
   if (!text) return '';
   const live = annotations
     .filter(a => a.side === side && !a.deleted)
-    .map(a => ({ id: a.id, start: a.char_range[0], end: a.char_range[1], marker: a.marker }))
+    .map(a => ({
+      id: a.id,
+      start: a.char_range[0],
+      end: a.char_range[1],
+      marker: a.marker,
+      // Old records (pre-reason) have no `reason` key → coerce to '' for safe render.
+      reason: (a.reason || '').toString(),
+    }))
     .sort((a, b) => a.start - b.start);
   // Drop overlapping (later wins by acceptance order would be wrong; keep first non-overlap)
   const flat = [];
@@ -1373,7 +1402,10 @@ function renderAnnotated(text, annotations, side) {
   let pos = 0;
   for (const a of flat) {
     if (a.start > pos) out += esc(text.slice(pos, a.start));
-    out += `<span class="ann ann-${a.marker}" data-ann-id="${a.id}" onclick="deleteAnnotation(${a.id})">${esc(text.slice(a.start, a.end))}</span>`;
+    // Tooltip: if a reason was supplied, surface it on hover so the user
+    // sees *why* this span was tagged. Empty reason → no title attribute.
+    const titleAttr = a.reason ? ` title="${esc(a.reason)}"` : '';
+    out += `<span class="ann ann-${a.marker}" data-ann-id="${a.id}"${titleAttr} onclick="deleteAnnotation(${a.id})">${esc(text.slice(a.start, a.end))}</span>`;
     pos = a.end;
   }
   if (pos < text.length) out += esc(text.slice(pos));
@@ -1411,7 +1443,8 @@ function onBlockMouseUp(ev, side) {
   const popup = document.getElementById('ann-popup');
   if (popup.parentElement !== document.body) document.body.appendChild(popup);
   popup.style.display = 'flex';
-  const popupW = 280, popupH = 36;
+  // Popup is two rows (tier buttons + reason input row); width caps at 320 via CSS.
+  const popupW = 320, popupH = 72;
   let x = ev.clientX + 8;
   let y = ev.clientY + 8;
   if (x + popupW > window.innerWidth)  x = window.innerWidth  - popupW - 8;
@@ -1423,11 +1456,24 @@ function onBlockMouseUp(ev, side) {
 function hideAnnPopup() {
   const popup = document.getElementById('ann-popup');
   if (popup) popup.style.display = 'none';
+  // Clear the reason input so the next span-popup starts empty.
+  const ri = document.getElementById('ann-reason-input');
+  if (ri) ri.value = '';
   pendingRange = null;
+}
+
+function onAnnReasonKey(ev) {
+  if (ev.key !== 'Enter') return;
+  ev.preventDefault();
+  // Simplest path: submit with the most-recently-clicked tier, default KEEP.
+  submitAnnotation(lastTierUsed || 'keep');
 }
 
 async function submitAnnotation(marker) {
   if (!pendingRange || !currentPair) { hideAnnPopup(); return; }
+  lastTierUsed = marker;
+  const reasonInput = document.getElementById('ann-reason-input');
+  const reason = reasonInput ? (reasonInput.value || '').trim() : '';
   const payload = {
     pair_idx: currentPair.pair_idx,
     side: pendingRange.side,
@@ -1435,6 +1481,7 @@ async function submitAnnotation(marker) {
     char_end: pendingRange.end,
     marker: marker,
     note: '',
+    reason: reason,
   };
   const r = await fetch('/api/annotation', {
     method: 'POST',
@@ -1480,7 +1527,13 @@ function rerenderBlocks() {
       <button class="b-maybe"  onclick="submitAnnotation('maybe')">MAYBE</button>
       <button class="b-skip"   onclick="submitAnnotation('skip')">SKIP</button>
       <button class="b-think"  onclick="submitAnnotation('think')">THINK</button>
-      <button class="b-cancel" onclick="hideAnnPopup()">×</button>`;
+      <button class="b-cancel" onclick="hideAnnPopup()">×</button>
+      <div class="ann-reason-row">
+        <label for="ann-reason-input">why (optional)</label>
+        <input type="text" id="ann-reason-input" class="ann-reason"
+               maxlength="500" placeholder=""
+               onkeydown="onAnnReasonKey(event)">
+      </div>`;
     p.onmousedown = (e) => e.stopPropagation();
     document.body.appendChild(p);
   }
@@ -1555,6 +1608,12 @@ function render(d) {
           <button class="b-skip"   onclick="submitAnnotation('skip')">SKIP</button>
           <button class="b-think"  onclick="submitAnnotation('think')">THINK</button>
           <button class="b-cancel" onclick="hideAnnPopup()">×</button>
+          <div class="ann-reason-row">
+            <label for="ann-reason-input">why (optional)</label>
+            <input type="text" id="ann-reason-input" class="ann-reason"
+                   maxlength="500" placeholder=""
+                   onkeydown="onAnnReasonKey(event)">
+          </div>
         </div>
         <div class="meta">
           <span>marker <b>${esc(d.marker_type)}</b></span>
@@ -1890,8 +1949,141 @@ updateRubricToggleText();
 """
 
 
+WELCOME_COOKIE = "wc_welcomed"
+
+
+def _welcome_stats() -> dict:
+    """Collect substrate stats for the welcome card."""
+    pairs = STATE.get("pairs") or []
+    labels = STATE.get("labels") or {}
+    imp_path = config.importance_path()
+    imp_date = None
+    if imp_path.exists():
+        from datetime import UTC, datetime
+        mtime = imp_path.stat().st_mtime
+        imp_date = datetime.fromtimestamp(mtime, tz=UTC).strftime("%Y-%m-%d")
+
+    # Top-3 candidates: pairs with highest importance score preview
+    top3: list[dict] = []
+    if pairs and imp_path.exists():
+        try:
+            import numpy as np
+            imp = np.load(imp_path, allow_pickle=True)
+            scores = imp["scores"]
+            pair_indices = imp["pair_indices"]
+            order = np.argsort(-scores)
+            for rank_i in order:
+                pid = int(pair_indices[rank_i])
+                if pid >= len(pairs):
+                    continue
+                p = pairs[pid]
+                preview = (p.get("correction_text") or p.get("premise_text") or "").replace("\n", " ")[:120]
+                top3.append({"idx": pid, "preview": preview, "score": float(scores[rank_i])})
+                if len(top3) >= 3:
+                    break
+        except Exception:
+            pass
+
+    return {
+        "pair_count": len(pairs),
+        "session_count": len({p.get("session_id") for p in pairs if p.get("session_id")}),
+        "label_count": len(labels),
+        "importance_date": imp_date or "not built yet",
+        "top3": top3,
+    }
+
+
+WELCOME_HTML = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>weighted-compact · welcome</title>
+<style>
+  :root {
+    --bg: #0f1115; --bg2: #161922; --bg3: #1d212c;
+    --fg: #d8dee9; --fg-dim: #6b7280;
+    --accent: #7aa2f7; --keep: #9ece6a; --border: #2a2f3c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 40px 24px; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px; line-height: 1.6; }
+  .card { max-width: 680px; margin: 0 auto;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 32px 36px; }
+  h1 { margin: 0 0 6px 0; font-size: 22px; color: var(--fg); }
+  .sub { color: var(--fg-dim); font-size: 13px; margin-bottom: 28px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+  .stat { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+  .stat .n { font-size: 26px; font-weight: 700; color: var(--accent); font-family: monospace; }
+  .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--fg-dim); margin-top: 4px; }
+  .imp-date { font-size: 12px; color: var(--fg-dim); margin-bottom: 24px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--fg-dim);
+    font-weight: 600; margin: 0 0 10px 0; }
+  .candidate { background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 14px; margin-bottom: 8px;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; font-size: 12.5px;
+    white-space: pre-wrap; word-break: break-word; }
+  .cand-idx { color: var(--fg-dim); font-size: 11px; margin-bottom: 4px; font-family: monospace; }
+  .begin-btn {
+    display: block; margin-top: 28px; padding: 14px 28px;
+    background: var(--accent); color: #0f1115; border: none; border-radius: 8px;
+    font-size: 15px; font-weight: 700; text-align: center;
+    text-decoration: none; cursor: pointer; transition: opacity 150ms ease;
+  }
+  .begin-btn:hover { opacity: 0.85; }
+  .empty-hint { color: var(--fg-dim); font-size: 12.5px; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>weighted-compact</h1>
+  <div class="sub">substrate overview · first-run welcome</div>
+  <div class="stats">
+    <div class="stat"><div class="n">__PAIR_COUNT__</div><div class="label">pairs</div></div>
+    <div class="stat"><div class="n">__SESSION_COUNT__</div><div class="label">sessions</div></div>
+    <div class="stat"><div class="n">__LABEL_COUNT__</div><div class="label">labeled</div></div>
+  </div>
+  <div class="imp-date">importance.npz freshness: __IMPORTANCE_DATE__</div>
+  <h2>Top-3 candidate pairs by importance</h2>
+  __TOP3_HTML__
+  <a class="begin-btn" href="/">Begin labeling →</a>
+</div>
+</body>
+</html>"""
+
+
+@app.get('/welcome', response_class=HTMLResponse)
+def welcome_page() -> HTMLResponse:
+    stats = _welcome_stats()
+    if stats["top3"]:
+        top3_html = "".join(
+            f'<div class="candidate"><div class="cand-idx">[{c["idx"]}] score {c["score"]:.3f}</div>'
+            f'{c["preview"]}</div>'
+            for c in stats["top3"]
+        )
+    else:
+        top3_html = '<div class="empty-hint">Run <code>weighted-compact importance</code> to populate candidates.</div>'
+
+    html = (
+        WELCOME_HTML
+        .replace("__PAIR_COUNT__", str(stats["pair_count"]))
+        .replace("__SESSION_COUNT__", str(stats["session_count"]))
+        .replace("__LABEL_COUNT__", str(stats["label_count"]))
+        .replace("__IMPORTANCE_DATE__", stats["importance_date"])
+        .replace("__TOP3_HTML__", top3_html)
+    )
+    return HTMLResponse(html)
+
+
 @app.get('/', response_class=HTMLResponse)
-def index() -> HTMLResponse:
+def index(request: Request) -> HTMLResponse:
+    # First-time visitors (no wc_welcomed cookie) are redirected to /welcome.
+    if not request.cookies.get(WELCOME_COOKIE):
+        from fastapi.responses import RedirectResponse
+        response = RedirectResponse(url='/welcome', status_code=302)
+        response.set_cookie(WELCOME_COOKIE, "1", max_age=60 * 60 * 24 * 365, httponly=True, samesite="strict")
+        return response
     return HTMLResponse(PAGE_HTML.replace("__WC_AUTH_TOKEN__", AUTH_TOKEN))
 
 

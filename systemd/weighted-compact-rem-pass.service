@@ -1,0 +1,17 @@
+[Unit]
+Description=weighted-compact REM pass — daily wall-clock importance refresh
+Documentation=https://github.com/zzallirog/weighted-compact
+After=default.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/weighted-compact rem-pass --half-life-days 7
+# Writes rem_decay.npz under XDG_DATA_HOME; never traverses outside the user's home.
+ProtectSystem=full
+ProtectHome=no
+PrivateTmp=yes
+NoNewPrivileges=yes
+Nice=10
+
+[Install]
+WantedBy=default.target

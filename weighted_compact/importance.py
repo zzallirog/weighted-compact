@@ -40,10 +40,53 @@ Output importance.npz:
   meta              : json dict of defaults + provenance
 """
 import json
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 
 from weighted_compact import config
+
+
+@runtime_checkable
+class Signal(Protocol):
+    """A signal contributing to the importance mixture.
+
+    Public extension point. The seven default signals composed in
+    :func:`main` below are not required to *be* ``Signal`` instances —
+    they are stitched together as raw arrays for performance. ``Signal``
+    documents the shape that *external* contributors should adopt when
+    they want to add a new signal to a custom mixture or feed a custom
+    ranker (see :mod:`weighted_compact.ranker`).
+
+    Contract:
+
+    - ``name`` is a short identifier (used as a column name in the
+      mixture meta and as a key in :data:`WEIGHTS`).
+    - ``compute(pair_indices)`` returns a ``numpy.ndarray`` of float
+      scores in ``[0, 1]``, one per pair_idx in the input. The returned
+      array's length MUST equal ``len(pair_indices)``. Missing data
+      MUST be encoded as ``0.0``, never ``NaN`` — the mixture sums
+      across columns and a single NaN poisons the row.
+
+    The ``WEIGHTS`` dict below maps signal name → weight; a custom
+    mixture that supplies its own ``Signal`` implementations should
+    publish its own weights dict in the same shape.
+
+    This Protocol is documentation, not enforcement. The default
+    pipeline does not validate `compute` calls — `runtime_checkable` is
+    set so third-party code can ``isinstance(x, Signal)`` opportunistically.
+    """
+
+    name: str
+
+    def compute(self, pair_indices) -> "np.ndarray":  # pragma: no cover - Protocol
+        ...
+
+# Bump when the npz layout changes (new array, removed array, dtype change).
+# Existing files predating the schema_ver field are treated as ver 0 by the
+# loader in recon_qa/context.py — see `load_importance` for the migration
+# directive. Keep at 1 until the first incompatible change.
+SCHEMA_VER = 1
 
 FEATURES_DENSITY = config.features_density_path()
 FEATURES_MISSTEP = config.features_misstep_path()
@@ -176,6 +219,7 @@ def main():
             'span_keep_corr', 'span_maybe_corr', 'span_skip_corr', 'span_think_corr',
         ], dtype=object),
         meta=np.array([json.dumps(meta)], dtype=object),
+        schema_ver=np.array([SCHEMA_VER], dtype=np.int32),
     )
 
     # Summary

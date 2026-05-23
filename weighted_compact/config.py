@@ -87,6 +87,7 @@ IMPORTANCE_FILE = "importance.npz"
 CLASSIFIER_FILE = "classifier.model"
 BASELINE_RANDOM_FILE = "baseline_random.npz"
 BASELINE_RECENCY_FILE = "baseline_recency.npz"
+REM_DECAY_FILE = "rem_decay.npz"
 
 
 def schema_bank_path() -> Path: return workdir() / "schema-bank.yaml"
@@ -111,6 +112,7 @@ def importance_path() -> Path: return workdir() / IMPORTANCE_FILE
 def classifier_path() -> Path: return workdir() / CLASSIFIER_FILE
 def baseline_random_path() -> Path: return workdir() / BASELINE_RANDOM_FILE
 def baseline_recency_path() -> Path: return workdir() / BASELINE_RECENCY_FILE
+def rem_decay_path() -> Path: return workdir() / REM_DECAY_FILE
 
 
 # Default labeler port. Override with $WEIGHTED_COMPACT_PORT.

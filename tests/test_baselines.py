@@ -129,15 +129,18 @@ def test_run_eval_dispatches_baseline_rankers(baseline_fixture, monkeypatch):
     recency_ranker.build()
 
     # Empty qa_set → run_eval returns []; we're only testing dispatch here.
-    assert fidelity.run_eval(k_drop=0.5, ranker="random") == []
-    assert fidelity.run_eval(k_drop=0.5, ranker="recency") == []
+    # preflight=False: this test exercises the ranker-dispatch path and
+    # never actually calls ollama. The probe would unconditionally fail
+    # in CI/sandbox.
+    assert fidelity.run_eval(k_drop=0.5, ranker="random", preflight=False) == []
+    assert fidelity.run_eval(k_drop=0.5, ranker="recency", preflight=False) == []
 
 
 def test_run_eval_rejects_unknown_ranker(baseline_fixture):
     from weighted_compact.recon_qa import fidelity
 
     with pytest.raises(ValueError, match="unknown ranker"):
-        fidelity.run_eval(ranker="nonexistent")
+        fidelity.run_eval(ranker="nonexistent", preflight=False)
 
 
 # ----- Query-aware rankers (Phase 2) ---------------------------------------
@@ -308,7 +311,9 @@ def test_fidelity_dispatches_compact_bypass(baseline_fixture, monkeypatch):
         },
     )
 
-    results = fidelity.run_eval(ranker='compact_qwen', k_drop=0.5)
+    # preflight=False: test stubs ask_ollama/llm_judge and never reaches
+    # the real ollama daemon. The probe would unconditionally fail in CI.
+    results = fidelity.run_eval(ranker='compact_qwen', k_drop=0.5, preflight=False)
 
     assert calls['summarize'] == 1
     assert calls['build_context'] == 0

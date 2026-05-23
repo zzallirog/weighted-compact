@@ -8,6 +8,201 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added — 2026-05-23 Public ranker registry + Signal Protocol + extension recipe
+
+Three coordinated additions that turn the eight built-in rankers into one
+particular *instance* of a documented plugin surface:
+
+- **`weighted_compact.ranker`** — new module exposing `RANKER_REGISTRY`
+  (a dict-like store), `RankerSpec` (dataclass: name, loader,
+  description, requires_extras, query_aware, since_version),
+  `@register(...)` decorator, `list_rankers()` and `get_ranker()`. The
+  eight shipped rankers (importance, density, random, recency, cosine,
+  bm25, compact_qwen, compact_sonnet) now register through this same
+  surface at `weighted_compact.recon_qa.fidelity` import time. The
+  pre-existing `_RANKER_LOADERS` name is preserved as a live read-only
+  view over the registry, so existing call sites and tests keep working
+  unchanged.
+- **`Signal` Protocol** — added in `weighted_compact.importance`,
+  re-exported from `weighted_compact.recon_qa`. Documents the shape
+  third-party signal contributors should adopt (`name: str`,
+  `compute(pair_indices) -> np.ndarray`). The default seven-signal
+  mixture is unchanged — `Signal` is documentation, not enforcement.
+- **`weighted-compact rankers`** — new CLI verb prints every registered
+  ranker (name, query-aware, since-version, extras, description). Use
+  `--json` for machine-parse. The `qa-gate` verb's `--ranker` argument
+  is now validated against the registry at runtime (rather than a
+  hardcoded `click.Choice` list), so plugin rankers are selectable too.
+- **`docs/extension-recipe.md`** — worked example: build a `length`
+  ranker in an external package, install it, and consume it via
+  `weighted-compact qa-gate --ranker length`. Includes a Signal-shaped
+  variant and a comparison to claude-mem (which has no equivalent
+  surface).
+
+### Stability promise (2026-05-23)
+
+The following surfaces will not change shape through v1.0. Additions
+allowed; renames or removals constitute a major version bump.
+
+- `weighted_compact.recon_qa.__all__` — every name listed is stable
+  through v1.0.
+- `weighted_compact.ranker` — `RANKER_REGISTRY`, `RankerSpec`,
+  `register`, `list_rankers`, `get_ranker`, and `Signal` (re-exported
+  from `weighted_compact.recon_qa`) are stable through v1.0.
+- `weighted_compact.recon_qa.context.build_compacted_context_with_meta`
+  — function signature (positional + keyword parameters) and the
+  returned `(markdown, meta)` tuple shape stable through v1.0. New
+  optional keyword args may be added; existing ones won't change.
+- CLI verb names listed in `weighted-compact --help` are stable from
+  v0.2.0 forward. Additions allowed; renames are a major version bump.
+- MCP tool names (`search_pairs`, `compact_session`, `substrate_info`)
+  exposed by `weighted-compact mcp-serve` are stable from v0.2.0 forward
+  under the same rule.
+
+Narrative restatement of the same promise lives in `docs/stability.md`.
+
+### Fixed — 2026-05-23 Ollama pre-flight in eval / qa-gate
+
+`recon_qa.fidelity.run_eval` now probes `GET <OLLAMA_URL>/api/tags` with
+a 2 s timeout before any per-entry loop, and verifies the configured
+`MODEL` + `JUDGE_MODEL` are present in the installed list. If ollama is
+unreachable or a required model is missing, the run aborts with a
+`click.ClickException` and a fix directive (`ollama serve` /
+`ollama pull <model>`). Previously the judge silently returned `other`
+verdicts when ollama was down and `judge_yes_fraction` was inflated
+against a bogus denominator. Bypass with `--no-preflight` on
+`weighted-compact qa-gate` only to deliberately reproduce the silent-
+failure mode. `classify_difficulty` runs the probe once across its two
+eval passes.
+
+### Added — 2026-05-23 Bootstrap completion summary
+
+`weighted-compact bootstrap` now prints a structured summary block after
+`extract_pairs.main()` — pair count, unique session count, scanned
+roots, output path, and the next two pipeline commands
+(`weighted-compact importance` / `weighted-compact rem-pass`). Previous
+behaviour was a single `Wrote pairs to <path>` line that left new users
+with no signal that the scan found anything useful.
+
+### Added — 2026-05-23 npz schema fingerprint (forward-compat machinery)
+
+`importance.py`, `rem_decay.py`, `baselines/random_ranker.py`, and
+`baselines/recency_ranker.py` each now define a `SCHEMA_VER = 1`
+constant and write `schema_ver=np.array([SCHEMA_VER])` into their npz
+output. Corresponding loaders in `recon_qa/context.py`
+(`load_importance`, `load_baseline_random`, `load_baseline_recency`,
+`load_rem_decay`) check the field on load: absent → accept silently as
+version 0 (the existing on-disk era); mismatch → raise `RuntimeError`
+with a `Rebuild with: weighted-compact <command>` directive. `SCHEMA_VER`
+stays at 1 for this release — the machinery installs the upgrade path
+for the next time the npz layout changes.
+
+### Added — 2026-05-23 `weighted-compact metrics` CLI
+
+New read-only subcommand prints the local substrate's footprint
+(total + per-file size), `*.bak.*` cleanup overhead, pair + session
+counts, REM-pass freshness (`ref_iso` from `rem_decay.npz` meta), and a
+warm-cache micro-timing of `load_pairs` + `load_importance`. Plain text
+by default; `--json` for machine-parse. Helper logic lives in
+`weighted_compact/metrics.py` so it's testable in isolation. Closes the
+gap where the operating-guide footprint numbers were only measurable on
+the maintainer's substrate.
+
+### Added — 2026-05-23 Docker packaging
+
+`Dockerfile`, `docker-compose.yml`, `docker-entrypoint.sh`, and
+`docs/docker-install.md` — a self-contained Docker stack for users who
+prefer not to manage a Python toolchain by hand (primary audience: Windows).
+
+- Multi-stage `Dockerfile`: builder stage compiles deps with `gcc`; runtime
+  stage is `python:3.11-slim` with a non-root `wc` user. The leak-scan
+  hygiene check runs as a build step. Final image target size ~200 MB.
+- `docker-compose.yml` with three services:
+  `weighted-compact` (labeler, `127.0.0.1:18890`), `ollama` sidecar
+  (gemma3:4b + qwen2.5:7b, GPU passthrough commented-in with a note), and
+  `weighted-compact-rem` (nightly sleep-loop, commented-out opt-in).
+  Claude sessions are mounted read-only; the substrate lives in a named
+  volume (`wc-substrate`) so it survives `docker compose restart`.
+- `docker-entrypoint.sh`: guards `serve` against a missing substrate
+  (prints a "run bootstrap first" message and exits 1); implements the
+  `rem-loop` special command for nightly REM-decay.
+- `docs/docker-install.md`: step-by-step for Linux / macOS / Windows,
+  including the PowerShell bind-mount syntax, both REM options (sleep-loop
+  vs host cron/Task Scheduler), ollama sidecar disable path, and common
+  gotchas (SELinux `:z` flag, Docker Desktop file-sharing prompts, GPU
+  passthrough).
+
+### Added — 2026-05-23 MCP stdio server: local-only query surface over the substrate
+
+A local-only Model Context Protocol server exposing three read-only
+substrate operations to any MCP-speaking client (Claude Desktop,
+mcp-cli, IDE plugins). Stdio transport only — no network listener, no
+auto-injection, no labeling. The client polls; the server answers.
+
+- New module `weighted_compact/mcp_server.py` — three tools registered
+  on a `FastMCP("weighted-compact")` instance:
+  - `search_pairs(query, top_k=10)` — cosine-ranks pairs against the
+    query using the existing CosineRanker (e5 dense over `features.npz`),
+    returns previews truncated to 200 chars.
+  - `compact_session(source_pair_idx, k_drop=0.5, ranker="importance",
+    rem_decay=False)` — wraps `build_compacted_context_with_meta` and
+    returns `{markdown, meta}` with the full budget-transparency dict.
+  - `substrate_info()` — cheap diagnostic: pair_count, session_count,
+    `has_importance` / `has_rem_decay` flags, `rem_decay_ref_iso`,
+    `signals_present`.
+- New CLI command `weighted-compact mcp-serve`. Lazy-imports the SDK and
+  raises a `click.ClickException` with an `install` instruction if the
+  optional extra is missing — `import weighted_compact` keeps working
+  without the SDK.
+- New optional extra in `pyproject.toml`: `mcp = ["mcp>=1.0.0"]`.
+  Install with `pipx install 'weighted-compact[mcp]'`.
+- Substrate-disable-clean: missing `pairs.jsonl` / `features.npz` /
+  `importance.npz` / `rem_decay.npz` produces structured error payloads
+  with `hint` fields rather than crashing the stdio loop.
+- Docs: `docs/mcp-integration.md` — what it is and isn't (local-only,
+  stdio-only, read-only), install + run, all three tool docstrings
+  verbatim, Claude Desktop `claude_desktop_config.json` snippet, and the
+  open question on whether `search_pairs` should accept a date-range
+  filter (currently no).
+
+No write tools, no server-side LLM calls, no HTTP/SSE/WebSocket. If
+someone wants a remote endpoint, they fork — the local-only framing is
+why the substrate (raw conversation text) can ship this surface safely.
+
+### Added — 2026-05-23 REM-decay: daily wall-clock importance refresh
+
+A nightly multiplier that ages the substrate by wall-clock time,
+modelled (semantically) on the REM phase that re-weights yesterday's
+experience overnight. Independent of the seven-signal mixture —
+importance encodes content properties (stable), REM encodes time
+(refreshed every day at 04:00).
+
+- New module `weighted_compact/rem_decay.py` — `compute()` (pure) and
+  `build()` (writes `rem_decay.npz`). Default half-life 7 days
+  (yesterday ≈ 0.91, week ≈ 0.50, month ≈ 0.05). Session timestamps
+  derived from the mtime of the matching transcript at
+  `~/.claude/projects/*/<session_id>.jsonl`.
+- New CLI command `weighted-compact rem-pass [--half-life-days 7]`.
+- Drop-in baseline-shape registration:
+  `weighted-compact baseline build --ranker rem`.
+- `recon_qa.context.build_compacted_context(..., rem_decay_map=)` —
+  composes the multiplier orthogonally with the existing topic-decay term.
+- `recon_qa.fidelity.run_eval(..., rem_decay=False)` and
+  `recon_qa.gate.classify_difficulty(..., rem_decay=False)` accept the
+  flag end-to-end.
+- `weighted-compact qa-gate --rem-decay` runs the gate with the
+  nightly multiplier composed.
+- Systemd timer template installed by `install-units`:
+  `weighted-compact-rem-pass.{service,timer}`, fires daily at 04:00
+  with a 15-minute randomized delay.
+- Docs: `docs/rem-decay.md` — decay curve, operational steps, honest
+  limits (session-level resolution, mtime drift, heuristic half-life).
+
+The output `rem_decay.npz` follows the same schema as the other baseline
+npz files (`pair_indices`, `importance`, `meta`) so existing loaders
+treat it as a drop-in. Atomic publish via `.tmp` rename, previous
+version rotated to `rem_decay.npz.bak.<UTC-ts>`.
+
 ### Added — 2026-05-22 schema-extraction sub-package (`weighted_compact/schema_extraction/`)
 
 Third retrieval tier proof-of-concept: extract reusable rules from your

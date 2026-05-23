@@ -3,7 +3,9 @@
 Subcommands:
     bootstrap        Extract pairs from ~/.claude/projects/ into the substrate.
     serve            Run the labeler at http://127.0.0.1:18890/.
+    mcp-serve        Run the local-only stdio MCP server over the substrate.
     compat           Read-only diagnostic. Print what was detected; --json for machine output.
+    metrics          Read-only footprint + freshness numbers for the local substrate.
     install-units    Write the systemd user unit under ~/.config/systemd/user/.
     train            Fit the classifier on the current substrate.
     eval             Run the reconstruction-QA gate against current labels.
@@ -95,7 +97,26 @@ def _substrate_state() -> dict[str, Any]:
     state["labels"] = _file_size_or_zero(config.labels_path())
     state["features"] = config.features_path().exists()
     state["classifier"] = config.classifier_path().exists()
+    state["rem_decay"] = config.rem_decay_path().exists()
+    state["recon_qa"] = _file_size_or_zero(config.recon_qa_set_path())
     return state
+
+
+def _next_step(substrate_state: dict[str, Any]) -> str | None:
+    """Return a single directive string based on what is missing in the substrate."""
+    if not substrate_state.get("exists"):
+        return "Next: weighted-compact bootstrap"
+    pairs_bytes = substrate_state.get("pairs", 0)
+    if pairs_bytes == 0:
+        return "Next: weighted-compact bootstrap"
+    if not substrate_state.get("features"):
+        return "Next: weighted-compact importance"
+    if not substrate_state.get("rem_decay"):
+        return "Next: weighted-compact rem-pass"
+    recon_bytes = substrate_state.get("recon_qa", 0)
+    if recon_bytes == 0:
+        return "Next: open the labeler at http://127.0.0.1:18890/ and seed a few Q&A entries"
+    return "Next: weighted-compact qa-gate --signal judge   # check fidelity"
 
 
 # Optional deps — keys are pip names, values are the import name to probe.
@@ -182,6 +203,98 @@ def compat(as_json: bool) -> None:
     click.echo()
     state = "free" if report["port_free"] else "in use"
     click.echo(f"Labeler port {report['port']}: {state}")
+    directive = _next_step(report["substrate"])
+    if directive:
+        click.echo()
+        click.secho(directive, fg="cyan")
+
+
+@main.command()
+@click.option("--no-bootstrap", is_flag=True, help="Skip bootstrap (use existing substrate).")
+def quickstart(no_bootstrap: bool) -> None:
+    """One-command first-run: compat → bootstrap → importance → preview top 5."""
+    import sys
+
+    # ── step 1: compat ───────────────────────────────────────────────────────
+    click.secho("== compat ==", fg="cyan", bold=True)
+    report = _compat_report()
+    sub = report["substrate"]
+    click.echo(f"Substrate: {sub['path']} ({'exists' if sub['exists'] else 'absent'})")
+    click.echo(f"  pairs.jsonl  {sub.get('pairs', 0)} bytes")
+    click.echo(f"  features.npz {'present' if sub.get('features') else 'absent'}")
+    directive = _next_step(sub)
+
+    # ── step 2: bootstrap ────────────────────────────────────────────────────
+    need_bootstrap = sub.get("pairs", 0) == 0 and not no_bootstrap
+    if need_bootstrap:
+        click.echo()
+        click.secho("== bootstrap ==", fg="cyan", bold=True)
+        config.workdir().mkdir(parents=True, exist_ok=True)
+        config.state_dir().mkdir(parents=True, exist_ok=True)
+        try:
+            _run_module_main("extract_pairs")
+        except Exception as exc:
+            click.secho(f"bootstrap failed: {exc}", fg="red", err=True)
+            click.secho("Fix the error above, then re-run: weighted-compact bootstrap", fg="yellow")
+            sys.exit(1)
+        # re-read substrate state after bootstrap
+        sub = _substrate_state()
+        if sub.get("pairs", 0) == 0:
+            click.secho("Bootstrap produced 0 pairs. Check that ~/.claude/projects/ has session files.", fg="yellow")
+            sys.exit(1)
+        click.echo(f"  pairs.jsonl  {sub['pairs']} bytes")
+
+    # ── step 3: importance ───────────────────────────────────────────────────
+    if not sub.get("features"):
+        click.echo()
+        click.secho("== importance ==", fg="cyan", bold=True)
+        try:
+            _run_module_main("importance")
+        except Exception as exc:
+            click.secho(f"importance failed: {exc}", fg="red", err=True)
+            click.secho("Fix the error above, then re-run: weighted-compact importance", fg="yellow")
+            sys.exit(1)
+
+    # ── step 4: top-5 preview ────────────────────────────────────────────────
+    click.echo()
+    click.secho("== top-5 high-importance pairs ==", fg="cyan", bold=True)
+    try:
+        import numpy as np
+
+        from weighted_compact.recon_qa.context import load_pairs
+
+        pairs = load_pairs()
+        imp_path = config.importance_path()
+        if pairs and imp_path.exists():
+            imp = np.load(imp_path, allow_pickle=True)
+            scores = imp["scores"]
+            pair_indices = imp["pair_indices"]
+            order = np.argsort(-scores)
+            shown = 0
+            for rank_i in order:
+                pid = int(pair_indices[rank_i])
+                if pid >= len(pairs):
+                    continue
+                p = pairs[pid]
+                preview = (p.get("correction_text") or p.get("premise_text") or "").replace("\n", " ")[:80]
+                click.echo(f"  [{pid:4d}] {preview}")
+                shown += 1
+                if shown >= 5:
+                    break
+        else:
+            click.echo("  (no pairs or importance.npz to preview)")
+    except Exception as exc:
+        click.echo(f"  (preview failed: {exc})")
+
+    # ── step 5: next directive ───────────────────────────────────────────────
+    click.echo()
+    sub = _substrate_state()
+    final = _next_step(sub)
+    if final:
+        click.secho(final, fg="cyan")
+    click.echo()
+    click.echo(f"  Open the labeler: weighted-compact serve")
+    click.echo(f"  then visit      : http://127.0.0.1:{config.labeler_port()}/welcome")
 
 
 @main.command()
@@ -203,7 +316,27 @@ def bootstrap(dry_run: bool) -> None:
         return
 
     _run_module_main("extract_pairs")
-    click.echo(f"Wrote pairs to {out}")
+
+    # Read back the freshly-written pairs to give the operator something
+    # concrete: counts + the next command in the pipeline. Without this
+    # the only signal was "Wrote pairs to <path>" which doesn't tell a
+    # new user whether it scanned anything useful.
+    from weighted_compact.recon_qa.context import load_pairs
+    try:
+        pairs = load_pairs()
+    except (FileNotFoundError, OSError):
+        pairs = []
+    n_pairs = len(pairs)
+    n_sessions = len({p.get("session_id") for p in pairs if p.get("session_id")})
+    click.echo("")
+    click.echo("Bootstrap complete.")
+    click.echo(f"  pairs:    {n_pairs}")
+    click.echo(f"  sessions: {n_sessions}")
+    click.echo(f"  scanned:  {', '.join(dirs)}")
+    click.echo(f"  output:   {out}")
+    click.echo("")
+    click.echo("Next: weighted-compact importance     # build the seven-signal mixture")
+    click.echo("      weighted-compact rem-pass       # nightly wall-clock decay")
 
 
 @main.command()
@@ -217,14 +350,94 @@ def serve(host: str, port: int | None) -> None:
 
     config.workdir().mkdir(parents=True, exist_ok=True)
     p = port or config.labeler_port()
+    # Pre-check: refuse with a paste-ready hint instead of an opaque uvicorn
+    # OSError stack. The labeler is the most-restarted command and "port in use"
+    # is the single most common failure for users running it more than once.
+    if not _port_free(p):
+        raise click.ClickException(
+            f"Port {p} is already in use on {host}. Find what's holding it: "
+            f"lsof -i :{p}   # or: ss -tlnp 'sport = :{p}'   "
+            f"(another labeler? stop with: systemctl --user stop weighted-compact)"
+        )
     log.info("labeler → http://%s:%d/", host, p)
     uvicorn.run(tool.app, host=host, port=p, log_level="info")
+
+
+@main.command(name="mcp-serve")
+def mcp_serve() -> None:
+    """Run the local-only stdio MCP server over the substrate.
+
+    Exposes three read-only tools (search_pairs, compact_session,
+    substrate_info) to any MCP-speaking client via stdio. No network,
+    no auto-injection — the client decides when to call.
+
+    Requires the [mcp] extra. Install with:
+
+        pipx install 'weighted-compact[mcp]'
+
+    See docs/mcp-integration.md for the Claude Desktop config snippet.
+    """
+    try:
+        from weighted_compact import mcp_server
+    except ImportError as exc:
+        raise click.ClickException(
+            f"{exc}\n\n"
+            "Install the optional MCP extra:\n"
+            "    pipx install 'weighted-compact[mcp]'\n"
+            "or, inside a venv:\n"
+            "    pip install 'weighted-compact[mcp]'"
+        ) from exc
+
+    try:
+        mcp_server.run_stdio()
+    except ImportError as exc:
+        # The lazy import inside mcp_server.build_server() surfaces here
+        # if the SDK is missing even though the module itself imported.
+        raise click.ClickException(
+            f"{exc}\n\n"
+            "Install the optional MCP extra:\n"
+            "    pipx install 'weighted-compact[mcp]'"
+        ) from exc
 
 
 @main.command()
 def importance() -> None:
     """Recompose the seven-signal importance mixture."""
     _run_module_main("importance")
+
+
+@main.command(name="rem-pass")
+@click.option("--half-life-days", default=7.0, type=float,
+              help="Half-life of the wall-clock decay in days "
+                   "(7.0 → yesterday ≈ 0.91, week ago ≈ 0.50, month ago ≈ 0.05).")
+def rem_pass(half_life_days: float) -> None:
+    """Recompute the REM-decay multiplier from current wall-clock time.
+
+    Designed to run nightly via the bundled systemd-user timer. The output
+    `rem_decay.npz` is a per-pair multiplier consumed by the compaction
+    reader when `--rem-decay` is passed to the eval / qa-gate runs.
+
+    Independent of importance.py: importance encodes content properties
+    (stable), REM encodes time (refreshes every day).
+    """
+    from weighted_compact import rem_decay
+    summary = rem_decay.build(half_life_days=half_life_days)
+    click.echo(f"Output: {summary['path']}")
+    click.echo(
+        f"N={summary['pair_count']}  "
+        f"sessions={summary['session_count']}  "
+        f"aged={summary['aged_session_count']}  "
+        f"missing={summary['missing_session_count']}"
+    )
+    click.echo(
+        f"half-life={summary['half_life_days']} days  "
+        f"max_age_seen={summary['max_age_days_seen']:.1f} days  "
+        f"ref={summary['ref_iso']}"
+    )
+    click.echo(
+        f"factor: min={summary['factor_min']:.3f}  "
+        f"mean={summary['factor_mean']:.3f}  max={summary['factor_max']:.3f}"
+    )
 
 
 @main.group(name="baseline")
@@ -234,12 +447,14 @@ def baseline() -> None:
 
 @baseline.command(name="build")
 @click.option("--ranker",
-              type=click.Choice(["random", "recency"]),
+              type=click.Choice(["random", "recency", "rem"]),
               required=True,
               help="Which baseline ranker to (re)generate.")
 @click.option("--seed", default=42, type=int,
               help="Random seed (random ranker only).")
-def baseline_build(ranker: str, seed: int) -> None:
+@click.option("--half-life-days", default=7.0, type=float,
+              help="REM-decay half-life in days (rem ranker only).")
+def baseline_build(ranker: str, seed: int, half_life_days: float) -> None:
     """Generate the baseline ranker's npz artefact.
 
     The resulting file lives at `<substrate>/baseline_<ranker>.npz` and is
@@ -252,6 +467,9 @@ def baseline_build(ranker: str, seed: int) -> None:
     elif ranker == "recency":
         from weighted_compact.baselines import recency_ranker as mod
         summary = mod.build()
+    elif ranker == "rem":
+        from weighted_compact.baselines import rem_ranker as mod
+        summary = mod.build(half_life_days=half_life_days)
     else:
         raise click.ClickException(f"unknown baseline ranker: {ranker}")
     click.echo(f"Output: {summary['path']}")
@@ -395,19 +613,23 @@ def eval_cmd() -> None:
 @click.option("--hard-k", default=0.9, type=float,
               help="Strong compaction (fraction of pairs dropped).")
 @click.option("--ranker", default="importance",
-              type=click.Choice([
-                  "importance", "density",
-                  "random", "recency",
-                  "cosine", "bm25",
-                  "compact_qwen", "compact_sonnet",
-              ]))
+              help="Ranker name (built-in or registered plugin). "
+                   "List options: `weighted-compact rankers`.")
 @click.option("--signal", default="judge",
               type=click.Choice(["judge", "substring"]),
               help="Pass metric: judge (recommended) or substring.")
+@click.option("--rem-decay/--no-rem-decay", default=False,
+              help="Multiply candidate scores by rem_decay.npz (nightly "
+                   "REM pass). Silently no-ops if the REM pass has never "
+                   "been run.")
+@click.option("--no-preflight", "no_preflight", is_flag=True,
+              help="Skip the ollama reachability + model probe. Only use "
+                   "this to deliberately reproduce the silent-judge-failure "
+                   "mode; default is to fail fast with a fix directive.")
 @click.option("--write", is_flag=True,
               help="Write the informative subset to the substrate dir.")
 def qa_gate(easy_k: float, hard_k: float, ranker: str, signal: str,
-            write: bool) -> None:
+            rem_decay: bool, no_preflight: bool, write: bool) -> None:
     """Segment the recon-QA set by informativeness for compaction.
 
     Two eval runs (weak vs strong compaction), bucketing entries into
@@ -415,9 +637,21 @@ def qa_gate(easy_k: float, hard_k: float, ranker: str, signal: str,
     informative bucket is worth looking at — that is where the gradient is.
     """
     from weighted_compact import recon_qa
+    # Force-import fidelity so the built-in rankers register before we
+    # validate the --ranker argument against RANKER_REGISTRY.
+    from weighted_compact.recon_qa import fidelity  # noqa: F401
+    from weighted_compact.ranker import RANKER_REGISTRY
+
+    if ranker not in RANKER_REGISTRY:
+        raise click.ClickException(
+            f"unknown ranker {ranker!r}; "
+            f"registered: {sorted(RANKER_REGISTRY)}. "
+            f"List details with `weighted-compact rankers`."
+        )
 
     res = recon_qa.classify_difficulty(
         easy_k=easy_k, hard_k=hard_k, ranker=ranker, signal=signal,
+        rem_decay=rem_decay, preflight=not no_preflight,
     )
     click.echo(
         f"total: {res['total']} "
@@ -451,31 +685,138 @@ def paths() -> None:
     click.echo(f"WEIGHTED_COMPACT_PORT={config.labeler_port()}")
 
 
+@main.command()
+@click.option("--json", "as_json", is_flag=True,
+              help="Emit machine-readable JSON instead of the text table.")
+def rankers(as_json: bool) -> None:
+    """List every registered ranker (built-in and third-party plugins).
+
+    The registry is :data:`weighted_compact.ranker.RANKER_REGISTRY`.
+    Built-in entries are registered as a side effect of importing
+    ``weighted_compact.recon_qa.fidelity``; external packages register
+    via the ``@register`` decorator or ``RANKER_REGISTRY.add(...)``.
+
+    See ``docs/extension-recipe.md`` for a worked example of adding a
+    new ranker from an external package.
+    """
+    # Importing fidelity registers the eight shipped rankers.
+    from weighted_compact.recon_qa import fidelity  # noqa: F401
+    from weighted_compact.ranker import list_rankers
+
+    specs = list_rankers()
+    if as_json:
+        payload = [
+            {
+                "name": s.name,
+                "description": s.description,
+                "requires_extras": list(s.requires_extras),
+                "query_aware": s.query_aware,
+                "since_version": s.since_version,
+            }
+            for s in specs
+        ]
+        click.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+        return
+
+    if not specs:
+        click.echo("(no rankers registered)")
+        return
+
+    # Column widths sized to the data, with a sensible minimum so the
+    # header still reads cleanly when only short names are registered.
+    name_w = max(8, max(len(s.name) for s in specs))
+    since_w = max(7, max(len(s.since_version) for s in specs))
+    qa_w = 11  # len("query_aware")
+
+    header = (
+        f"{'name':<{name_w}}  "
+        f"{'query_aware':<{qa_w}}  "
+        f"{'since':<{since_w}}  "
+        f"extras / description"
+    )
+    click.echo(header)
+    click.echo("-" * len(header))
+    for s in specs:
+        extras = ",".join(s.requires_extras) if s.requires_extras else "-"
+        click.echo(
+            f"{s.name:<{name_w}}  "
+            f"{str(s.query_aware):<{qa_w}}  "
+            f"{s.since_version:<{since_w}}  "
+            f"[{extras}] {s.description}"
+        )
+
+
+@main.command()
+@click.option("--json", "as_json", is_flag=True,
+              help="Emit machine-readable JSON instead of the plain-text view.")
+def metrics(as_json: bool) -> None:
+    """Print footprint + freshness metrics for the local substrate.
+
+    Read-only. Reports substrate path, total + per-file size, *.bak.*
+    cleanup overhead, pair/session counts, REM-pass freshness, and a
+    warm-cache micro-timing of `load_pairs` + `load_importance`.
+
+    Pair with `weighted-compact compat` for the dependency view; together
+    they cover "what is detected" and "what does it cost".
+    """
+    from weighted_compact import metrics as _metrics
+    report = _metrics.collect()
+    if as_json:
+        click.echo(json.dumps(report, indent=2))
+        return
+    click.echo(_metrics.format_text(report))
+
+
 @main.command(name="install-units")
 @click.option("--force", is_flag=True, help="Overwrite existing unit files.")
 def install_units(force: bool) -> None:
-    """Write the systemd user unit under ~/.config/systemd/user/."""
+    """Write all systemd user units under ~/.config/systemd/user/.
+
+    Installs:
+      - weighted-compact.service           — labeler UI on :18890 (manual start)
+      - weighted-compact-rem-pass.service  — nightly REM-decay refresh
+      - weighted-compact-rem-pass.timer    — daily 04:00 trigger for the above
+    """
     here = Path(__file__).resolve().parent
-    candidates = [
-        here.parent / "systemd" / "weighted-compact.service",
-        here / "data" / "weighted-compact.service",
+    systemd_src_dirs = [here.parent / "systemd", here / "data"]
+    unit_files = [
+        "weighted-compact.service",
+        "weighted-compact-rem-pass.service",
+        "weighted-compact-rem-pass.timer",
     ]
-    src = next((c for c in candidates if c.exists()), None)
-    if src is None:
-        raise click.ClickException("weighted-compact.service template not found")
 
     dest_dir = Path.home() / ".config" / "systemd" / "user"
     dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / "weighted-compact.service"
-    if dest.exists() and not force:
-        raise click.ClickException(f"{dest} already exists — pass --force to overwrite")
-    dest.write_text(src.read_text())
-    click.echo(f"Wrote {dest}")
+
+    written: list[Path] = []
+    skipped: list[Path] = []
+    for unit in unit_files:
+        src = next((d / unit for d in systemd_src_dirs if (d / unit).exists()), None)
+        if src is None:
+            click.echo(f"  · template not found, skipped: {unit}", err=True)
+            continue
+        dest = dest_dir / unit
+        if dest.exists() and not force:
+            skipped.append(dest)
+            continue
+        dest.write_text(src.read_text())
+        written.append(dest)
+
+    for p in written:
+        click.echo(f"Wrote {p}")
+    for p in skipped:
+        click.echo(f"Exists, skipped (pass --force): {p}")
+
+    if not written and not skipped:
+        raise click.ClickException("no systemd templates found in the install tree")
+
     click.echo()
     click.echo("Next:")
     click.echo("  systemctl --user daemon-reload")
-    click.echo("  systemctl --user enable --now weighted-compact")
-    click.echo(f"  xdg-open http://127.0.0.1:{config.labeler_port()}/")
+    click.echo("  systemctl --user enable --now weighted-compact-rem-pass.timer")
+    click.echo("  # labeler is opt-in (the published ablation makes it optional):")
+    click.echo("  # systemctl --user enable --now weighted-compact")
+    click.echo(f"  # xdg-open http://127.0.0.1:{config.labeler_port()}/")
 
 
 if __name__ == "__main__":

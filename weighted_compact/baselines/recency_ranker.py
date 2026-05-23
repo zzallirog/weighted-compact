@@ -23,6 +23,11 @@ import numpy as np
 from weighted_compact import config
 from weighted_compact.recon_qa.context import load_pairs
 
+# Bump when the baseline_recency.npz layout changes. Existing files
+# predating the schema_ver field are treated as ver 0 by the loader
+# in recon_qa/context.py.
+SCHEMA_VER = 1
+
 
 def build() -> dict:
     """Generate baseline_recency.npz. Returns summary dict for logging."""
@@ -61,6 +66,7 @@ def build() -> dict:
         importance=importance,
         pair_indices=pair_indices,
         meta=np.array([json.dumps(meta)], dtype=object),
+        schema_ver=np.array([SCHEMA_VER], dtype=np.int32),
     )
     return {
         'path': str(out),

@@ -28,13 +28,20 @@ from ._constants import (
     SUGGEST_MODEL,
     TOPIC_SEGMENTS,
 )
+# Re-export Signal Protocol as part of the public surface — third-party
+# contributors discover the extension point via `from weighted_compact.recon_qa
+# import Signal`. The Protocol itself lives in importance.py because that's
+# where the mixture lives that consumes Signals.
+from weighted_compact.importance import Signal
 from .context import (
     build_compacted_context,
+    build_compacted_context_with_meta,
     load_baseline_random,
     load_baseline_recency,
     load_density,
     load_importance,
     load_pairs,
+    load_rem_decay,
     load_topic_map,
 )
 from .fidelity import (
@@ -62,10 +69,12 @@ __all__ = [
     'BASELINE_RANDOM', 'BASELINE_RECENCY',
     'OLLAMA_URL', 'MODEL', 'JUDGE_MODEL', 'SUGGEST_MODEL',
     'ITER_MODE_RANGES',
+    # extension surface
+    'Signal',
     # context
     'load_pairs', 'load_density', 'load_importance', 'load_topic_map',
-    'load_baseline_random', 'load_baseline_recency',
-    'build_compacted_context',
+    'load_baseline_random', 'load_baseline_recency', 'load_rem_decay',
+    'build_compacted_context', 'build_compacted_context_with_meta',
     # generator
     'ask_ollama', 'suggest_qa',
     # judge

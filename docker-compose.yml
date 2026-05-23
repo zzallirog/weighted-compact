@@ -1,0 +1,116 @@
+# docker-compose.yml — weighted-compact labeler stack
+#
+# Services:
+#   weighted-compact   labeler UI + pipeline runner (always on)
+#   ollama             local model server for eval harness (optional sidecar)
+#   weighted-compact-rem  nightly REM-decay pass (commented-out, opt-in)
+#
+# Quick start:
+#   docker compose pull
+#   docker compose run --rm weighted-compact bootstrap
+#   docker compose up -d weighted-compact
+#
+# Open the labeler at http://127.0.0.1:18890/
+
+version: "3.9"
+
+# ── Named volumes ──────────────────────────────────────────────────────────────
+volumes:
+  # Substrate: pairs.jsonl, labels.jsonl, *.npz, and all pipeline artefacts.
+  # Persists across `docker compose restart`. Removed only by `docker compose down -v`.
+  wc-substrate:
+
+  # Ollama model cache (~3GB gemma3:4b + ~5GB qwen2.5:7b).
+  # Persists model files across container restarts.
+  ollama-models:
+
+# ── Services ──────────────────────────────────────────────────────────────────
+services:
+
+  # ── weighted-compact labeler ─────────────────────────────────────────────────
+  weighted-compact:
+    image: weighted-compact:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Publish ONLY on loopback — this is a personal tool, not a network service.
+    ports:
+      - "127.0.0.1:18890:18890"
+    volumes:
+      # Substrate: named volume so pipeline output survives restarts.
+      - wc-substrate:/data/weighted-compact
+
+      # Claude sessions: read-only bind mount from the host.
+      # Linux / macOS default — adjust for your username if needed.
+      # Windows: see docs/docker-install.md for the PowerShell equivalent.
+      - ${CLAUDE_SESSIONS_PATH:-~/.claude/projects}:/claude-sessions:ro
+
+    environment:
+      WEIGHTED_COMPACT_DATA: /data/weighted-compact
+      WEIGHTED_COMPACT_CLAUDE_SOURCES: /claude-sessions
+      WEIGHTED_COMPACT_PORT: "18890"
+      # Ollama endpoint. If you run ollama on the host instead of via the
+      # sidecar below, comment out the ollama service and set:
+      #   OLLAMA_HOST: http://host.docker.internal:11434
+      OLLAMA_HOST: http://ollama:11434
+
+    # Soft dependency — the labeler starts without ollama; only the eval
+    # harness (rem-pass, qa-gate, schema) needs it.
+    depends_on:
+      ollama:
+        condition: service_started
+
+    restart: unless-stopped
+
+  # ── ollama sidecar ────────────────────────────────────────────────────────────
+  # Provides gemma3:4b (judge / extractor) and qwen2.5:7b (narrative) for the
+  # eval harness. Models are NOT bundled in the image — pull them once after
+  # first start:
+  #   docker compose exec ollama ollama pull gemma3:4b    # ~3 GB
+  #   docker compose exec ollama ollama pull qwen2.5:7b   # ~5 GB
+  #
+  # If you already run ollama on the host:
+  #   1. Comment out this entire service block.
+  #   2. Set OLLAMA_HOST: http://host.docker.internal:11434 in weighted-compact.
+  #
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    # GPU passthrough — uncomment if you have the NVIDIA Container Runtime.
+    # See: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+  # ── REM-decay nightly pass (opt-in) ───────────────────────────────────────────
+  # Uncomment this service to run weighted-compact rem-pass nightly at 04:00 UTC
+  # via a sleep-loop inside the container.
+  #
+  # Alternative (host cron):
+  #   0 4 * * * docker compose -f /path/to/docker-compose.yml run --rm weighted-compact rem-pass
+  # Windows Task Scheduler equivalent is documented in docs/docker-install.md.
+  #
+  # weighted-compact-rem:
+  #   image: weighted-compact:latest
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   volumes:
+  #     - wc-substrate:/data/weighted-compact
+  #     - ${CLAUDE_SESSIONS_PATH:-~/.claude/projects}:/claude-sessions:ro
+  #   environment:
+  #     WEIGHTED_COMPACT_DATA: /data/weighted-compact
+  #     WEIGHTED_COMPACT_CLAUDE_SOURCES: /claude-sessions
+  #     OLLAMA_HOST: http://ollama:11434
+  #   # The entrypoint recognises "rem-loop" as a special command:
+  #   # sleeps until next 04:00 UTC, runs rem-pass, repeats every 24h.
+  #   command: ["rem-loop"]
+  #   depends_on:
+  #     - ollama
+  #   restart: unless-stopped

@@ -32,7 +32,8 @@ def _pass_signal(entry, signal):
 
 
 def classify_difficulty(easy_k=0.0, hard_k=0.9, ranker='importance',
-                        topic_decay=0.5, signal='judge'):
+                        topic_decay=0.5, signal='judge', rem_decay=False,
+                        preflight=True):
     """Segment recon-QA set by informativeness under compaction.
 
     Runs eval twice — weak compaction (easy_k, near-full context) and hard
@@ -48,11 +49,20 @@ def classify_difficulty(easy_k=0.0, hard_k=0.9, ranker='importance',
       inverted     — easy fail, hard pass: eval noise (LLM stochasticity,
                      lucky short context without distractors)
 
+    rem_decay: when True, the wall-clock REM multiplier from rem_decay.npz
+    is composed into both eval passes — gives the gate signal under the
+    same time-aware ranking the runtime would use.
+
+    preflight: passed through to `run_eval`. Probe ollama once at the top
+    of the first run; the second run skips it (already proven reachable).
+
     Returns dict with counts, bucket indices, both signals per entry for
     disagreement audit.
     """
-    easy = run_eval(k_drop=easy_k, ranker=ranker, topic_decay=topic_decay)
-    hard = run_eval(k_drop=hard_k, ranker=ranker, topic_decay=topic_decay)
+    easy = run_eval(k_drop=easy_k, ranker=ranker, topic_decay=topic_decay,
+                    rem_decay=rem_decay, preflight=preflight)
+    hard = run_eval(k_drop=hard_k, ranker=ranker, topic_decay=topic_decay,
+                    rem_decay=rem_decay, preflight=False)
     buckets = {'trivial': [], 'impossible': [], 'informative': [], 'inverted': []}
     per_entry = []
     sub_only_pass = 0
