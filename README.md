@@ -13,7 +13,7 @@ no auto-injection. **8 pp** measured advantage over LLM-summary
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![v0.2.0-beta.2](https://img.shields.io/badge/release-v0.2.0--beta.2-yellow)](CHANGELOG.md)
-[![outbound: 0](https://img.shields.io/badge/outbound%20network-localhost%20only-success)](docs/invariants.md)
+[![outbound-zero](https://github.com/zzallirog/weighted-compact/actions/workflows/outbound-zero.yml/badge.svg)](https://github.com/zzallirog/weighted-compact/actions/workflows/outbound-zero.yml)
 
 </div>
 
