@@ -1,0 +1,65 @@
+# Activate by configuring trusted publishing on pypi.org for the
+# `weighted-compact` package, then push a v0.2.x tag (e.g. `git tag v0.2.0`).
+#
+# Setup steps (one-time, maintainer only):
+#   1. Go to https://pypi.org/manage/account/publishing/
+#   2. Add a new trusted publisher:
+#        PyPI project name : weighted-compact
+#        GitHub owner      : <your-github-username>
+#        Repository        : weighted-compact
+#        Workflow filename : publish-pypi.yml
+#        Environment name  : pypi   (must match `environment:` below)
+#   3. Push a vX.Y.Z tag — this workflow builds and uploads automatically.
+#      No API token needed.
+
+name: publish-pypi
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build frontend
+        run: pip install build
+
+      - name: Build sdist and wheel
+        run: python3 -m build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: pypi
+      url: https://pypi.org/p/weighted-compact
+    permissions:
+      id-token: write  # required for OIDC trusted-publisher flow
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
