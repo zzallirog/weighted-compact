@@ -271,7 +271,11 @@ QUEUE_SOURCES = {
 }
 
 
-def pick_next(mode: str = 'all', current_cluster: int | None = None) -> tuple[int, str] | tuple[None, None]:
+def pick_next(
+    mode: str = 'all',
+    current_cluster: int | None = None,
+    exclude_cluster: int | None = None,
+) -> tuple[int, str] | tuple[None, None]:
     if mode == 'unknown':
         # Truly never-labeled pairs (no bootstrap, no tool)
         for i in range(len(STATE['pairs'])):
@@ -280,7 +284,7 @@ def pick_next(mode: str = 'all', current_cluster: int | None = None) -> tuple[in
         return None, None
 
     if mode == 'cluster':
-        return pick_next_cluster(current_cluster)
+        return pick_next_cluster(current_cluster, exclude_cluster=exclude_cluster)
 
     # Filter queue by source if specified
     target_source = QUEUE_SOURCES.get(mode)
@@ -300,15 +304,25 @@ def pick_next(mode: str = 'all', current_cluster: int | None = None) -> tuple[in
     return None, None
 
 
-def pick_next_cluster(current_cluster: int | None) -> tuple[int, str] | tuple[None, None]:
+def pick_next_cluster(
+    current_cluster: int | None,
+    exclude_cluster: int | None = None,
+) -> tuple[int, str] | tuple[None, None]:
     """Browse pairs by semantic cluster. Picks cluster with most remaining work,
-    or continues current cluster if specified. Within cluster — order by pair_idx."""
+    or continues current cluster if specified. Within cluster — order by pair_idx.
+
+    `exclude_cluster` (UI «→ next cluster») drops that cluster from candidates
+    so the button moves the user OFF the current cluster even when it is the
+    largest. Without this, max-remaining selection re-anchors on the same one
+    and the button visually does nothing."""
     clusters = STATE.get('clusters')
     if not clusters:
         return None, None
 
     remaining_by_cluster: dict[int, list[int]] = {}
     for c, members in clusters['members'].items():
+        if exclude_cluster is not None and c == exclude_cluster:
+            continue
         rem = [p for p in members if not already_tool_labeled(p)]
         if rem:
             remaining_by_cluster[c] = sorted(rem)
@@ -376,8 +390,9 @@ class AnnotationPayload(BaseModel):
 def api_next(
     mode: str = Query('all'),
     cluster: int | None = Query(None),
+    exclude_cluster: int | None = Query(None),
 ) -> JSONResponse:
-    pid, source = pick_next(mode, current_cluster=cluster)
+    pid, source = pick_next(mode, current_cluster=cluster, exclude_cluster=exclude_cluster)
     if pid is None:
         return JSONResponse({'done': True, 'mode': mode, 'labeled': len(STATE['labels'])})
 
@@ -1325,9 +1340,12 @@ let currentPair = null;
 let currentMode = 'all';
 let currentCluster = null;
 
-async function loadNext() {
+async function loadNext(excludeCluster) {
   const qs = new URLSearchParams({ mode: currentMode });
   if (currentMode === 'cluster' && currentCluster !== null) qs.set('cluster', currentCluster);
+  if (currentMode === 'cluster' && excludeCluster !== undefined && excludeCluster !== null) {
+    qs.set('exclude_cluster', excludeCluster);
+  }
   const r = await fetch('/api/next?' + qs);
   const data = await r.json();
   if (data.done) {
@@ -1349,9 +1367,12 @@ function setMode(m) {
 }
 
 function nextCluster() {
-  // Force cluster change — pick the next cluster with remaining work
+  // Force cluster change — exclude current cluster so backend doesn't re-anchor
+  // on it via max-remaining selection. Without exclude, when the current cluster
+  // is the largest (common), the button visually does nothing.
+  const leaving = currentCluster;
   currentCluster = null;
-  loadNext();
+  loadNext(leaving);
 }
 
 async function submit(key) {
