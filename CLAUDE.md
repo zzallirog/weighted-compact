@@ -4,7 +4,7 @@
 > this checkout, read this file first and then jump to the relevant subdir.
 > Do not read every file — use the map below.
 
-**Repo version:** v0.2.0-beta.2 (cut 2026-05-20; honest baseline run 2026-05-21)
+**Repo version:** v0.2.0-beta.3 (cut 2026-05-26; baseline run 2026-05-21)
 **Status:** beta. Architectural invariants locked. Numbers tunable.
 
 ---
@@ -201,7 +201,8 @@ When the framework changes, bump:
 
 - `pyproject.toml` version.
 - `CHANGELOG.md` — add a section under `[Unreleased]` or cut a new release.
-- This `CLAUDE.md` — if the repo map changes, update the map.
+- This `CLAUDE.md` — if the repo map changes, update the map; refresh the
+  version banner at top.
 
 `scripts/leak-scan.sh` is what the CI workflow runs on every push to
 catch substrate filename patterns (`*.jsonl`, `*.npz`, `*.model`) and
@@ -211,3 +212,71 @@ it as a git pre-commit hook with `scripts/install-hooks.sh`; for the
 maintainer this is unnecessary because CI catches the same things on
 arrival. The script and the hook are opt-in, not part of the install
 path.
+
+---
+
+## MCP-listing maintenance (Glama + awesome-mcp)
+
+While the package is being marketed via Glama and `awesome-mcp-servers`
+(PR punkpeye/awesome-mcp-servers#6809), the external listing must stay
+in sync with the repo. On every release that touches user-visible
+surface area, run through the checklist below before pushing the tag.
+
+**Surface-area changes that require listing updates:**
+
+- MCP tool added / removed / renamed (`@server.tool()` in
+  `weighted_compact/mcp_server.py`)
+- Install path changes (entry-point name, `[mcp]` extra, PyPI package
+  name)
+- Category fit changes (e.g. crosses into a new awesome-mcp section)
+- Major architectural pivot that breaks the existing description
+
+**Sync targets:**
+
+1. **`glama.json`** — schema is minimal (`{maintainers: [...]}`). Bump
+   only if maintainer set changes. Glama auto-derives categories /
+   tools / install from README + MCP introspection.
+2. **`README.md`** — the install snippet and the three-tool list are
+   what Glama scrapes. If a tool signature changes, update `docs/
+   mcp-integration.md` and the tool descriptions in
+   `weighted_compact/mcp_server.py` first; README mirrors them.
+3. **`pyproject.toml`** — keep the `[mcp]` optional-dependencies group
+   tight; Glama install-test runs `pipx install '<pkg>[mcp]'`. A
+   bloated extra silently fails their sandbox.
+4. **awesome-mcp PR body** (#6809) — only update when the one-line
+   description there becomes misleading. The current description
+   emphasises read-only tools, signal-scoring, and zero outbound; keep
+   that frame.
+5. **Glama re-scoring** — happens automatically on new GitHub Release.
+   The score requires a working install path; if PyPI publish fails,
+   Glama can't score and the badge stays "—".
+
+**Order of operations for a release:**
+
+1. Bump `pyproject.toml` version + `CHANGELOG.md` + the banner at top
+   of this file.
+2. If MCP tools changed: update `weighted_compact/mcp_server.py`,
+   `docs/mcp-integration.md`, README install/tools section.
+3. Commit, push.
+4. `git tag -a vX.Y.Z -m "..."` + `git push --tags` →
+   `.github/workflows/publish-pypi.yml` runs PyPI publish via OIDC
+   trusted publisher (one-time setup at
+   https://pypi.org/manage/account/publishing/).
+5. `gh release create vX.Y.Z --latest --notes "..."` so the GitHub
+   "Latest" badge tracks the actual newest cut, not whatever the
+   highest non-prerelease tag happens to be.
+6. Wait for Glama re-score (usually within a day). If badge stays "—",
+   check that PyPI publish succeeded (the install path is the gating
+   factor).
+
+**Pitfalls observed (2026-05-26):**
+
+- `v0.0.2` showed as "Latest" on GitHub for weeks because all later
+  cuts were marked `prerelease`. Either ship a non-prerelease or pass
+  `--latest` explicitly.
+- README said `pipx install weighted-compact[mcp]` while PyPI had no
+  package at all → Glama scored "—" indefinitely. PyPI publish is a
+  load-bearing step, not optional polish.
+
+When the marketing window for this package closes, remove this section
+or downgrade it to a one-line pointer.
