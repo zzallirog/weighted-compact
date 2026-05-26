@@ -134,6 +134,7 @@ def main():
     files = []
     for d in DIRS:
         files.extend(glob.glob(os.path.join(d, "*.jsonl")))
+        files.extend(glob.glob(os.path.join(d, "*", "*.jsonl")))
 
     sessions_processed = 0
     all_pairs = []
