@@ -50,8 +50,12 @@ def is_real_text(text, role):
 
 def load_session_events(session_id):
     """Load filtered event sequence from session jsonl. Returns list of dicts."""
+    import glob as _glob
+    candidates = []
     for d in SESSION_DIRS:
-        path = os.path.join(d, session_id + ".jsonl")
+        candidates.append(os.path.join(d, session_id + ".jsonl"))
+        candidates.extend(_glob.glob(os.path.join(d, "*", session_id + ".jsonl")))
+    for path in candidates:
         if not os.path.exists(path):
             continue
         events = []
