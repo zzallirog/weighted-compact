@@ -8,6 +8,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [0.2.0-beta.3] — 2026-05-26
+
+Substantive release: third retrieval tier (schema-extraction) ships as
+sub-package, REM-decay + MCP server + Docker wrap land, baselines harness
+(random / recency / cosine / BM25 / `/compact` simulator) goes end-to-end,
+public ranker registry + Signal Protocol formalise the plugin surface,
+README undergoes a cold-reader rewrite. Honest baseline measurement
+(2026-05-21) replaces earlier headline claims: structured selection beats
+`/compact` by ~8pp on the maintainer's corpus; mixture vs cheap baselines
+remains null at N=62 under the cheap judge (this is surfaced, not hidden).
+
+Also: GitHub issue/PR templates + FUNDING + CI workflows; lint and
+leak-scan fixes; mechanistic-audit methodology doc (arXiv 2602.19159
+applied to own importance mixture).
+
 ### Added — 2026-05-23 Public ranker registry + Signal Protocol + extension recipe
 
 Three coordinated additions that turn the eight built-in rankers into one
