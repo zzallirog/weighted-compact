@@ -118,7 +118,8 @@ weighted-compact compat
 
 # 2. Build the substrate from your Claude Code sessions
 weighted-compact bootstrap
-# Reads ~/.claude/projects/*.jsonl. Read-only on the Claude side.
+# Reads ~/.claude/projects/*/*.jsonl (one subdir per CWD slug, one jsonl
+# per session). Read-only on the Claude side.
 # Writes ~/.local/share/weighted-compact/pairs.jsonl.
 
 # 3. Launch the labeler

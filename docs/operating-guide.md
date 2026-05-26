@@ -109,7 +109,7 @@ CLI/eval harness and from the MCP `compact_session` tool.
 ### The data flow, end-to-end
 
 ```
-~/.claude/projects/*.jsonl
+~/.claude/projects/*/*.jsonl       (Claude Code stores one subdir per CWD)
         │
         │  weighted-compact bootstrap
         ▼
@@ -327,6 +327,29 @@ stable schema, the rest of the pipeline is `features.npz` /
 `features_density.npz` / etc. — each independently rebuildable from
 the same `pairs.jsonl`. Bootstrap is the one step where format
 decisions get locked.
+
+**Re-bootstrap caveat.** Re-running `bootstrap` over a different source
+set (new sessions, fixed glob/regex, etc.) regenerates `pairs.jsonl`
+**with fresh pair_idx numbering**. Two downstream artifacts are tied to
+the old indexing and need attention:
+
+- **`labels.jsonl`** — pair_idx values refer to the previous corpus's
+  ordering. If the new pair at index 7 isn't the same conversation as
+  the old pair at index 7, those labels are mismatched. Either:
+  prune labels that don't match the new pair's `(session_id,
+  marker_match)` fingerprint, or move `labels.jsonl` aside and
+  re-label.
+- **`queue.jsonl`** — the labeler's active-learning queue is produced
+  by `build_queue.py` from disagreement / low-conf / audit signals.
+  After re-bootstrap, `queue.jsonl` is stale or absent; the labeler
+  will report `all=0 disagreement=0 low_conf=0 audit=0` in the
+  mode bar. Until queue is rebuilt (which itself requires a trained
+  classifier on fresh labels), use **cluster mode** — it operates on
+  `features.npz` alone and doesn't depend on the queue.
+
+This is annoying but intentional: pair_idx is the substrate's primary
+key, and re-numbering on re-bootstrap means anything keyed by it is
+quarantined until you decide whether to migrate or discard.
 
 ### importance
 

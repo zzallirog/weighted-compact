@@ -6,8 +6,8 @@ sensible default.
 
 ```
                                 ┌───────────────────────────────────┐
-                                │  ~/.claude/projects/*.jsonl       │  ◀ source-of-truth
-                                │  ~/.claude-work/projects/*.jsonl  │     (read-only, never written)
+                                │  ~/.claude/projects/*/*.jsonl     │  ◀ source-of-truth
+                                │  ~/.claude-work/projects/*/*.jsonl│     (read-only, never written)
                                 └─────────────┬─────────────────────┘
                                               │
                           extract_pairs.py    │
