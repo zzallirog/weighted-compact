@@ -20,17 +20,25 @@ OUT = str(config.pairs_path())
 MIN_FILE_SIZE = 5 * 1024
 
 RE_NEG = re.compile(
-    r"\b(no|not that|not what|not right|not quite|wrong|incorrect|"
-    r"stop|wait|hold on|nope|don't|revert|undo|again)\b",
-    re.IGNORECASE,
+    r"(?<![A-Za-zА-Яа-яЁё])("
+    r"no|not that|not what|not right|not quite|wrong|incorrect|"
+    r"stop|wait|hold on|nope|don't|revert|undo|again|"
+    r"не то|не так|не туда|не правильно|не верно|неправильно|неверно|"
+    r"стоп|стой|погоди|постой|отмени|откати|верни|обратно|"
+    r"ошибся|ошибка|хватит|нет"
+    r")(?![A-Za-zА-Яа-яЁё])",
+    re.IGNORECASE | re.UNICODE,
 )
 RE_POS = re.compile(
-    r"\b(exactly|that's it|that's right|perfect|great|nailed it|nice|correct)\b",
-    re.IGNORECASE,
+    r"(?<![A-Za-zА-Яа-яЁё])("
+    r"exactly|that's it|that's right|perfect|great|nailed it|nice|correct|"
+    r"точно|именно|то самое|вот так|в точку|идеально|отлично|молодец|супер"
+    r")(?![A-Za-zА-Яа-яЁё])",
+    re.IGNORECASE | re.UNICODE,
 )
 RE_TAG = re.compile(
-    r"\(([^)]*?(mark|think|neutral)[^)]*?)\)",
-    re.IGNORECASE,
+    r"\(([^)]*?(mark|think|neutral|маркер|подумать|пропос|правка)[^)]*?)\)",
+    re.IGNORECASE | re.UNICODE,
 )
 
 
@@ -67,7 +75,8 @@ def detect_marker(text):
     tag_m = RE_TAG.search(text)
     if tag_m:
         tag_inner = tag_m.group(1).lower()
-        if any(w in tag_inner for w in ("neutral", "think")):
+        maybe_words = ("neutral", "think", "нейтрал", "подумать", "пропос")
+        if any(w in tag_inner for w in maybe_words):
             return "explicit_tag", tag_m.group(0), "maybe"
         return "explicit_tag", tag_m.group(0), "keep"
     neg_m = RE_NEG.search(text)
