@@ -191,6 +191,7 @@ the client can call `substrate_info` to recover and act accordingly.
 
 ## Related
 
+- `docs/integrations/cursor.md` — Cursor `mcp.json` setup and smoke-test flow
 - `docs/01-substrate.md` — what's in `pairs.jsonl` / `features.npz`
 - `docs/rem-decay.md` — the REM-decay multiplier this server respects
 - `docs/claude-code-integration.md` — how the substrate is built from
