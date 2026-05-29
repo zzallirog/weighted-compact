@@ -241,15 +241,32 @@ surface area, run through the checklist below before pushing the tag.
    mcp-integration.md` and the tool descriptions in
    `weighted_compact/mcp_server.py` first; README mirrors them.
 3. **`pyproject.toml`** — keep the `[mcp]` optional-dependencies group
-   tight; Glama install-test runs `pipx install '<pkg>[mcp]'`. A
-   bloated extra silently fails their sandbox.
+   tight; the Glama release build runs `uv pip install '.[mcp]'`
+   against the cloned repo (not PyPI), so a bloated extra slows or fails
+   the build test. The `[mcp]` extra only needs the `mcp` SDK —
+   `[baselines]` (sentence-transformers) is NOT required for
+   introspection, which only enumerates tool definitions.
 4. **awesome-mcp PR body** (#6809) — only update when the one-line
    description there becomes misleading. The current description
    emphasises read-only tools, signal-scoring, and zero outbound; keep
    that frame.
-5. **Glama re-scoring** — happens automatically on new GitHub Release.
-   The score requires a working install path; if PyPI publish fails,
-   Glama can't score and the badge stays "—".
+5. **Glama re-scoring** — does NOT auto-trigger on a GitHub Release or
+   PyPI publish. Glama scores from a **Glama release** created manually
+   on the Dockerfile admin page
+   (`/mcp/servers/zzallirog/weighted-compact/admin/dockerfile`):
+   configure the build spec → **Build** (test) → **Create Release**.
+   Glama clones the repo at the pinned commit, installs it, wraps the
+   stdio server in `mcp-proxy`, runs it, and introspects `tools/list`.
+   No release ⇒ Tool Definition Quality + Server Coherence stay
+   unavailable and the score badge stays "—".
+
+   Working build spec (verified 2026-05-29 → scored A): Python `3.12`
+   (not the default 3.14 — mature wheels); Build steps
+   `["uv venv /opt/venv", "uv pip install --python /opt/venv/bin/python '.[mcp]'"]`;
+   CMD arguments `["/opt/venv/bin/weighted-compact", "mcp-serve"]`
+   (Glama prepends `mcp-proxy --`). Env-schema + placeholder params left
+   empty — the server starts with no substrate. Build test ~16s; the
+   score lands a few minutes after the release.
 
 **Order of operations for a release:**
 
@@ -265,18 +282,22 @@ surface area, run through the checklist below before pushing the tag.
 5. `gh release create vX.Y.Z --latest --notes "..."` so the GitHub
    "Latest" badge tracks the actual newest cut, not whatever the
    highest non-prerelease tag happens to be.
-6. Wait for Glama re-score (usually within a day). If badge stays "—",
-   check that PyPI publish succeeded (the install path is the gating
-   factor).
+6. Re-score on Glama is **manual**: open the Dockerfile admin page,
+   bump the pinned commit (or leave it blank for HEAD), click **Build**,
+   then **Create Release** with the new version. The score recomputes a
+   few minutes after the release. A GitHub Release / PyPI publish alone
+   does NOT update the Glama score.
 
 **Pitfalls observed (2026-05-26):**
 
 - `v0.0.2` showed as "Latest" on GitHub for weeks because all later
   cuts were marked `prerelease`. Either ship a non-prerelease or pass
   `--latest` explicitly.
-- README said `pipx install weighted-compact[mcp]` while PyPI had no
-  package at all → Glama scored "—" indefinitely. PyPI publish is a
-  load-bearing step, not optional polish.
+- The badge stayed "—" on the assumption that a GitHub Release
+  auto-triggers scoring. It does not: scoring needs a manually-created
+  Glama release (Dockerfile build → Create Release), see sync target #5.
+  PyPI publish matters for end-user `pipx install`, but it is NOT what
+  Glama scores from — Glama builds the repo itself.
 
 When the marketing window for this package closes, remove this section
 or downgrade it to a one-line pointer.
