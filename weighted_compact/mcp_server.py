@@ -32,7 +32,9 @@ but `run_stdio()` will raise if invoked without the extra.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from weighted_compact import config
 from weighted_compact.recon_qa.context import (
@@ -303,7 +305,23 @@ def build_server():
     server = FastMCP("weighted-compact")
 
     @server.tool()
-    def search_pairs(query: str, top_k: int = 10) -> list[dict[str, Any]] | dict[str, Any]:
+    def search_pairs(
+        query: Annotated[
+            str,
+            Field(description=(
+                "Search text, cosine-matched against each pair's correction-text "
+                "embedding (e5-multilingual-small, multilingual). Plain keywords or "
+                "a natural-language phrase both work; no special query syntax."
+            )),
+        ],
+        top_k: Annotated[
+            int,
+            Field(description=(
+                "Maximum number of results, ordered by descending cosine score in "
+                "[-1, 1]. Values below 1 are treated as 1. Default 10."
+            )),
+        ] = 10,
+    ) -> list[dict[str, Any]] | dict[str, Any]:
         """Cosine-search the substrate's correction-text embeddings.
 
         Returns the top-K most-similar pairs to `query`, each as a dict
@@ -323,10 +341,40 @@ def build_server():
 
     @server.tool()
     def compact_session(
-        source_pair_idx: int,
-        k_drop: float = 0.5,
-        ranker: str = "importance",
-        rem_decay: bool = False,
+        source_pair_idx: Annotated[
+            int,
+            Field(description=(
+                "Index into pairs.jsonl of the pair whose session to compact. This "
+                "pair is HIDDEN from the output so it can serve as reconstruction-QA "
+                "ground truth. Must be in [0, pair_count-1]; out-of-range returns an "
+                "error payload."
+            )),
+        ],
+        k_drop: Annotated[
+            float,
+            Field(description=(
+                "Fraction of the session's pairs to drop, in [0.0, 1.0]. 0.0 keeps "
+                "the whole session; 0.9 is aggressive compaction. The kept fraction "
+                "(1 - k_drop) is selected by the chosen ranker."
+            )),
+        ] = 0.5,
+        ranker: Annotated[
+            str,
+            Field(description=(
+                "Scoring source for ranking retained pairs. Only 'importance' (the "
+                "seven-signal mixture) is supported here; query-aware rankers "
+                "(cosine, bm25) need a query and live in search_pairs."
+            )),
+        ] = "importance",
+        rem_decay: Annotated[
+            bool,
+            Field(description=(
+                "If true, multiply each score by the nightly REM-decay map (recency "
+                "down-weighting). Requires `weighted-compact rem-pass` to have run; "
+                "if the map is absent this returns an error payload rather than "
+                "silently ignoring the flag."
+            )),
+        ] = False,
     ) -> dict[str, Any]:
         """Assemble a compacted-markdown view of the source pair's session.
 
