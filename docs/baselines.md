@@ -175,3 +175,52 @@ requires more data and a stricter judge.
   fractions) and harness metadata (k_drop, signal, n_qa).
 - `<substrate>/baseline_run_<timestamp>.log` — full run log, including
   per-ranker progress and any model-load notes.
+
+## Results — 2026-06-07: human curation (control) + manifesto
+
+Two follow-up questions to the null above, both on the maintainer corpus.
+
+### Q1 — does *human* labeling lift recon-QA fidelity over density? **No (null).**
+
+If the machine mixture can't beat recency, can a person's own keep/skip
+judgement? One session (16 pairs) was hand-labeled in full, then run
+density-vs-human through the same recon-QA harness (human = density +0.20/keep,
++0.10/maybe, −0.20/skip; gemma3 judge, qwen generator):
+
+| k_drop | density judge-yes | human judge-yes |
+|---|---:|---:|
+| 0.5 | 0/16 | 0/16 |
+| 0.9 | 0/16 | 1/16 |
+
+Both sit inside the ~5 % noise floor (cf. N=62 above). **Even a perfect
+post-hoc oracle does not move reconstruction fidelity.** So fidelity is null
+not just for the machine mixture but for human curation too. Graded-label
+schemes (e.g. −5/+2) build on this null and are not pursued.
+
+### Q2 — does the manifesto control *what survives*? **Yes — by construction.**
+
+This is a different claim from fidelity. "Manifesto-honor" = of the user's
+keep-labeled pairs, how many survive compaction, and of the skip-labeled, how
+many are correctly dropped — `(keep_kept + (1 − skip_kept)) / 2`, averaged over
+k_drop ∈ {0.5, 0.7, 0.9} on the 16-pair session:
+
+| ranker | manifesto-honor |
+|---|---:|
+| density | 47 % |
+| recency | 64 % |
+| `human_soft` (label as +0.20 score boost) | 64 % |
+| **`human_hard`** (keep pinned / skip banished) | **90 %** |
+
+The **soft** label boost ties recency (64 %) — the density backbone overrules
+it, so a soft label is *not* a guarantee. The **hard** constraint reaches 100 %
+honor at k_drop ≤ 0.7 (budget-capped to 70 % only at the extreme 0.9 cliff).
+
+This is the one place weighted-compact beats every cheap baseline — but it is a
+**deterministic control guarantee, not a fidelity gain.** Pinning a pair
+guarantees it *survives*; it does not make the compacted context *reconstruct
+better* (Q1 is null). Honoring keep/skip as a hard constraint is what
+`build_compacted_context(manifesto=…)` ships (default-on in the
+`compact_session` MCP tool); the guarantee is proven by construction in
+`tests/test_manifesto.py`. The `human_hard` column is reproducible only on the
+maintainer's labeled session; the *guarantee* it illustrates is not
+corpus-dependent.

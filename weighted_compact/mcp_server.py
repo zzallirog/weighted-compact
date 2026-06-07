@@ -40,6 +40,7 @@ from weighted_compact import config
 from weighted_compact.recon_qa.context import (
     build_compacted_context_with_meta,
     load_importance,
+    load_manifesto,
     load_pairs,
     load_rem_decay,
     load_topic_map,
@@ -162,6 +163,7 @@ def _tool_compact_session(
     k_drop: float = 0.5,
     ranker: str = "importance",
     rem_decay: bool = False,
+    honor_manifesto: bool = True,
 ) -> dict[str, Any]:
     """Build a compacted markdown view of the source pair's session.
 
@@ -215,6 +217,8 @@ def _tool_compact_session(
             "hint": "run `weighted-compact rem-pass` (or enable the timer)",
         }
 
+    manifesto = load_manifesto() if honor_manifesto else None
+
     try:
         markdown, meta = build_compacted_context_with_meta(
             source_pair_idx=int(source_pair_idx),
@@ -223,6 +227,7 @@ def _tool_compact_session(
             k_drop=float(k_drop),
             topic_map=topic_map,
             rem_decay_map=rem_decay_map,
+            manifesto=manifesto,
         )
     except Exception as exc:  # noqa: BLE001
         return {"error": "build_failed", "detail": str(exc)}
@@ -375,6 +380,18 @@ def build_server():
                 "silently ignoring the flag."
             )),
         ] = False,
+        honor_manifesto: Annotated[
+            bool,
+            Field(description=(
+                "If true (default), apply your keep/skip labels from labels.jsonl as "
+                "a HARD selection constraint: keep-labeled pairs are pinned "
+                "(guaranteed to survive, up to budget), skip-labeled pairs are dropped "
+                "first; unlabeled pairs fill the rest by importance score. This is a "
+                "deterministic control guarantee over what survives, NOT a fidelity "
+                "gain. Set false to rank purely by the importance score. The returned "
+                "meta.manifesto reports how many keeps survived / skips were dropped."
+            )),
+        ] = True,
     ) -> dict[str, Any]:
         """Assemble a compacted-markdown view of the source pair's session.
 
@@ -408,6 +425,7 @@ def build_server():
             k_drop=k_drop,
             ranker=ranker,
             rem_decay=rem_decay,
+            honor_manifesto=honor_manifesto,
         )
 
     @server.tool()

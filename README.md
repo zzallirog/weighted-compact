@@ -67,6 +67,7 @@ A 30-second product map vs the dominant adjacent tool:
 |---|---|---|
 | **Capture** | reads `~/.claude/projects/` on demand | 5 always-on lifecycle hooks |
 | **Importance ranking** | 6 inspectable signals + REM-decay | `ORDER BY recency DESC LIMIT k` |
+| **Manifesto control** | keep/skip labels honored as a hard constraint (pin / drop) | none |
 | **Compaction** | top-K vector selection → markdown | LLM-summary, opaque |
 | **Auto-injection** | none — client polls | every session start |
 | **Outbound network** | zero (default) | configurable LLM provider per turn |
@@ -75,12 +76,20 @@ A 30-second product map vs the dominant adjacent tool:
 | **Reconstruction fidelity** | no measured edge — ties recency/bm25 | not measured by them |
 
 The honest trade: the structural rows above (local, zero-outbound,
-inspectable, 0 idle RAM) are real and verifiable. The *quality* row is not a
-win — on reconstruction-fidelity the six-signal mixture has not been shown to
-beat cheap baselines like recency or bm25. claude-mem is hook-installed in
-seconds and feels magic; weighted-compact is a transparent substrate you own
-and query with intent. Pick on transparency/locality, not on compression
-quality — see [`docs/bench-vs-claude-mem.md`](docs/bench-vs-claude-mem.md).
+inspectable, 0 idle RAM, manifesto control) are real and verifiable. The
+*quality* row is not a win — on reconstruction-fidelity the six-signal mixture
+has not been shown to beat cheap baselines like recency or bm25, and neither
+does hand-curation (see [`docs/baselines.md`](docs/baselines.md)). What *is* a
+real, exclusive property is **manifesto control**: your keep/skip labels are
+honored as a hard selection constraint — a keep-labeled pair is guaranteed to
+survive compaction (up to budget), a skip-labeled pair is dropped first. That is
+a deterministic control guarantee, not a compression-quality claim (proven by
+construction in `tests/test_manifesto.py`; default-on in the `compact_session`
+MCP tool, `meta.manifesto` reports what it honored). claude-mem is
+hook-installed in seconds and feels magic; weighted-compact is a transparent
+substrate you own, steer with a manifesto, and query with intent. Pick on
+transparency / locality / control, not on compression quality — see
+[`docs/bench-vs-claude-mem.md`](docs/bench-vs-claude-mem.md).
 
 ---
 

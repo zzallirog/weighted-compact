@@ -178,9 +178,84 @@ def load_rem_decay():
             for i in range(len(npz['importance']))}
 
 
+def load_manifesto(labels_path: Path | None = None) -> dict[int, str]:
+    """Read the user's keep/skip 'manifesto' from labels.jsonl (last label per pair).
+
+    Returns a dict with ONLY the two hard tiers: ``{pair_idx: 'keep'}`` and
+    ``{pair_idx: 'skip'}``. ``maybe`` / ``false_positive`` / unlabeled pairs are
+    omitted (no constraint) — they keep being ranked by the continuous importance
+    score as before.
+
+    Unlike the soft ``label`` signal in ``importance.py`` (a +0.15 weight inside
+    the mixture), these two tiers are consumed by :func:`build_compacted_context`
+    as a HARD selection constraint (pin / banish). Missing file → ``{}``.
+    """
+    p = labels_path or _wc_config.labels_path()
+    if not p.exists():
+        return {}
+    last: dict[int, str] = {}
+    with open(p, encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            r = json.loads(line)
+            last[int(r['pair_idx'])] = r.get('label', 'skip')
+    return {pid: lab for pid, lab in last.items() if lab in ('keep', 'skip')}
+
+
+def _select_kept(session_pairs, scores, k_drop, *, topic_decay, topic_map,
+                 source_pair_idx, rem, manifesto=None):
+    """Rank a session's pairs and select the kept set for compaction.
+
+    Ranking: ``score[pid] * topic_decay**|topic_distance| * rem[pid]``, descending.
+
+    Manifesto (hard control, optional): when ``manifesto`` maps pair_idx →
+    ``'keep'`` / ``'skip'`` it is applied as a SELECTION CONSTRAINT, not a score
+    nudge — keep-labeled pairs are pinned (guaranteed to survive, up to budget),
+    skip-labeled pairs are banished (dropped first), the rest fill the remaining
+    budget by score. This makes the user's manifesto deterministic and auditable.
+    It is a CONTROL guarantee, NOT a reconstruction-fidelity improvement (the
+    importance mixture does not beat recency on fidelity — see docs/baselines.md).
+
+    The budget (``keep_n``) is identical with or without a manifesto: the manifesto
+    only reorders which pairs fill the same number of slots.
+
+    Single source of truth for selection — both :func:`build_compacted_context`
+    and the meta recomputation in :func:`build_compacted_context_with_meta` call
+    it, so markdown and meta can never disagree on what survived.
+    """
+    if topic_map and topic_decay < 1.0:
+        t_source = topic_map.get(source_pair_idx, 0)
+
+        def eff(p):
+            t = topic_map.get(p['pair_idx'], 0)
+            d = abs(t - t_source)
+            base = scores.get(p['pair_idx'], 0.0) * (topic_decay ** d)
+            return base * rem.get(p['pair_idx'], 1.0)
+        ranked = sorted(session_pairs, key=eff, reverse=True)
+    else:
+        ranked = sorted(
+            session_pairs,
+            key=lambda p: scores.get(p['pair_idx'], 0.0) * rem.get(p['pair_idx'], 1.0),
+            reverse=True,
+        )
+
+    keep_n = max(1, int(len(ranked) * (1 - k_drop))) if ranked else 0
+
+    if manifesto:
+        pinned   = [p for p in ranked if manifesto.get(p['pair_idx']) == 'keep']
+        banished = [p for p in ranked if manifesto.get(p['pair_idx']) == 'skip']
+        neutral  = [p for p in ranked
+                    if manifesto.get(p['pair_idx']) not in ('keep', 'skip')]
+        ranked = pinned + neutral + banished
+
+    return ranked[:keep_n]
+
+
 def build_compacted_context(source_pair_idx, pairs, scoring, k_drop=0.5,
                             topic_decay=0.5, topic_map=None, query=None,
-                            rem_decay_map=None):
+                            rem_decay_map=None, manifesto=None):
     """Assemble markdown context for a session, hiding source_pair (ground truth).
 
     `scoring` is one of:
@@ -201,6 +276,13 @@ def build_compacted_context(source_pair_idx, pairs, scoring, k_drop=0.5,
       rem_decay_map: dict pair_idx → factor ∈ (0, 1] produced by the nightly
       `weighted-compact rem-pass`. Multiplied into the score after the topic
       term. Empty / None → no decay applied. See `weighted_compact.rem_decay`.
+
+    Manifesto (hard control, Phase 4G):
+      manifesto: dict pair_idx → 'keep' | 'skip' (from `load_manifesto`, i.e. the
+      user's labels.jsonl). keep-labeled pairs are PINNED (guaranteed to survive,
+      up to the budget); skip-labeled pairs are BANISHED (dropped first). All other
+      pairs fill the remaining budget by score. None → no constraint. This is a
+      deterministic CONTROL guarantee over what survives, not a fidelity gain.
     """
     if callable(scoring):
         if query is None:
@@ -221,25 +303,11 @@ def build_compacted_context(source_pair_idx, pairs, scoring, k_drop=0.5,
         return ''
 
     rem = rem_decay_map or {}
-
-    if topic_map and topic_decay < 1.0:
-        t_source = topic_map.get(source_pair_idx, 0)
-
-        def eff(p):
-            t = topic_map.get(p['pair_idx'], 0)
-            d = abs(t - t_source)
-            base = scores.get(p['pair_idx'], 0.0) * (topic_decay ** d)
-            return base * rem.get(p['pair_idx'], 1.0)
-        ranked = sorted(session_pairs, key=eff, reverse=True)
-    else:
-        ranked = sorted(
-            session_pairs,
-            key=lambda p: scores.get(p['pair_idx'], 0.0) * rem.get(p['pair_idx'], 1.0),
-            reverse=True,
-        )
-
-    keep_n = max(1, int(len(ranked) * (1 - k_drop)))
-    kept = ranked[:keep_n]
+    kept = _select_kept(
+        session_pairs, scores, k_drop,
+        topic_decay=topic_decay, topic_map=topic_map,
+        source_pair_idx=source_pair_idx, rem=rem, manifesto=manifesto,
+    )
     kept.sort(key=lambda p: p['pair_idx'])
 
     chunks = [
@@ -252,7 +320,7 @@ def build_compacted_context(source_pair_idx, pairs, scoring, k_drop=0.5,
 def build_compacted_context_with_meta(
     source_pair_idx, pairs, scoring, k_drop=0.5,
     topic_decay=0.5, topic_map=None, query=None,
-    rem_decay_map=None,
+    rem_decay_map=None, manifesto=None,
     importance_path: Path | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Same as ``build_compacted_context`` but also returns a budget-transparency dict.
@@ -294,7 +362,7 @@ def build_compacted_context_with_meta(
     markdown = build_compacted_context(
         source_pair_idx, pairs, scoring,
         k_drop=k_drop, topic_decay=topic_decay, topic_map=topic_map,
-        query=query, rem_decay_map=rem_decay_map,
+        query=query, rem_decay_map=rem_decay_map, manifesto=manifesto,
     )
 
     source_pair = pairs[source_pair_idx]
@@ -320,25 +388,11 @@ def build_compacted_context_with_meta(
         scores = scoring
 
     rem = rem_decay_map or {}
-
-    if topic_map and topic_decay < 1.0:
-        t_source = topic_map.get(source_pair_idx, 0)
-
-        def _eff(p):
-            t = topic_map.get(p['pair_idx'], 0)
-            d = abs(t - t_source)
-            base = scores.get(p['pair_idx'], 0.0) * (topic_decay ** d)
-            return base * rem.get(p['pair_idx'], 1.0)
-        ranked = sorted(session_pairs, key=_eff, reverse=True)
-    else:
-        ranked = sorted(
-            session_pairs,
-            key=lambda p: scores.get(p['pair_idx'], 0.0) * rem.get(p['pair_idx'], 1.0),
-            reverse=True,
-        )
-
-    keep_n = max(1, int(len(ranked) * (1 - k_drop))) if ranked else 0
-    kept = ranked[:keep_n]
+    kept = _select_kept(
+        session_pairs, scores, k_drop,
+        topic_decay=topic_decay, topic_map=topic_map,
+        source_pair_idx=source_pair_idx, rem=rem, manifesto=manifesto,
+    )
     pairs_kept = len(kept)
 
     # Signal breakdown from importance.npz
@@ -377,6 +431,21 @@ def build_compacted_context_with_meta(
         except Exception:  # noqa: BLE001 — silent degradation intentional
             signals_top3 = []
 
+    if manifesto:
+        sess_idx = {p['pair_idx'] for p in session_pairs}
+        kept_idx = {p['pair_idx'] for p in kept}
+        keeps = [pid for pid, lab in manifesto.items() if lab == 'keep' and pid in sess_idx]
+        skips = [pid for pid, lab in manifesto.items() if lab == 'skip' and pid in sess_idx]
+        manifesto_meta: dict[str, Any] = {
+            'active': True,
+            'keeps_total': len(keeps),
+            'keeps_survived': sum(1 for pid in keeps if pid in kept_idx),
+            'skips_total': len(skips),
+            'skips_dropped': sum(1 for pid in skips if pid not in kept_idx),
+        }
+    else:
+        manifesto_meta = {'active': False}
+
     meta: dict[str, Any] = {
         'pairs_total': pairs_total,
         'pairs_kept': pairs_kept,
@@ -388,6 +457,7 @@ def build_compacted_context_with_meta(
         'tokens_saved_estimate': chars_saved // 4,
         'compaction_ratio': output_chars / input_chars if input_chars > 0 else 0.0,
         'signals_top3': signals_top3,
+        'manifesto': manifesto_meta,
         'ranker': 'callable_query_aware' if callable(scoring) else 'static_dict',
     }
     return markdown, meta

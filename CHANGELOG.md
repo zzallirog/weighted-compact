@@ -8,8 +8,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- **Manifesto hard-constraint** — `keep`/`skip` labels are now honored as a
+  deterministic *selection* constraint, not just a soft score signal:
+  `build_compacted_context(manifesto=…)` pins keep-labeled pairs (guaranteed to
+  survive, up to budget) and banishes skip-labeled pairs (dropped first); the
+  rest fill the budget by importance score. Exposed default-on via the
+  `compact_session` MCP tool (`honor_manifesto=true`), with `meta.manifesto`
+  reporting how many keeps survived / skips were dropped. This is a *control*
+  guarantee, **not** a fidelity gain — recon-QA fidelity stays null for both the
+  mixture and hand-curation; the manifesto only controls *what survives* (see
+  [`docs/baselines.md`](docs/baselines.md), proven by construction in
+  `tests/test_manifesto.py`). The soft `label` boost alone only tied recency on
+  manifesto-honor (the density backbone overruled it); the hard constraint
+  reaches 100 % honor at k_drop ≤ 0.7 on the maintainer's labeled session.
+
 ### Changed
 
+- Pair selection unified into a single `_select_kept` helper shared by
+  `build_compacted_context` and its `_with_meta` variant — markdown and meta can
+  no longer disagree on what survived.
 - Importance mixture is now **six signals** — `density` (backbone, 0.25),
   `label` (0.15), `span_keep` (0.20), `span_maybe` (0.10), `span_skip` (−0.15),
   `span_think` (0.05). `importance.npz` schema → v2 (components `(N, 6)`,
