@@ -156,6 +156,43 @@ def _run_module_main(module_name: str) -> None:
     main_fn()
 
 
+def _run_feature_chain() -> None:
+    """Build the full query substrate on top of an existing pairs.jsonl.
+
+    extract_pairs (bootstrap) must already have produced pairs.jsonl. This runs
+    the rest of the pipeline that nothing else wires together:
+
+        feature_extract(all_pairs) → density → spans → misstep* → topic → importance
+
+    feature_extract runs in ALL-pairs mode so search_pairs / compact_session see
+    the whole corpus, not just labeled pairs. misstep is optional — it needs
+    duckdb plus an external misstep substrate; if it can't run it is skipped and
+    importance degrades gracefully (its component is zero).
+    """
+    from weighted_compact import feature_extract
+
+    click.secho("== feature_extract (all pairs) ==", fg="cyan", bold=True)
+    feature_extract.main(all_pairs=True)
+
+    for label, module in (
+        ("density", "density_features"),
+        ("spans", "span_features"),
+        ("topic-segments", "topic_segments"),
+    ):
+        click.secho(f"== {label} ==", fg="cyan", bold=True)
+        _run_module_main(module)
+
+    click.secho("== misstep (optional) ==", fg="cyan", bold=True)
+    try:
+        _run_module_main("misstep_score")
+    except Exception as exc:  # noqa: BLE001 — no duckdb / no external substrate
+        click.secho(f"  skipped: {exc}", fg="yellow")
+        click.secho("  importance degrades gracefully — misstep signal = 0", fg="yellow")
+
+    click.secho("== importance ==", fg="cyan", bold=True)
+    _run_module_main("importance")
+
+
 @click.group()
 @click.option("--verbose", "-v", is_flag=True, help="Debug logging.")
 @click.version_option(version=__version__, prog_name="weighted-compact")
@@ -243,16 +280,17 @@ def quickstart(no_bootstrap: bool) -> None:
             sys.exit(1)
         click.echo(f"  pairs.jsonl  {sub['pairs']} bytes")
 
-    # ── step 3: importance ───────────────────────────────────────────────────
-    if not sub.get("features"):
-        click.echo()
-        click.secho("== importance ==", fg="cyan", bold=True)
-        try:
-            _run_module_main("importance")
-        except Exception as exc:
-            click.secho(f"importance failed: {exc}", fg="red", err=True)
-            click.secho("Fix the error above, then re-run: weighted-compact importance", fg="yellow")
-            sys.exit(1)
+    # ── step 3: full feature chain → importance ──────────────────────────────
+    # Build features (all pairs) → density → spans → topic → importance. The old
+    # path here only ran `importance`, which fails because importance needs the
+    # feature artefacts that nothing built.
+    click.echo()
+    try:
+        _run_feature_chain()
+    except Exception as exc:
+        click.secho(f"feature build failed: {exc}", fg="red", err=True)
+        click.secho("Fix the error above, then re-run: weighted-compact bootstrap --full", fg="yellow")
+        sys.exit(1)
 
     # ── step 4: top-5 preview ────────────────────────────────────────────────
     click.echo()
@@ -266,7 +304,7 @@ def quickstart(no_bootstrap: bool) -> None:
         imp_path = config.importance_path()
         if pairs and imp_path.exists():
             imp = np.load(imp_path, allow_pickle=True)
-            scores = imp["scores"]
+            scores = imp["importance"]
             pair_indices = imp["pair_indices"]
             order = np.argsort(-scores)
             shown = 0
@@ -298,7 +336,11 @@ def quickstart(no_bootstrap: bool) -> None:
 
 @main.command()
 @click.option("--dry-run", is_flag=True, help="Show what would be extracted without writing.")
-def bootstrap(dry_run: bool) -> None:
+@click.option("--full", "-f", is_flag=True,
+              help="After extracting pairs, build the whole substrate "
+                   "(features → density → spans → topic → importance) so the "
+                   "MCP tools work immediately.")
+def bootstrap(dry_run: bool, full: bool) -> None:
     """Extract conversation pairs from ~/.claude/projects/ into the substrate."""
     config.workdir().mkdir(parents=True, exist_ok=True)
     config.state_dir().mkdir(parents=True, exist_ok=True)
@@ -334,8 +376,15 @@ def bootstrap(dry_run: bool) -> None:
     click.echo(f"  scanned:  {', '.join(dirs)}")
     click.echo(f"  output:   {out}")
     click.echo("")
-    click.echo("Next: weighted-compact importance     # build the seven-signal mixture")
-    click.echo("      weighted-compact rem-pass       # nightly wall-clock decay")
+
+    if full and n_pairs:
+        _run_feature_chain()
+        click.echo("")
+        click.echo("Substrate ready. search_pairs / compact_session / substrate_info are live.")
+        click.echo("Next: weighted-compact rem-pass    # optional nightly wall-clock decay")
+    else:
+        click.echo("Next: weighted-compact bootstrap --full   # build features → importance (one shot)")
+        click.echo("      weighted-compact rem-pass           # optional nightly wall-clock decay")
 
 
 @main.command()
@@ -403,6 +452,51 @@ def mcp_serve() -> None:
 def importance() -> None:
     """Recompose the seven-signal importance mixture."""
     _run_module_main("importance")
+
+
+@main.command(name="com-shift")
+@click.option("--top", default=0, type=int, metavar="N",
+              help="Print top-N pairs by |com_shift|.")
+@click.option("--stats", is_flag=True,
+              help="Print substrate-COM + std summary.")
+@click.option("--history", is_flag=True,
+              help="Emit com_shift_history.csv (2-row smoke-test; see com_shift.py docstring).")
+@click.option("--save", "do_save", is_flag=True,
+              help="Save results to com_shift.npz.")
+def com_shift(top: int, stats: bool, history: bool, do_save: bool) -> None:
+    """COM-shift probe — geometric observable for the H1' anti-drift invariant.
+
+    Computes per-pair shift from intrinsic (misstep+density only) to annotated
+    (full mixture) coordinate space, plus substrate-wide centroid in 7D.
+    Prerequisite: run `weighted-compact importance` first.
+    """
+    import sys
+    from weighted_compact import com_shift as _mod
+
+    imp_path = config.importance_path()
+    if not imp_path.exists():
+        raise click.ClickException(
+            f"importance.npz not found at {imp_path}\n"
+            "Run `weighted-compact importance` first."
+        )
+
+    result = _mod.compute_com_shift()
+    no_flags = not any([top, stats, history, do_save])
+
+    if no_flags or stats:
+        _mod._print_stats(result)
+
+    effective_top = top or (10 if no_flags else 0)
+    if effective_top:
+        _mod._print_top(result, effective_top)
+
+    if no_flags or do_save:
+        p = _mod.save(result)
+        click.echo(f"\nOutput: {p}")
+
+    if history:
+        p = _mod.build_history_csv()
+        click.echo(f"History CSV: {p}")
 
 
 @main.command(name="rem-pass")

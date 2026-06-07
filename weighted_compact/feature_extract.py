@@ -99,7 +99,14 @@ def find_premise_minus1(events, premise_uuid):
     return "", True  # head of session — empty string
 
 
-def main():
+def main(all_pairs: bool | None = None):
+    # all_pairs builds the *query* substrate (every pair embedded, for
+    # search_pairs / compact_session over the whole corpus). Without it the
+    # default is the *training* substrate: only labeled pairs, for the
+    # classifier. The MCP tools want full coverage, so bootstrap passes it.
+    # Param wins; falling back to the CLI flag keeps `python -m … --all-pairs`
+    # working when invoked directly.
+    all_pairs_mode = all_pairs if all_pairs is not None else ("--all-pairs" in sys.argv)
     # Load all pairs indexed by pair_idx
     pairs_by_idx = {}
     with open(PAIRS_PATH, encoding="utf-8") as f:
@@ -124,42 +131,67 @@ def main():
             except json.JSONDecodeError:
                 pass
 
-    # Build triples
+    # Build triples.
+    #   default mode     → iterate labeled pairs (classifier-training features)
+    #   --all-pairs mode → iterate every pair (query substrate); labels become an
+    #                      optional overlay keyed by (session_id, pair_idx) so a
+    #                      rebuilt pairs.jsonl cannot mis-attach a drifted label,
+    #                      and pairs with a missing session still embed
+    #                      premise+correction (zero prev window) instead of being
+    #                      dropped.
     triples = []       # list of (prev_assistant, premise, correction)
     meta    = []       # list of (pair_idx, label_int, confidence_bytes, labeled_by_bytes)
     skipped = 0
     session_cache = {}
 
-    for entry in labels:
-        pair_idx   = entry["pair_idx"]
-        label_str  = entry.get("label", "skip")
-        labeled_by = entry.get("labeled_by", "user")
-        confidence = entry.get("confidence", "gold") if labeled_by != "user" else "gold"
+    if all_pairs_mode:
+        label_by_key = {}
+        for entry in labels:
+            try:
+                label_by_key[(entry.get("session_id"), int(entry["pair_idx"]))] = entry
+            except (KeyError, ValueError, TypeError):
+                continue
+        work_items = [
+            (pidx, pairs_by_idx[pidx], label_by_key.get((pairs_by_idx[pidx].get("session_id"), pidx)))
+            for pidx in sorted(pairs_by_idx)
+        ]
+    else:
+        work_items = [
+            (int(e["pair_idx"]), pairs_by_idx.get(int(e["pair_idx"])), e)
+            for e in labels if "pair_idx" in e
+        ]
 
-        label_int = LABEL_MAP.get(label_str, 0)
-
-        pair = pairs_by_idx.get(pair_idx)
+    for pair_idx, pair, entry in work_items:
         if pair is None:
             warnings.warn(f"WARN: pair_idx={pair_idx} not in pairs.jsonl — skip")
             skipped += 1
             continue
 
-        session_id = entry.get("session_id") or pair.get("session_id")
+        label_str  = entry.get("label", "skip") if entry else "skip"
+        labeled_by = (entry.get("labeled_by", "user") if entry else "none")
+        confidence = entry.get("confidence", "gold") if (entry and labeled_by != "user") else "gold"
+        label_int  = LABEL_MAP.get(label_str, 0)
+
+        session_id = (entry.get("session_id") if entry else None) or pair.get("session_id")
         if session_id not in session_cache:
             session_cache[session_id] = load_session_events(session_id)
         events = session_cache[session_id]
 
+        prev_text = ""
         if events is None:
-            warnings.warn(f"WARN: session {session_id} not found — skip pair_idx={pair_idx}")
-            skipped += 1
-            continue
-
-        premise_uuid = pair.get("premise_uuid", "")
-        prev_text, found = find_premise_minus1(events, premise_uuid)
-        if not found:
-            warnings.warn(f"WARN: premise_uuid {premise_uuid} not found in session {session_id} — skip pair_idx={pair_idx}")
-            skipped += 1
-            continue
+            if not all_pairs_mode:
+                warnings.warn(f"WARN: session {session_id} not found — skip pair_idx={pair_idx}")
+                skipped += 1
+                continue
+        else:
+            premise_uuid = pair.get("premise_uuid", "")
+            pt, found = find_premise_minus1(events, premise_uuid)
+            if found:
+                prev_text = pt or ""
+            elif not all_pairs_mode:
+                warnings.warn(f"WARN: premise_uuid {premise_uuid} not found in session {session_id} — skip pair_idx={pair_idx}")
+                skipped += 1
+                continue
 
         premise_text    = (pair.get("premise_text") or "")[:MAX_CHARS]
         correction_text = (pair.get("correction_text") or "")[:MAX_CHARS]

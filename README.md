@@ -40,8 +40,7 @@ no auto-injection. **8 pp** measured advantage over LLM-summary
 ```bash
 # 30-second install — six automatic signals, no labeling step required
 pipx install 'weighted-compact[mcp]'
-weighted-compact bootstrap        # extract correction pairs from ~/.claude/projects/
-weighted-compact importance       # compose the seven-signal score
+weighted-compact bootstrap --full # extract pairs + build the full signal substrate (importance.npz)
 weighted-compact mcp-serve        # local stdio MCP for Claude Desktop / IDE clients
 ```
 
@@ -346,7 +345,7 @@ shaped by what *you* marked. Tomorrow (v0.3) a cross-session reader
 will spot when this session's correction was the third time you made
 the same one across three sessions and weight it accordingly.
 
-*Action:* `pipx install` → `weighted-compact compat` → `bootstrap`. Done.
+*Action:* `pipx install` → `weighted-compact compat` → `bootstrap --full`. Done.
 No labeler, no twenty-minute sitting — the six automatic signals derive
 from your session files alone. The labeler at `:18890/` is opt-in if you
 want to add the seventh (sparse human-judgement) signal; the published
@@ -401,7 +400,7 @@ whole new signal with its own `features_X.npz` producer plus a weight
 entry in `importance.py:WEIGHTS`.
 
 *Action:* open `weighted_compact/density_features.py`, append a regex
-feature, rerun `bootstrap` + `qa-gate`. The Δfidelity vs the previous
+feature, rerun `bootstrap --full` + `qa-gate`. The Δfidelity vs the previous
 run tells you whether the feature earned its column.
 
 → [What is pluggable](#what-is-pluggable) · [`docs/02-pipeline.md`](docs/02-pipeline.md)
@@ -733,7 +732,7 @@ weighted-compact importance && weighted-compact qa-gate --easy-k 0.0 --hard-k 0.
 
 **Q3 — Add a signal in thirty lines.** Open `density_features.py`. Add a
 regex for reversal markers (`r"\b(actually|wait|scratch that)\b"`). Rerun
-bootstrap. The new column lands in `features_density.npz` automatically.
+`bootstrap --full`. The new column lands in `features_density.npz` automatically.
 Wire a weight in `importance.py:WEIGHTS`. Run recon-QA. Did your new
 signal change which pairs survive compaction at `k_drop=0.5`?
 
@@ -746,9 +745,9 @@ pipx install git+https://github.com/zzallirog/weighted-compact
 ```
 
 ```bash
-weighted-compact compat       # read-only sanity check
-weighted-compact bootstrap    # build substrate from ~/.claude/projects/
-weighted-compact serve        # open labeler at http://127.0.0.1:18890/
+weighted-compact compat        # read-only sanity check
+weighted-compact bootstrap --full  # build the full substrate from ~/.claude/projects/
+weighted-compact serve         # open labeler at http://127.0.0.1:18890/
 ```
 
 For ambient operation:

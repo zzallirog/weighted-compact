@@ -117,10 +117,13 @@ weighted-compact compat
 # Expect: ✓ for hard deps, your distro detected, ports free.
 
 # 2. Build the substrate from your Claude Code sessions
-weighted-compact bootstrap
+weighted-compact bootstrap --full
 # Reads ~/.claude/projects/*/*.jsonl (one subdir per CWD slug, one jsonl
 # per session). Read-only on the Claude side.
-# Writes ~/.local/share/weighted-compact/pairs.jsonl.
+# Writes the full substrate to ~/.local/share/weighted-compact/:
+# pairs.jsonl + features → density → spans → topic → importance.npz.
+# (Plain `bootstrap` extracts pairs only — `importance` then has nothing
+#  to score. Use --full for a working first run.)
 
 # 3. Launch the labeler
 weighted-compact serve
@@ -236,4 +239,4 @@ pytest -q
 bash scripts/leak-scan.sh
 ```
 
-If all four succeed, the install is healthy. The next step is `bootstrap`.
+If all four succeed, the install is healthy. The next step is `bootstrap --full`.

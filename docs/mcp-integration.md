@@ -67,7 +67,7 @@ the docstrings the MCP client sees on `tools/list`.
 > with pair_idx, session_id, premise_preview (≤200 chars),
 > correction_preview (≤200 chars), and cosine score in [-1, 1].
 >
-> Requires `features.npz` (built by `weighted-compact bootstrap`)
+> Requires `features.npz` (built by `weighted-compact bootstrap --full`)
 > and the [baselines] extra (sentence-transformers). On the first
 > call the e5-multilingual-small model is loaded into memory and
 > cached for subsequent calls.

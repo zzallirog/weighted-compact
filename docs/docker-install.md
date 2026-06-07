@@ -46,12 +46,13 @@ cd weighted-compact
 # 2. Pull the upstream images (ollama/ollama, python:3.11-slim)
 docker compose pull
 
-# 3. Run bootstrap — reads your Claude sessions, writes the substrate
-docker compose run --rm weighted-compact bootstrap
+# 3. Run bootstrap --full — reads your Claude sessions, builds the full substrate
+docker compose run --rm weighted-compact bootstrap --full
 ```
 
-Bootstrap scans `/claude-sessions` (mounted read-only from your
-`~/.claude/projects/`) and writes `pairs.jsonl` and initial signals to the
+Bootstrap (`--full`) scans `/claude-sessions` (mounted read-only from your
+`~/.claude/projects/`) and writes `pairs.jsonl` plus the full signal chain
+(features → density → spans → topic → `importance.npz`) to the
 `wc-substrate` named volume. It is safe to re-run; it does not overwrite
 existing labels.
 
