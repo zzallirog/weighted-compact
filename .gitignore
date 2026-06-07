@@ -79,3 +79,9 @@ tests/test_beta_schedule.py
 tests/test_beta_search.py
 tests/test_cv_harness.py
 tests/test_sandbox_probe.py
+
+# Syncthing internals + root-level research scripts (never shipped)
+.stfolder/
+.stignore
+/ablation_axes.py
+/sandbox_probe.py
