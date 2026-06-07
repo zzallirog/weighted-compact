@@ -205,21 +205,24 @@ direction — the more predictable a user is to the model, the better
 the model serves that user inside the vendor's product. The mechanism
 is structurally adversarial to vendor goals.
 
-**Per-user predictor.** The substrate structure supports per-user
-predictors trained on **your** stumble events from **your** correction
-embeddings (AUC numbers are corpus-dependent and the default mixture
-currently uses density as backbone — see the pluggable table for the
-misstep slot). A vendor's foundation model is one model serving
-millions; per-user trained auxiliary predictors at that scale are not
-economic. Any cloud-side approximation collapses to an averaged stumble
-pattern — which is exactly the loss of per-user shape that makes the
-substrate yours.
+**Per-user shape (data, not a trained predictor).** The substrate is
+computed from **your** corrections, **your** span decisions, **your**
+labels — not from population data. We *tried* to go further and train a
+per-user *stumble predictor* (misstep) on your correction embeddings; on
+held-out data it came back near chance (~0.66–0.70 AUC) and was **removed
+in v0.3.0a1**. So the honest claim is the narrower, real one: the data
+shape is yours, and the substrate stays open to a per-user predictor you
+plug in (see the pluggable table). A vendor's one-model-serves-millions
+can only approximate you with an averaged pattern — that averaging is
+exactly the per-user shape this keeps.
 
-**Multi-consumer substrate.** misstep / session-narrative / FKMF /
-misstep-foreign-models all read the same per-pair files. A vendor
-ships memory as a feature embedded in one product. Substrate-as-
-substrate, queried by multiple independently developed readers, is a
-different shipping unit — and it requires open, scriptable, user-owned
+**Multi-consumer substrate.** Three readers ship here — compaction,
+schema-extraction, recap; misstep / session-narrative / FKMF /
+misstep-foreign-models read the same per-pair files from adjacent
+projects. A vendor ships memory as a feature embedded in one product.
+Substrate-as-substrate, queried by multiple independently developed
+readers, is a different shipping unit — and it requires open, scriptable,
+user-owned
 substrate.
 
 These four properties compose into one statement: the substrate
@@ -368,16 +371,17 @@ output is throwaway.
 The bet behind this project is that **the parsed substrate is more
 valuable than any single output computed from it**. Once a session
 becomes structured per-pair objects with six signals attached, the
-same artifact can be queried for compaction *and* stumble prediction
-*and* narrative recall *and* knowledge-gap detection *and* foreign-model
-observability. Same data, different readers. The substrate becomes
-infrastructure.
+same artifact feeds compaction, schema extraction, and recap — all
+shipping in this repo — *and* narrative recall *and* knowledge-gap
+detection *and* foreign-model observability in adjacent projects. Same
+data, different readers. The substrate becomes infrastructure.
 
-Compaction is the first published reader because it is the most
-tractable proof point — a fidelity loop with a quantifiable answer.
-The numbers above are about that reader. The wider claim — that the
-substrate is the right primary object — is supported by the other
-consumers listed above existing as separate projects at all, not by a
+Recap is the reader with the positive, re-checkable result (its four
+faithfulness invariants). Compaction is the reader with the hardest
+question — a fidelity loop with a quantifiable answer — and the
+fidelity numbers above are about *that* reader, honest null and all. The
+wider claim — that the substrate is the right primary object — is
+supported by these readers existing and reading it at all, not by a
 benchmark on this README.
 
 Six signals compose into one importance score: density features as
