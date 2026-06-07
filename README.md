@@ -59,6 +59,32 @@ weighted-compact mcp-serve        # local stdio MCP for Claude Desktop / IDE cli
 
 ---
 
+## By the numbers
+
+Every figure here is re-checkable on your own corpus, and each carries its
+own asterisk in plain sight — the project's stance is that an honest number
+beats a flattering one.
+
+- **985 / 985** sessions pass all four recap faithfulness invariants —
+  coverage · conservation · provenance · determinism
+  (`weighted-compact recap --all`). This proves the map does not *lie*
+  about the session — not that it is the optimal summary.
+- **~5 ms / session** — 646 MB of transcripts mapped in 5.0 s, standard
+  library only (no numpy, no model, no judge in the recap path).
+- **0** outbound network calls · **0 MB** idle RAM — the first is enforced
+  by the [`outbound-zero`](#) CI workflow, the second because nothing runs
+  between invocations.
+- Querying the substrate beats a one-pass LLM summary by **~3.5×** on
+  reconstruction fidelity (11.3 % vs 3.2 %, N=62, gemma3 judge). That is
+  the one axis with a measured edge; the importance **mixture** does *not*
+  beat cheap baselines at this N, and the [comparison
+  table](#the-methodology-is-inspectable) says so.
+- recap shrinks a session **~180×** — as a **lossy** navigation map, not a
+  reconstructable archive. For lossless archival, `zstd -19` (~3×) wins and
+  this repo points you to it rather than shipping a weaker custom fold.
+
+---
+
 ## How it compares
 
 A 30-second product map vs the dominant adjacent tool:
