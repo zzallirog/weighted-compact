@@ -254,7 +254,7 @@ def main(all_pairs: bool | None = None):
     )
 
     # Summary
-    label_dist = {v: int(np.sum(labels_3t == k)) for k, v in [(0, "drop"), (1, "maybe"), (2, "keep")]}
+    label_dist = {v: int(np.sum(labels_3t == k)) for k, v in [(0, "skip"), (1, "maybe"), (2, "keep")]}
     print("\n--- Summary ---")
     print(f"Output           : {OUT_PATH}")
     print(f"windows shape    : {windows.shape}")

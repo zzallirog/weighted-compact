@@ -119,7 +119,12 @@ def rem_decay_path() -> Path: return workdir() / REM_DECAY_FILE
 def labeler_port() -> int:
     raw = os.environ.get("WEIGHTED_COMPACT_PORT")
     if raw:
-        return int(raw)
+        try:
+            return int(raw)
+        except ValueError:
+            raise SystemExit(
+                f"WEIGHTED_COMPACT_PORT must be an integer, got {raw!r}"
+            ) from None
     return 18890
 
 

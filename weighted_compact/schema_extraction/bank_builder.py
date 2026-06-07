@@ -120,7 +120,7 @@ def extract_case(cand: Candidate, model: str = EXTRACT_MODEL) -> dict | None:
 
 
 def _parse_case_block(text: str) -> dict[str, str | None] | None:
-    if "NO_RULE" in text.upper().split():
+    if "NO_RULE" in text.upper():
         return None
     out: dict[str, str | None] = {"trigger": "", "rule": "", "anti": "", "stable_since": None}
     keys = {"TRIGGER:": "trigger", "RULE:": "rule", "ANTI:": "anti", "STABLE_SINCE:": "stable_since"}

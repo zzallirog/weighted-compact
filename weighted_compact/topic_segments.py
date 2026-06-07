@@ -99,7 +99,10 @@ def main():
             line = line.strip()
             if not line:
                 continue
-            r = json.loads(line)
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
             sessions_for_pair[idx] = r['session_id']
 
     # Map: features.npz row → pair_idx

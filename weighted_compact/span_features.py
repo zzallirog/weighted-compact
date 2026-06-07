@@ -70,7 +70,10 @@ def load_pairs_texts():
             line = line.strip()
             if not line:
                 continue
-            r = json.loads(line)
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
             texts[idx] = {
                 'premise': r.get('premise_text', '') or '',
                 'correction': r.get('correction_text', '') or '',

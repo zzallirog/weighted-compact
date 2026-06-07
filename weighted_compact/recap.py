@@ -290,7 +290,7 @@ def audit(path: str | Path, recap: Recap) -> dict[str, Any]:
         seg_cmds.update(seg.cmds.keys())
 
     return {
-        "I1_coverage": recap.n_covered == recap.n_messages,
+        "I1_coverage": sum(s.n_msgs for s in recap.segments) == recap.n_messages,
         "I2_conservation": raw_tools == seg_tools,
         "I3_provenance": seg_paths.issubset(raw_paths) and seg_cmds.issubset(raw_cmds),
         "I4_determinism": raw_add == seg_add and raw_rem == seg_rem,

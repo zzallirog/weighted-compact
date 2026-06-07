@@ -292,6 +292,7 @@ def run_eval(k_drop=0.5, ranker='importance', topic_decay=0.5, rem_decay=False,
     if preflight:
         _preflight_ollama()
     pairs = load_pairs()
+    _pair_by_idx = {p['pair_idx']: p for p in pairs}
     loader = _RANKER_LOADERS.get(ranker)
     if loader is None:
         raise ValueError(
@@ -330,11 +331,7 @@ def run_eval(k_drop=0.5, ranker='importance', topic_decay=0.5, rem_decay=False,
             continue
         pred = ask_ollama(ctx, entry['q'])
         sub_pass = score(pred, entry['a_truth'])
-        src_pair = (
-            pairs[entry['source_pair_idx']]
-            if 0 <= entry['source_pair_idx'] < len(pairs)
-            else None
-        )
+        src_pair = _pair_by_idx.get(entry['source_pair_idx'])
         judge = llm_judge(entry['q'], entry['a_truth'], pred, source_pair=src_pair)
         results.append({
             **entry,
