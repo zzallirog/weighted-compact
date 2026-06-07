@@ -1,5 +1,13 @@
 # Bench: weighted-compact vs claude-mem
 
+> **Read this first (2026-06-07).** weighted-compact is positioned as a
+> *transparency and locality* tool, not a proven better compressor. A baseline
+> sweep (N=60, gemma3 judge, k_drop=0.5) found the six-signal mixture **ties
+> the cheap baselines** (recency, cosine, density) and is **beaten by bm25**;
+> structured selection edges one-pass `/compact`, but recency does that just as
+> well as the mixture — so the edge is "structured > naive summary," not "our
+> mixture is smart." Treat the fidelity numbers below as context, not a win.
+
 Honest head-to-head on **reconstruction fidelity** (can the compacted
 context still answer questions about hidden information?) and **token
 economy** (how many characters does it cost to recover one question?).

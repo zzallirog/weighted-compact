@@ -2,13 +2,20 @@
 
 # weighted-compact
 
-**Claude Code forgets everything at `/compact`. weighted-compact decides
-what to keep — by reading your corrections, not guessing.**
+**A local, inspectable memory substrate built from your own Claude Code
+corrections.**
 
-A local-first, inspectable substrate built from `~/.claude/projects/`.
-Five automatic signals + one optional human label. No daemon, no cloud,
-no auto-injection. **8 pp** measured advantage over LLM-summary
-`/compact` on reconstruction-fidelity (full table below).
+It reads `~/.claude/projects/`, scores each correction-bearing turn with six
+signals you can read as plain `numpy` columns, and assembles a compacted
+markdown context for recall. Local-first, zero outbound network, no daemon,
+no auto-injection — the substrate is an artifact you own and can inspect, not
+an opaque store.
+
+> **Honest scope.** This is a *transparency and locality* tool, not a proven
+> better compressor. On reconstruction-fidelity it has **not** been shown to
+> beat cheap baselines (recency, bm25) — see [How it compares](#how-it-compares).
+> Reach for it if you want a local, inspectable, personal substrate; reach for
+> a convenient drop-in like claude-mem if you just want set-and-forget recall.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
@@ -65,12 +72,15 @@ A 30-second product map vs the dominant adjacent tool:
 | **Outbound network** | zero (default) | configurable LLM provider per turn |
 | **Substrate inspection** | `numpy` columns on disk | SQLite + Chroma |
 | **Idle RAM** | 0 MB (nothing runs) | ~80–150 MB worker |
-| **Fidelity vs `/compact`** | **3.0× judge_yes** (measured) | not measured by them |
+| **Reconstruction fidelity** | no measured edge — ties recency/bm25 | not measured by them |
 
-The trade is real: claude-mem is hook-installed in seconds and feels
-magic; weighted-compact is a substrate you query with intent. Neither
-is wrong; they answer different questions. The numbers above are
-reproducible from this repo — see [`docs/bench-vs-claude-mem.md`](docs/bench-vs-claude-mem.md).
+The honest trade: the structural rows above (local, zero-outbound,
+inspectable, 0 idle RAM) are real and verifiable. The *quality* row is not a
+win — on reconstruction-fidelity the six-signal mixture has not been shown to
+beat cheap baselines like recency or bm25. claude-mem is hook-installed in
+seconds and feels magic; weighted-compact is a transparent substrate you own
+and query with intent. Pick on transparency/locality, not on compression
+quality — see [`docs/bench-vs-claude-mem.md`](docs/bench-vs-claude-mem.md).
 
 ---
 
