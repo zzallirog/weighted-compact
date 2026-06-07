@@ -6,7 +6,7 @@ where each box sits on that ladder.
 
 ---
 
-## What is working now (v0.2.0-beta.1)
+## What is working now (v0.3.0a1)
 
 - **Substrate pipeline end-to-end.** extract_pairs → e5 embeddings →
   six-signal importance mixture (plus topic-decay multiplier) →
@@ -95,7 +95,9 @@ can be re-shipped as a useful signal.
 
 **Classifier-as-fidelity-proxy verdict.** A first attempt at training a
 predictor for Sonnet fidelity from the engineered substrate features
-(e5 + density + misstep + spans, 411 dims, 572 pairs, 54 positive)
+(e5 + density + misstep + spans, 411 dims, 572 pairs, 54 positive —
+misstep was part of the mixture at the time; it was subsequently removed
+from the default mixture, see `importance.py`)
 landed at AUC ≈ 0.5 across LR / RF / GB. The engineered signals don't
 predict the fidelity label as currently formulated; either the sample
 is too small for the imbalance, the features were optimised for a
@@ -177,9 +179,9 @@ prioritized.
 ### Federation patterns
 
 Peer-to-peer label exchange — showing how other users labeled the same
-pair, without merging their labels into your model — is filed for v0.2.
-The Anki model (shared framework, personal substrate, no central server)
-is the design target. Not started.
+pair, without merging their labels into your model — is filed as a
+future direction. The Anki model (shared framework, personal substrate,
+no central server) is the design target. Not started.
 
 ---
 

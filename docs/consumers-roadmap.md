@@ -6,7 +6,7 @@ extraction (`weighted-compact schema`), and recap
 (`weighted-compact recap`). The first two are exercised against the
 reconstruction-fidelity harness; recap is validated by a different bar —
 four faithfulness invariants re-checked per session (`recap --audit`),
-holding on 985/985 of the maintainer's corpus (see [`recap.md`](recap.md)).
+holding on 986/986 of the maintainer's corpus (see [`recap.md`](recap.md)).
 All three are available as soon as you `pipx install` the package.
 
 Recap is a consumer of the raw session source rather than of the computed
@@ -36,7 +36,7 @@ substrate format (`pairs.jsonl` + `features_*.npz` +
 independent codebases. That is the architectural claim — the
 substrate is the interface, and the interface has multiple
 consumers. Whether or not you ever run any of the four listed here,
-the same substrate is the thing the two shipped readers compute on.
+the same substrate is the thing the three shipped consumers compute on.
 
 If you intend to *write a fifth consumer*, the canonical entry points
 are:

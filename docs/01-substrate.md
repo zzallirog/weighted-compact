@@ -46,7 +46,6 @@ $XDG_DATA_HOME/weighted-compact/
     pairs.jsonl                 (premise, correction) pairs from all sessions
     features.npz                e5-multilingual-small embeddings, shape (N, 3, 384)
     features_density.npz        content-bearing signal per pair
-    features_misstep.npz        P(stumble) per pair, if misstep is installed
     features_spans.npz          char-fraction matrix from inline annotations
     topic_segments.npz          per-session topic boundary map
     importance.npz              the composed importance score per pair

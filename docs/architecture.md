@@ -75,7 +75,6 @@ sensible default.
 | `density_features.py` | 16-feature density signal (names, numbers, code fences, etc.) | numpy |
 | `span_features.py` | Char-fraction matrix from inline annotations | numpy |
 | `topic_segments.py` | Unsupervised sliding-window cohesion segmentor | numpy |
-| `misstep_score.py` | Logistic regression on stumble events (optional) | sklearn, duckdb |
 | `importance.py` | Compose six signals into continuous score | numpy |
 | `recon_qa/` | Reconstruction-QA package — 5 sub-modules (context / generator / judge / gate / fidelity) | requests (optional Ollama) |
 | `tool.py` | FastAPI labeler at :18890 | fastapi, uvicorn |
@@ -86,6 +85,7 @@ sensible default.
 | `label_pairs.py` | CLI fallback labeler (emergency, when web UI unreachable) | stdlib |
 | `build_queue.py` | Disagreement + low-confidence + audit-anchor queue builder | stdlib |
 | `auto_label.py` | Bootstrap labels from inline markers in transcripts | stdlib |
+| `recap.py` | Task-segmented lossy navigation map — `weighted-compact recap [SESSION] [--audit] [--all]`; stdlib-only, ~5 ms/session, 4-invariant faithfulness audit | stdlib |
 
 ## Substrate contract
 

@@ -51,7 +51,7 @@ in a parallel file and feed an optional slot in the importance mixture.
   pseudo_ground_truth.jsonl  {pair_idx, detector, judge_verdict, confidence}
          │
          ▼
-  importance.py  slot 8 (weight 0.0 until ablated)
+  importance.py  slot 7 (weight 0.0 until ablated)
 ```
 
 Both output files live under `$XDG_DATA_HOME/weighted-compact/`, alongside
@@ -342,12 +342,12 @@ weighted-compact pseudo-label calibrate \
 replacement for any existing input.
 
 ```
-labels.jsonl             →  label_keep (slot 7, weight 0.15)
-pseudo_ground_truth.jsonl →  pseudo_label (slot 8, weight 0.00 default)
+labels.jsonl             →  label_keep (slot 2, weight 0.15)
+pseudo_ground_truth.jsonl →  pseudo_label (slot 7, weight 0.00 default)
 ```
 
-Slot 8 starts at weight 0.00. It ships wired but silent. The path to
-activating it is the same as any other weight change: edit `WEIGHTS_BASE`
+Slot 7 starts at weight 0.00. It ships wired but silent. The path to
+activating it is the same as any other weight change: edit `WEIGHTS`
 in `importance.py`, rerun `weighted-compact importance`, measure Δfidelity
 via `weighted-compact qa-gate`. If the signal earns its slot, bump the
 weight. If it does not, leave it at 0.00 — the column still accumulates
@@ -460,8 +460,8 @@ to minimize transcript exposure on the single Sonnet call that is permitted.
   Alternatively, compile runs on a separate 24-hour timer with a different
   randomized offset.
 
-- **What is the right weight for slot 8 after ablation shows a positive
-  sign?** The label slot (slot 7) ships at 0.15, derived heuristically.
+- **What is the right weight for slot 7 after ablation shows a positive
+  sign?** The label slot (slot 2) ships at 0.15, derived heuristically.
   Pseudo-label has lower precision (detector + judge vs. human + explicit
   marker), so 0.10 or 0.05 is a plausible start. The ablation process is
   defined (`weighted-compact eval --weights-a defaults --weights-b

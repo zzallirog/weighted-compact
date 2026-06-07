@@ -110,7 +110,7 @@ clipped to `[0, 1]` (a single span can't exceed the turn it's on).
 
 ## Downstream impact on render
 
-This is the part still underutilized at `v0.2.0-beta.1`.
+This is the part still underutilized at `v0.3.0a1`.
 
 Today, `recon_qa.build_compacted_context` picks top-K pairs by importance
 and inlines them verbatim. The next iteration (W2 ambient render) will:

@@ -1,7 +1,7 @@
 # Status — full component table
 
 Contributor-facing detailed status. The README carries a 6-row
-user-facing summary; this file is the full 17-row inventory.
+user-facing summary; this file is the full 18-row inventory.
 
 ## Component status
 
@@ -17,9 +17,10 @@ user-facing summary; this file is the full 17-row inventory.
 | `weighted-compact qa-gate` CLI | shipped |
 | Cheap-judge calibration (cross-family) | shipped — κ=0.47 vs Sonnet on gemma3:4b |
 | Anchor-pattern catalogue (what survives compaction) | shipped — technical identifiers + numeric anchors + short verbatim |
+| `weighted-compact recap` (task-segmented navigation map) | shipped — stdlib-only, ~5 ms/session; 4-invariant audit (coverage/conservation/provenance/determinism); see [`recap.md`](recap.md) |
 | W2 — ambient render layer | next (target `v0.2.x`) — anchor patterns identified, verbatim-tier policy waiting |
 | Full coefficient-grid ablation (`--weights` wrapper) | filed (`v0.3`) |
-| Anti-baseline vs `/compact` | **shipped + measured 2026-05-21** — 8 pp gap (mixture 11.3 % vs qwen-summary 3.2 %, N=62, gemma3:4b judge); see [`baselines.md`](baselines.md) |
+| Anti-baseline vs `/compact` | **shipped + measured 2026-05-21** — 8 pp gap vs qwen-summary (mixture 11.3 % vs 3.2 %, N=62, gemma3:4b judge); no measured edge vs random/recency/cosine at N=62; see [`baselines.md`](baselines.md) |
 | Baseline harness (6 structured rankers + `/compact` sim) | shipped (`v0.2.0-beta.2`) — `weighted-compact baseline run-all`; null result for mixture vs random/recency/cosine at N=62 |
 | Iter-chain mode-distinction QC | parked — modes show bleed under qwen-7b, redesign filed |
 | Classifier-as-fidelity-proxy | parked — current features don't predict Sonnet labels (AUC ≈ 0.5) |

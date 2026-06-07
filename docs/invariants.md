@@ -16,8 +16,8 @@ for weighting**, not as a gatekeeper.
   pipeline. Marker-trained, misstep-derived, density+entropy hybrid — all
   are optional improvements over the vector baseline.
 - **The pipeline degrades gracefully** if the classifier fails or is
-  missing. Top-K by misstep AUC, density, and recency still produces a
-  usable compaction. Phase 2 of this project failed the marker classifier
+  missing. Top-K by density and recency still produces a usable
+  compaction. Phase 2 of this project failed the marker classifier
   (F1 ceiling of 0.446 vs gate of 1.70×); the substrate kept working.
 
 ### What this forbids
@@ -84,7 +84,7 @@ transcript, not only Claude Code's.
 
 ## Future direction
 
-Federation patterns are the direction past beta. Two candidates that
+Federation patterns are the direction past alpha. Two candidates that
 fit the invariants above:
 
 - **Anki model** — shared framework, personal substrate. No central

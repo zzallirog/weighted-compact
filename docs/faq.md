@@ -17,7 +17,7 @@ Different problem.
 | **Distillation** | LLM-generated summaries / Mermaid graphs | top-K weighted selection of *original* spans |
 | **Tuning** | hyperparameters, zero-config defaults | continuous mixture of six signals + human labels |
 | **Privacy** | local-first claimed; cloud-friendly | local-only by default; optional opt-in cloud judge for ground-truth calibration runs (see [privacy angle](../README.md#angle-privacy)) |
-| **Maturity** | 1.9k★, polished, multi-user | beta, personal workbench |
+| **Maturity** | 1.9k★, polished, multi-user | alpha, personal workbench |
 
 If you want "agent memory" → use one of the others. If you want "I'm
 hitting context limit, summarize feels lossy, give me a tool that lets me
@@ -126,7 +126,7 @@ session corpus, with one person's labels. Sharing it would either:
    complexity nobody asked for.
 
 Federation patterns for **opt-in label exchange between users** are
-the direction past beta — see [`docs/invariants.md`](invariants.md)
+the direction past alpha — see [`docs/invariants.md`](invariants.md)
 "Future direction". The shortlist is:
 
 - **Anki model** (framework shared, substrate private) — already how it

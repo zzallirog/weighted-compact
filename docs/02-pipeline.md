@@ -1,6 +1,6 @@
-# 02 — Eight black boxes
+# 02 — Seven black boxes
 
-The pipeline is eight modules wired in order: raw session JSONLs in,
+The pipeline is seven modules wired in order: raw session JSONLs in,
 fidelity-scored compacted context out. Each module is a file under
 `weighted_compact/` with a black-box contract — input artefact, output
 artefact, entry point, and the dependencies it loads. Modules are
@@ -10,9 +10,9 @@ Goodhart-resistant — no single signal source is structurally privileged.
 
 Each box below opens with a contract block (file / input / output /
 maturity), followed by prose on how it opens. Order is pipeline order;
-Box 4 (`misstep_score`) is optional — it produces `features_misstep.npz`
-but is not currently consumed by the importance mixture (removed 2026-06-07;
-see Box 7).
+Box 4 (`misstep_score`) was removed from the package on 2026-06-07 —
+its source file is deleted — but the slot is documented here for
+continuity. It is not consumed by the importance mixture (see Box 7).
 
 Maturity vocabulary used throughout:
 
@@ -104,30 +104,28 @@ grow significantly.
 
 ---
 
-## Box 4 — misstep_score
+## Box 4 — misstep_score (deleted)
 
 ```text
-  file       weighted_compact/misstep_score.py
+  file       weighted_compact/misstep_score.py  [DELETED — not in package]
   input      features.npz  +  external misstep predictor (see below)
   output     features_misstep.npz   shape (N,)   —   P(stumble) per pair
-  maturity   optional
+  maturity   deleted
 ```
 
-**How it opens.** Calls the misstep predictor if installed. Misstep is a
+**How it opened.** Called the misstep predictor if installed. Misstep is a
 separate per-user model — logistic regression on stumble events trained on
 the user's own session corpus — that returns `P(stumble)` for each user
-turn from its embedding. It is not yet published as a public repo; the
-install path will land in `docs/install.md` when it ships.
+turn from its embedding.
 
 The hypothesis: a pair is load-bearing if the user stopped stumbling at
 that correction. `misstep_score = 1 - P(stumble)`, giving high scores to
 pairs where the correction resolved a stumble pattern.
 
-**Maturity.** Functional but optional. AUC 0.665 on the maintainer's
-substrate as of the `v0.2.0-beta.1` checkpoint — held-out AUC sat at
-~0.66–0.70 (barely above chance), which is why this signal was removed
-from the importance mixture on 2026-06-07. The module and its output file
-are preserved for future experimentation.
+**Maturity.** Removed. Held-out AUC sat at ~0.66–0.70 (barely above
+chance), which is why this signal was removed from the importance mixture
+and the source file deleted on 2026-06-07. Misstep continues as a
+separate external consumer project; it is not part of this package.
 
 ---
 
@@ -315,7 +313,7 @@ results; the caller owns the journal.
 | `topic_segments` | stable |
 | `span_features` | stable |
 | `importance.compose` | stable (weights tunable) |
-| `misstep_score` | optional |
+| `misstep_score` | deleted (2026-06-07) |
 | `recon_qa/context` | stable |
 | `recon_qa/generator` | stable |
 | `recon_qa/judge` | stable |

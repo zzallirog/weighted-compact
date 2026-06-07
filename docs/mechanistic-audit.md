@@ -307,7 +307,9 @@ inherit the same discipline.
 - `~/work/weighted-compact/importance.npz` (the trained mixture
   output).
 - `~/work/weighted-compact/features.npz`,
-  `features_density.npz`, `features_misstep.npz` (signal arrays).
+  `features_density.npz`, `features_spans.npz` (signal arrays; `features_misstep.npz`
+  was produced by the now-deleted `misstep_score.py` trainer and is no longer
+  part of the shipped pipeline).
 - `~/work/weighted-compact/recon_qa_set_v2.jsonl` (QA triples for the
   fidelity gate).
 
