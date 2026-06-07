@@ -138,6 +138,35 @@ def _diff_counts(old: Any, new: Any) -> tuple[int, int]:
     return add, rem
 
 
+def edit_diffstat(name: str, inp: dict) -> tuple[int, int, str]:
+    """(adds, rems, kind) for any mutating tool. Each tool family has a distinct
+    input schema, so they are dispatched explicitly rather than assumed to share
+    `old_string`/`new_string` — that assumption silently yields +0/−0 for
+    MultiEdit / NotebookEdit, which the faithfulness invariants do NOT catch
+    (a self-consistent wrong number passes I2/I4). Centralised here so build()
+    and audit() can never diverge."""
+    if name in WRITE_TOOLS:
+        return len(str(inp.get("content", "")).splitlines()), 0, "write"
+    if name == "MultiEdit":
+        add = rem = 0
+        for e in inp.get("edits", []) or []:
+            if isinstance(e, dict):
+                a, r = _diff_counts(e.get("old_string", ""), e.get("new_string", ""))
+                add += a
+                rem += r
+        return add, rem, "edit"
+    if name == "NotebookEdit":
+        # cell replace/insert; there is no reliable prior, so count the new source
+        return len(str(inp.get("new_source", "")).splitlines()), 0, "edit"
+    # Edit (and any future single old→new tool)
+    add, rem = _diff_counts(inp.get("old_string", ""), inp.get("new_string", ""))
+    return add, rem, "edit"
+
+
+def edit_target(name: str, inp: dict) -> str:
+    return inp.get("file_path") or inp.get("notebook_path") or "?"
+
+
 def _bar(add: int, rem: int, width: int = 5) -> str:
     total = add + rem
     if total == 0:
@@ -199,19 +228,13 @@ def build(path: str | Path) -> Recap:
                 name = block.get("name", "?")
                 cur.tools[name] += 1
                 inp = block.get("input", {}) or {}
-                if name in EDIT_TOOLS:
-                    fp = inp.get("file_path") or inp.get("notebook_path") or "?"
-                    add, rem = _diff_counts(inp.get("old_string", ""), inp.get("new_string", ""))
+                if name in EDIT_TOOLS or name in WRITE_TOOLS:
+                    add, rem, kind = edit_diffstat(name, inp)
+                    fp = edit_target(name, inp)
                     entry = cur.files.setdefault(fp, [0, 0, set()])
                     entry[0] += add
                     entry[1] += rem
-                    entry[2].add("edit")
-                elif name in WRITE_TOOLS:
-                    fp = inp.get("file_path", "?")
-                    add = len(str(inp.get("content", "")).splitlines())
-                    entry = cur.files.setdefault(fp, [0, 0, set()])
-                    entry[0] += add
-                    entry[2].add("write")
+                    entry[2].add(kind)
                 elif name == "Bash":
                     lines = str(inp.get("command", "")).strip().splitlines()
                     cur.cmds[lines[0][:90] if lines else ""] += 1
@@ -245,14 +268,11 @@ def audit(path: str | Path, recap: Recap) -> dict[str, Any]:
                 name = block.get("name", "?")
                 raw_tools[name] += 1
                 inp = block.get("input", {}) or {}
-                if name in EDIT_TOOLS:
-                    raw_paths.add(inp.get("file_path") or inp.get("notebook_path") or "?")
-                    add, rem = _diff_counts(inp.get("old_string", ""), inp.get("new_string", ""))
+                if name in EDIT_TOOLS or name in WRITE_TOOLS:
+                    add, rem, _kind = edit_diffstat(name, inp)
+                    raw_paths.add(edit_target(name, inp))
                     raw_add += add
                     raw_rem += rem
-                elif name in WRITE_TOOLS:
-                    raw_paths.add(inp.get("file_path", "?"))
-                    raw_add += len(str(inp.get("content", "")).splitlines())
                 elif name == "Bash":
                     lines = str(inp.get("command", "")).strip().splitlines()
                     raw_cmds.add(lines[0][:90] if lines else "")

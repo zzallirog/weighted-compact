@@ -106,6 +106,28 @@ def test_image_only_and_interrupt_are_handled(tmp_path):
     assert not any(g.startswith("[Request interrupted") for g in goals)  # interrupt absorbed, no fake task
 
 
+def test_multiedit_sums_its_edits_array(tmp_path):
+    # MultiEdit has a distinct schema (`edits: [...]`), not old_string/new_string.
+    # Treating it like Edit would silently yield +0/-0 and still pass I2/I4.
+    records = [
+        _user("batch rename"),
+        _assistant_tools([
+            {"type": "tool_use", "id": "m", "name": "MultiEdit",
+             "input": {"file_path": "/proj/y.py", "edits": [
+                 {"old_string": "a", "new_string": "b\nc"},   # +2 / -1
+                 {"old_string": "d\ne", "new_string": "f"},    # +1 / -2
+             ]}},
+        ]),
+    ]
+    p = _write(tmp_path, records)
+    rc = recap.build(p)
+    result = recap.audit(p, rc)
+    assert recap.audit_passes(result)
+    assert result["add"] == 3 and result["rem"] == 3      # NOT +0/-0
+    seg = [s for s in rc.segments if s.goal == "batch rename"][0]
+    assert seg.files["/proj/y.py"][:2] == [3, 3]
+
+
 def test_repeated_edits_to_one_file_accumulate(tmp_path):
     records = [
         _user("refactor"),
