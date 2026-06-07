@@ -35,22 +35,17 @@ Local-first, zero outbound network, no daemon, no auto-injection.
 </div>
 
 ```
-   ~/.claude/projects/                    6 signals (5 automatic + 1 optional label)
-   ┌──────────────────┐                  ┌────────────────────┐
-   │ session_1.jsonl  │  ──bootstrap──▶  │ density (backbone) │
-   │ session_2.jsonl  │                  │ label (optional)   │  ─importance.npz─┐
-   │     ...          │                  │ span_keep / maybe  │                  │
-   │ session_N.jsonl  │                  │ span_skip / think  │                  ▼
-   └──────────────────┘                  └────────────────────┘       ┌──────────────────┐
-                                                  │                   │  compacted       │
-                                             × topic_decay ──────────▶│  markdown        │
-                                          (multiplier, nightly)       │  + budget meta   │
-                                              REM-decay               └──────────────────┘
-                                          (nightly, wall-clock)                ▲
-                                                                               │
-                                                                          MCP / CLI
-                                                                          (you query
-                                                                           with intent)
+  ~/.claude/projects/          ┌─ recap ─────────────────────────────────┐
+  ┌──────────────────┐         │ task-segmented map: per-task files +     │  ⭐ provably faithful
+  │ session_1.jsonl  │────┬───▶│ diffstat, commands, verbatim outcome     │     4 invariants · 986/986
+  │ session_2.jsonl  │    │    │ + `--audit` (stdlib-only, ~5 ms/session) │     (lossy navigation map)
+  │     ...          │    │    └──────────────────────────────────────────┘
+  │ session_N.jsonl  │    │
+  └──────────────────┘    │    ┌─ substrate ───────────┐   ┌─ compaction ─────┐
+                          └───▶│ 5 auto signals + opt.  │──▶│ top-K markdown    │  honest-null:
+                               │ label → importance.npz │   │ + budget meta     │  no fidelity edge
+                               │ × topic-decay / REM    │   │ (MCP / CLI)       │  over recency/bm25
+                               └────────────────────────┘   └──────────────────┘
 ```
 
 ```bash
