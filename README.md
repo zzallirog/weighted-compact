@@ -127,13 +127,23 @@ every day. See [`docs/rem-decay.md`](docs/rem-decay.md).
 |---|---|---|
 | **Compaction layer** — `build_compacted_context_with_meta()` | top-K importance selection → markdown context + budget meta (chars, tokens, top-3 signals). Exercised via the `qa-gate` evaluation harness; standalone session-start delivery is the next-targeted feature. | **shipped — library + harness + MCP tool** |
 | **Schema extraction** — third retrieval tier | extracts reusable `(trigger, rule, anti-pattern, stable_since)` rules from your memory dir; sits above chunk/episode retrieval as the cheap top-tier — when a recurring pattern fires, you get the rule, not raw chunks | **shipped — v0.2.0b3, `weighted-compact schema {build-bank,run,all}`; honest first proof: 14/20 strict MATCH = 70 % (see [`docs/schema-extraction.md`](docs/schema-extraction.md))** |
+| **Recap** — task-segmented navigation map | reads the same session source and renders, per task, the files touched (with a `+adds/−rems` diffstat), the commands run, and the verbatim outcome line. A deliberately **lossy** map — not reconstructable — but the one consumer whose quality claim is *positive and provable*: four faithfulness invariants re-checked on every session. | **shipped — `weighted-compact recap [SESSION] [--audit] [--all]`; audit holds on 985/985 of the maintainer's sessions (see [`docs/recap.md`](docs/recap.md))** |
 
-Both consumers ship in this repo today. Four additional readers are in
+Three consumers ship in this repo today. Four additional readers are in
 flight in adjacent projects (misstep, session-narrative, FKMF,
 misstep-foreign-models) — see
 [`docs/consumers-roadmap.md`](docs/consumers-roadmap.md) for their
 status. They are listed there, not here, because nothing about
 *this repo*'s install path depends on them.
+
+Recap earns a note the other two do not. Compaction's honest result is a
+*null* — it ties cheap baselines on reconstruction fidelity (the table in
+[The methodology is inspectable](#the-methodology-is-inspectable) states
+this plainly). Recap is the inverse case: it makes no fidelity claim at
+all — for lossless archival you would `gzip`/`zstd` the raw `.jsonl` and
+get ~3× — but for the *navigation* job it does claim, the claim is
+checkable and it checks. See [Recap: faithful, not
+lossless](#recap-faithful-not-lossless).
 
 ---
 
@@ -260,6 +270,54 @@ to-apples comparison is filed under v0.3.
 
 Numbers are this corpus; the methodology reproduces on any user's
 substrate.
+
+---
+
+## Recap: faithful, not lossless
+
+Compaction tries to *select* which turns to keep so the rest can still
+answer questions — a fidelity problem, and the table above is honest that
+the mixture has no measured edge there. Recap does not play that game. It
+asks a different question — *what happened across this session, task by
+task* — and answers it as a **lossy navigation map**: per task, the goal,
+the files touched with a `+adds/−rems` diffstat, the commands run, and the
+verbatim final outcome line.
+
+```text
+## 8. on sharp new loads it needs 5 ticks to settle, then it's near-instant…
+`11×Bash, 10×Edit, 7×Read, 5×TaskCreate, 2×Write`   net `+557/−8`
+
+  🟩🟩🟩🟩🟩 `+198 −0  ` ~/coolstep/coolstep/core/spike_detector.py        (write)
+  🟩🟩🟩🟩🟩 `+148 −4  ` ~/coolstep/tests/test_spike_detector.py           (edit+write)
+  🟩🟩🟩🟩🟩 `+94  −0  ` ~/coolstep/coolstep/daemon.py                     (edit)
+  cmd: `pytest tests/test_spike_detector.py -v` · `rg -n "WorkloadProfile"` …
+  → Done, commit 599cfcd. spike_detector.py — state machine enters at |res|≥5°C ×2 ticks…
+```
+
+A lossy map cannot be checked by reconstruction. It **can** be checked for
+faithfulness, and that is the whole point of shipping it here rather than
+as a one-off script. `recap --audit` re-derives, from an independent pass,
+four invariants:
+
+| Invariant | What it rules out |
+|---|---|
+| **I1 coverage** — every message record lands in exactly one task segment | silent drops |
+| **I2 conservation** — per-tool counts over segments equal the raw transcript | a tool call lost or double-counted |
+| **I3 provenance** — every path / command shown is a verbatim transcript member | fabrication |
+| **I4 determinism** — a second pass recomputes every diffstat to the same integers | guessed numbers |
+
+Extraction is fully deterministic — no LLM, no judge. The outcome line is
+a quoted excerpt of the assistant's own final message, not a summary.
+Across the maintainer's corpus the audit holds on **985/985** sessions
+(`weighted-compact recap --all`).
+
+For lossless archival of the raw logs, recap is the wrong tool — a
+general compressor wins: `zstd -19` gives ~3× and round-trips exactly,
+while a hand-built structural fold measured **1.8×** (it loses to the
+compressor because the redundancy a content-dedup catches is ~1.1× and
+the cross-session redundancy is better caught by zstd's large window).
+Recap's ~180× shrink is *lossy* — it is a map, not the territory, and the
+audit guarantees the map does not lie about the territory.
 
 ---
 

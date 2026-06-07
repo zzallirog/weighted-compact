@@ -1,10 +1,17 @@
 # Consumers roadmap
 
-Two consumers ship in the weighted-compact repository today: the
-compaction reader (`build_compacted_context_with_meta`) and schema
-extraction (`weighted-compact schema`). Both are exercised against the
-reconstruction-fidelity harness in this repo; both are available as
-soon as you `pipx install` the package.
+Three consumers ship in the weighted-compact repository today: the
+compaction reader (`build_compacted_context_with_meta`), schema
+extraction (`weighted-compact schema`), and recap
+(`weighted-compact recap`). The first two are exercised against the
+reconstruction-fidelity harness; recap is validated by a different bar —
+four faithfulness invariants re-checked per session (`recap --audit`),
+holding on 985/985 of the maintainer's corpus (see [`recap.md`](recap.md)).
+All three are available as soon as you `pipx install` the package.
+
+Recap is a consumer of the raw session source rather than of the computed
+`importance.npz` substrate — it proves the *source* has more than one kind
+of reader, the same way the four below prove the *scored substrate* does.
 
 This file lists the **additional readers** of the same substrate that
 are in development in adjacent projects. They are listed here, not in

@@ -875,5 +875,101 @@ def install_units(force: bool) -> None:
     click.echo(f"  # xdg-open http://127.0.0.1:{config.labeler_port()}/")
 
 
+@main.command()
+@click.argument("session", required=False)
+@click.option("--audit", "do_audit", is_flag=True, help="Re-check the four faithfulness invariants.")
+@click.option("--all", "do_all", is_flag=True, help="Audit every session in the source dirs; print aggregate.")
+def recap(session: str | None, do_audit: bool, do_all: bool) -> None:
+    """Render a task-segmented recap of a session — a lossy navigation map.
+
+    Unlike compaction, recap does not try to be reconstructable (use gzip/zstd
+    for that). It is deterministic and provably faithful: pass --audit to
+    re-check coverage / tool-count conservation / provenance / diffstat, or
+    --all to verify the whole corpus at once.
+    """
+    import sys
+
+    from weighted_compact import recap as recap_mod
+
+    if do_all:
+        files: list[Path] = []
+        for d in config.claude_source_dirs():
+            if d.exists():
+                # Claude Code stores sessions under per-project subdirs; also
+                # accept a flat layout (minimal harness / tests).
+                files.extend(sorted(d.rglob("*.jsonl")))
+        if not files:
+            raise click.ClickException("no session files found in the source dirs")
+        passed = 0
+        raw_sum = recap_sum = 0
+        per_inv: dict[str, int] = {
+            k: 0 for k in ("I1_coverage", "I2_conservation", "I3_provenance", "I4_determinism")
+        }
+        failures: list[str] = []
+        for f in files:
+            try:
+                rc = recap_mod.build(f)
+                result = recap_mod.audit(f, rc)
+                md = recap_mod.render(f, rc)
+            except Exception as exc:  # noqa: BLE001 — report, keep going
+                failures.append(f"{f.name[:8]}: ERR {exc}")
+                continue
+            for k in per_inv:
+                per_inv[k] += int(result[k])
+            if recap_mod.audit_passes(result):
+                passed += 1
+            else:
+                failures.append(
+                    f.name[:8] + " " + " ".join(f"{k.split('_')[0]}{int(result[k])}" for k in per_inv)
+                )
+            raw_sum += f.stat().st_size
+            recap_sum += len(md.encode("utf-8"))
+        click.secho(
+            f"all-invariants pass: {passed}/{len(files)}",
+            fg="green" if passed == len(files) else "yellow",
+            bold=True,
+        )
+        for k, v in per_inv.items():
+            click.echo(f"  {k:<16} {v}/{len(files)}")
+        if recap_sum:
+            click.echo(
+                f"  corpus {raw_sum / 1e6:.1f} MB → {recap_sum / 1e6:.2f} MB "
+                f"= {round(raw_sum / recap_sum)}× smaller"
+            )
+        for line in failures[:20]:
+            click.secho("  FAIL " + line, fg="red")
+        sys.exit(0 if passed == len(files) else 1)
+
+    if not session:
+        raise click.ClickException("give a SESSION path, or use --all")
+    path = Path(session)
+    if not path.exists():
+        raise click.ClickException(f"no such session file: {path}")
+    rc = recap_mod.build(path)
+    click.echo(recap_mod.render(path, rc))
+    if do_audit:
+        result = recap_mod.audit(path, rc)
+        click.echo()
+        click.secho("AUDIT", bold=True)
+        click.echo(
+            f"  I1 coverage     {rc.n_covered}/{rc.n_messages} records → "
+            f"{'PASS' if result['I1_coverage'] else 'FAIL'}"
+        )
+        click.echo(
+            f"  I2 conservation {result['tool_calls']} tool calls → "
+            f"{'PASS' if result['I2_conservation'] else 'FAIL'}"
+        )
+        click.echo(
+            f"  I3 provenance   paths/cmds ⊆ transcript → "
+            f"{'PASS' if result['I3_provenance'] else 'FAIL'}"
+        )
+        click.echo(
+            f"  I4 determinism  diffstat +{result['add']}/−{result['rem']} → "
+            f"{'PASS' if result['I4_determinism'] else 'FAIL'}"
+        )
+        if not recap_mod.audit_passes(result):
+            sys.exit(1)
+
+
 if __name__ == "__main__":
     main()
