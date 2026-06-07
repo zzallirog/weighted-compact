@@ -362,7 +362,7 @@ def build_server():
             str,
             Field(description=(
                 "Scoring source for ranking retained pairs. Only 'importance' (the "
-                "seven-signal mixture) is supported here; query-aware rankers "
+                "six-signal mixture) is supported here; query-aware rankers "
                 "(cosine, bm25) need a query and live in search_pairs."
             )),
         ] = "importance",

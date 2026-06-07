@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Phase 4C — combined continuous importance score.
+"""Combined continuous importance score — six-signal mixture.
 
-Replaces marker-trained 3-tier classifier with a mixture of complementary
-signals. Each signal is normalized to [0, 1]; final importance is a
-weighted sum, clipped to [0, 1].
+A mixture of complementary, independently-inspectable signals. Each signal is
+normalized to [0, 1]; final importance is a weighted sum, clipped to [0, 1].
 
-Signals (default weights — seven total):
-  0.40  misstep_importance     = 1 - P(stumble at correction)   ← continuous backbone
-  0.25  density_score          = mean of 16 content-density features (norm via rank)
+Signals (default weights — six total):
+  0.25  density_score          = mean of 16 content-density features (norm via rank) ← backbone
   0.15  label_keep_indicator   = 1 if labels.jsonl says keep/maybe, else 0
   0.20  span_keep_corr_frac    = char-fraction of correction marked KEEP via UI
   0.10  span_maybe_corr_frac   = char-fraction marked MAYBE (bonus weight)
@@ -15,28 +13,25 @@ Signals (default weights — seven total):
   0.05  span_think_corr_frac   = char-fraction marked THINK (preserve + flag for re-examination,
                                   lower than KEEP, not a drop)
 
-Rationale (locked architectural invariant — vector-first, classifier-secondary):
-  Per CLAUDE.md, classifier can degrade to vector baseline. Here misstep is
-  the vector-based backbone (proxy from claw-session-substrate); density adds
-  content-bearing proxy; pair labels (noisy per user) get smallest weight;
-  span annotations get explicit-signal multiplier when present (sparse).
+Note: a seventh signal — a machine-learned `misstep` predictor (P(stumble)) —
+was part of the mixture until 2026-06-07. It was removed because its held-out
+AUC was ~0.66–0.70 (barely above chance), so it could not honestly identify
+which corrections matter, and it required a separate substrate absent on any
+fresh install. Density carries the backbone weight now.
 
-  No single signal can produce a Goodhart artifact alone — span coverage is
-  sparse, misstep is independent corpus, density measures different axis,
-  label is noisy. Mixture diffuses overfit risk.
-
-  Graceful degradation: if `features_misstep.npz` is missing (misstep
-  predictor not installed), the misstep column is set to zero and the
-  remaining six signals carry the load. The invariant "vectors first,
-  classifier as refinement" is preserved — density + spans + labels are
-  enough to rank pairs, just less sharply.
+Rationale (vector-first):
+  Density is the content-bearing backbone; span annotations are the explicit
+  human signal when present (sparse); pair labels (noisy) get the smallest
+  weight. No single signal can produce a Goodhart artifact alone — span
+  coverage is sparse, density and labels measure different axes — so the
+  mixture diffuses overfit risk.
 
 Output importance.npz:
   importance        : (N,) ∈ [0, 1]
   pair_indices      : (N,)
-  components        : (N, 7) — [misstep, density, label,
+  components        : (N, 6) — [density, label,
                                 span_keep, span_maybe, span_skip, span_think]
-  weights           : (7,)
+  weights           : (6,)
   meta              : json dict of defaults + provenance
 """
 import json
@@ -51,7 +46,7 @@ from weighted_compact import config
 class Signal(Protocol):
     """A signal contributing to the importance mixture.
 
-    Public extension point. The seven default signals composed in
+    Public extension point. The six default signals composed in
     :func:`main` below are not required to *be* ``Signal`` instances —
     they are stitched together as raw arrays for performance. ``Signal``
     documents the shape that *external* contributors should adopt when
@@ -86,16 +81,20 @@ class Signal(Protocol):
 # Existing files predating the schema_ver field are treated as ver 0 by the
 # loader in recon_qa/context.py — see `load_importance` for the migration
 # directive. Keep at 1 until the first incompatible change.
-SCHEMA_VER = 1
+SCHEMA_VER = 2
 
 FEATURES_DENSITY = config.features_density_path()
-FEATURES_MISSTEP = config.features_misstep_path()
 FEATURES_SPANS = config.features_spans_path()
 LABELS = config.labels_path()
 OUT = config.importance_path()
 
+# Six signals. The machine-learned `misstep` predictor was removed from the
+# default mixture (2026-06-07): its held-out AUC sat at ~0.66–0.70 — barely
+# above chance — so it cannot honestly identify which corrections matter, and
+# it is absent entirely on any fresh install (needs a separate substrate).
+# `density` now carries the backbone weight. Weights are a *relative* ranking
+# function, not a probability — they need not sum to 1.
 WEIGHTS = {
-    'misstep':       0.40,
     'density':       0.25,
     'label':         0.15,
     'span_keep':     0.20,
@@ -153,27 +152,14 @@ def main():
     assert np.array_equal(pair_indices, spans['pair_indices']), \
         "density ↔ spans pair_indices misalignment"
 
-    # Signal 1: misstep importance (already 1 - stumble_prob). Optional:
-    # if the misstep predictor was never installed, fall back to a zero
-    # column. The architectural invariant ("vectors first, classifier as
-    # refinement") permits this — density + spans + labels remain.
-    misstep = None
-    if FEATURES_MISSTEP.exists():
-        misstep = np.load(FEATURES_MISSTEP, allow_pickle=True)
-        assert np.array_equal(pair_indices, misstep['pair_indices']), \
-            "density ↔ misstep pair_indices misalignment"
-        sig_misstep = misstep['importance']
-    else:
-        sig_misstep = np.zeros(len(pair_indices), dtype=np.float32)
-
-    # Signal 2: density score (mean of 16 features, rank-normalized for scale safety)
+    # Signal 1: density score (mean of 16 features, rank-normalized for scale safety)
     density_mean = density['density'].mean(axis=1)
     sig_density = rank_normalize(density_mean).astype(np.float32)
 
-    # Signal 3: label-derived indicator
+    # Signal 2: label-derived indicator
     sig_label = load_labels_keep_mask(pair_indices)
 
-    # Signals 4-7: span fractions on correction side (cols 0..3 = keep/maybe/skip/think_corr)
+    # Signals 3-6: span fractions on correction side (cols 0..3 = keep/maybe/skip/think_corr)
     span_mat = spans['spans']
     sig_span_keep  = span_mat[:, 0]
     sig_span_maybe = span_mat[:, 1]
@@ -181,31 +167,23 @@ def main():
     sig_span_think = span_mat[:, 3]
 
     components = np.stack([
-        sig_misstep, sig_density, sig_label,
+        sig_density, sig_label,
         sig_span_keep, sig_span_maybe, sig_span_skip, sig_span_think,
-    ], axis=1).astype(np.float32)  # (N, 7)
+    ], axis=1).astype(np.float32)  # (N, 6)
 
     weight_vec = np.array([
-        WEIGHTS['misstep'], WEIGHTS['density'], WEIGHTS['label'],
+        WEIGHTS['density'], WEIGHTS['label'],
         WEIGHTS['span_keep'], WEIGHTS['span_maybe'], WEIGHTS['span_skip'], WEIGHTS['span_think'],
     ], dtype=np.float32)
 
     importance = components @ weight_vec
     importance = np.clip(importance, 0.0, 1.0).astype(np.float32)
 
-    misstep_auc: float | None = None
-    if misstep is not None:
-        try:
-            misstep_auc = json.loads(str(misstep['meta'][0])).get('auc_held_out')
-        except (KeyError, ValueError, IndexError):
-            misstep_auc = None
     meta = {
         'weights': WEIGHTS,
-        'misstep_held_out_auc': misstep_auc,
-        'misstep_present': misstep is not None,
         'span_coverage_count': int((span_mat.sum(axis=1) > 0).sum()),
         'pair_count': int(len(pair_indices)),
-        'rationale': 'vector-first/classifier-secondary; mixture diffuses Goodhart',
+        'rationale': 'vector-first; density backbone + span/label refinement; mixture diffuses Goodhart',
     }
 
     np.savez(
@@ -215,7 +193,7 @@ def main():
         components=components,
         weights=weight_vec,
         component_names=np.array([
-            'misstep', 'density', 'label',
+            'density', 'label',
             'span_keep_corr', 'span_maybe_corr', 'span_skip_corr', 'span_think_corr',
         ], dtype=object),
         meta=np.array([json.dumps(meta)], dtype=object),
@@ -232,7 +210,7 @@ def main():
     for row in top:
         pid = int(pair_indices[row])
         print(f'  pair[{pid:3d}]  importance={importance[row]:.3f}  '
-              f'misstep={sig_misstep[row]:.2f} dens={sig_density[row]:.2f} '
+              f'dens={sig_density[row]:.2f} '
               f'lab={sig_label[row]:.1f} '
               f'span_k={sig_span_keep[row]:.2f}/m={sig_span_maybe[row]:.2f}/t={sig_span_think[row]:.2f}')
     print('\nBottom-10 importance pairs:')
@@ -240,7 +218,7 @@ def main():
     for row in bot:
         pid = int(pair_indices[row])
         print(f'  pair[{pid:3d}]  importance={importance[row]:.3f}  '
-              f'misstep={sig_misstep[row]:.2f} dens={sig_density[row]:.2f} '
+              f'dens={sig_density[row]:.2f} '
               f'lab={sig_label[row]:.1f}')
 
     print('\nWeights:')

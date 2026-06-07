@@ -97,16 +97,18 @@ called or fire boundaries you wouldn't. Two known failure modes:
    `extract_pairs.SKIP_PREFIXES`.
 
 If you find a failure mode the segmentor consistently mishandles, file an
-issue with the cohesion plot from `weighted-compact compat --topic-debug`
-(planned for v0.1).
+issue with a description of the session structure and the boundary count
+from `weighted-compact compat`.
 
 ## Tuning
 
+The hyperparameters `WINDOW` and `DROP_QUANTILE` are hardcoded constants
+in `topic_segments.py` (defaults: `WINDOW=2`, `DROP_QUANTILE=0.20`).
+There is no env-var override path. To change them, edit the constants
+directly in `weighted_compact/topic_segments.py` and re-run:
+
 ```bash
-# Recompute with non-default hyperparameters
-WEIGHTED_COMPACT_TOPIC_WINDOW=3 \
-WEIGHTED_COMPACT_TOPIC_DROP_QUANTILE=0.15 \
-    python -m weighted_compact.topic_segments
+python -m weighted_compact.topic_segments
 ```
 
 The UI surfaces the cohesion plot for the current session under the

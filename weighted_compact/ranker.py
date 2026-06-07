@@ -8,7 +8,7 @@ Black box:
   entry  — ``@register("name", description=..., requires=...)`` decorator,
            or ``RANKER_REGISTRY.add(name, fn, ...)`` for non-decorator use.
 
-This is the supported plugin surface. The seven-signal mixture in
+This is the supported plugin surface. The six-signal mixture in
 :mod:`weighted_compact.importance` is one ranker among many — it just
 happens to ship by default. External packages register their own via
 this module.
@@ -70,7 +70,7 @@ class RankerSpec:
           /compact-style summarizer that bypasses pair selection entirely
 
         The shape is decided by the loader, not declared here, because
-        the existing seven-signal mixture and the baseline rankers
+        the existing six-signal mixture and the baseline rankers
         already use all three shapes.
     description : str
         One-line human description shown by ``weighted-compact rankers``.

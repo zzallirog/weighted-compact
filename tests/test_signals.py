@@ -1,10 +1,8 @@
 """Importance signal composition + density feature sizing.
 
-C2 regression — importance.compose stacks 7 signals (was documented 6
-while code already produced 7 for some time; reconciled in v0.2.0-beta.2).
-Also: importance.main() must not crash when features_misstep.npz is missing —
-the architectural invariant "vectors first, classifier as refinement" requires
-graceful degradation to a zero column.
+importance.compose stacks 6 signals: density (backbone), label, and four span
+fractions (keep/maybe/skip/think). The machine-learned `misstep` predictor was
+removed from the mixture 2026-06-07 (near-chance AUC; absent on fresh installs).
 
 M3 regression — density_features.extract_density returns vectors of
 len(FEATURE_NAMES); adding a feature in FEATURE_NAMES must propagate
@@ -71,7 +69,7 @@ def importance_fixture(monkeypatch, tmp_path):
     return tmp_path, pair_indices
 
 
-def test_importance_composes_seven_signals(importance_fixture):
+def test_importance_composes_six_signals(importance_fixture):
     from weighted_compact import importance
 
     importlib.reload(importance)
@@ -81,59 +79,22 @@ def test_importance_composes_seven_signals(importance_fixture):
     components = out["components"]
     names = list(out["component_names"])
 
-    assert components.shape[1] == 7, "v0.2.0-beta.2 reconciled docs to 7-signal mix"
-    assert "span_think_corr" in names, "span_think is the 7th signal added in C2"
-    # Weights array also has 7 entries.
-    assert out["weights"].shape == (7,)
+    assert components.shape[1] == 6, "mixture is six signals (misstep removed 2026-06-07)"
+    assert out["weights"].shape == (6,)
+    assert "misstep" not in names, "misstep predictor removed from the mixture"
+    assert names[0] == "density", "density is the backbone (first column)"
+    assert "span_think_corr" in names
 
 
-def test_importance_graceful_when_misstep_missing(importance_fixture):
-    """C2 — `vectors first, classifier as refinement`: importance.compose
-    must run with a zero misstep column instead of asserting / crashing when
-    the predictor was never installed."""
-    from weighted_compact import config, importance
+def test_importance_meta_has_no_misstep_keys(importance_fixture):
+    """Removing misstep must also drop its meta keys — no stale provenance."""
+    from weighted_compact import importance
 
     importlib.reload(importance)
-
-    misstep_path = config.features_misstep_path()
-    assert not misstep_path.exists(), "fixture invariant: misstep.npz absent"
-
-    # Must not raise.
     importance.main()
 
     out = np.load(importance.OUT, allow_pickle=True)
-    components = out["components"]
-    # First column is sig_misstep; with predictor absent it should be all-zero.
-    assert np.allclose(components[:, 0], 0.0)
-
     import json as _json
     meta = _json.loads(str(out["meta"][0]))
-    assert meta["misstep_present"] is False
-    assert meta["misstep_held_out_auc"] is None
-
-
-def test_importance_uses_misstep_when_present(importance_fixture):
-    """When misstep.npz is present, sig_misstep column reflects it."""
-    from weighted_compact import config, importance
-
-    importlib.reload(importance)
-    _, pair_indices = importance_fixture
-
-    misstep_vec = np.array([0.9, 0.1, 0.5], dtype=np.float32)
-    _write_npz(
-        config.features_misstep_path(),
-        importance=misstep_vec,
-        pair_indices=pair_indices,
-        meta=np.array(['{"auc_held_out": 0.665}'], dtype=object),
-    )
-
-    importance.main()
-
-    out = np.load(importance.OUT, allow_pickle=True)
-    components = out["components"]
-    assert np.allclose(components[:, 0], misstep_vec)
-
-    import json as _json
-    meta = _json.loads(str(out["meta"][0]))
-    assert meta["misstep_present"] is True
-    assert meta["misstep_held_out_auc"] == 0.665
+    assert "misstep_present" not in meta
+    assert "misstep_held_out_auc" not in meta

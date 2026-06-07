@@ -8,6 +8,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Importance mixture is now **six signals** — `density` (backbone, 0.25),
+  `label` (0.15), `span_keep` (0.20), `span_maybe` (0.10), `span_skip` (−0.15),
+  `span_think` (0.05). `importance.npz` schema → v2 (components `(N, 6)`,
+  weights `(6,)`).
+- `bootstrap --full` builds the whole substrate in one shot
+  (`feature_extract → density → spans → topic → importance`). e5 embeddings are
+  the `[baselines]` tier: `[mcp]` builds a working compaction substrate;
+  `[baselines]` adds semantic search.
+- Documentation reconciled against the live code throughout.
+
+### Removed
+
+- `misstep` signal dropped from the default mixture (kept as an optional
+  standalone module). `com-shift` CLI command removed.
+
 ## [0.2.0-beta.3] — 2026-05-26
 
 Substantive release: third retrieval tier (schema-extraction) ships as

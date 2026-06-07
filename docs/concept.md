@@ -48,13 +48,13 @@ to the importance score, and the substrate is honest about that.
 - **Compact** — the goal is to fit a long session into the working context
   budget. The output is a compacted context, not a summary.
 - **Weighted** — every span carries a continuous importance score derived
-  from seven independent signals, not a binary keep/drop verdict. The
+  from six independent signals, not a binary keep/drop verdict. The
   budget allocation is a weighted top-K, not a threshold cut.
 
 The classifier exists to refine the weighting, not to gate it. If the
 classifier fails or is missing, the substrate still produces a usable
-weighting via density + misstep + recency. The pipeline degrades; it does
-not break.
+weighting via density, span annotations, and pair labels. The pipeline
+degrades; it does not break.
 
 ## Why human-in-the-loop
 

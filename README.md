@@ -6,29 +6,28 @@
 what to keep — by reading your corrections, not guessing.**
 
 A local-first, inspectable substrate built from `~/.claude/projects/`.
-Six automatic signals + one optional human label. No daemon, no cloud,
+Five automatic signals + one optional human label. No daemon, no cloud,
 no auto-injection. **8 pp** measured advantage over LLM-summary
 `/compact` on reconstruction-fidelity (full table below).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![v0.2.0-beta.2](https://img.shields.io/badge/release-v0.2.0--beta.2-yellow)](CHANGELOG.md)
+[![v0.2.0-beta.3](https://img.shields.io/badge/release-v0.2.0--beta.3-yellow)](CHANGELOG.md)
 [![outbound-zero](https://github.com/zzallirog/weighted-compact/actions/workflows/outbound-zero.yml/badge.svg)](https://github.com/zzallirog/weighted-compact/actions/workflows/outbound-zero.yml)
 
 </div>
 
 ```
-   ~/.claude/projects/                    7 signals (6 automatic)
+   ~/.claude/projects/                    6 signals (5 automatic + 1 optional label)
    ┌──────────────────┐                  ┌────────────────────┐
-   │ session_1.jsonl  │  ──bootstrap──▶  │ misstep            │
-   │ session_2.jsonl  │                  │ density            │
-   │     ...          │                  │ label (optional)   │  ─importance.npz─┐
-   │ session_N.jsonl  │                  │ span_keep / maybe  │                  │
-   └──────────────────┘                  │ span_skip / think  │                  ▼
-                                         │ topic_decay        │       ┌──────────────────┐
-                                         │ cosine             │  ───▶ │  compacted       │
-                                         └────────────────────┘       │  markdown        │
-                                                  ▲                   │  + budget meta   │
+   │ session_1.jsonl  │  ──bootstrap──▶  │ density (backbone) │
+   │ session_2.jsonl  │                  │ label (optional)   │  ─importance.npz─┐
+   │     ...          │                  │ span_keep / maybe  │                  │
+   │ session_N.jsonl  │                  │ span_skip / think  │                  ▼
+   └──────────────────┘                  └────────────────────┘       ┌──────────────────┐
+                                                  │                   │  compacted       │
+                                             × topic_decay ──────────▶│  markdown        │
+                                          (multiplier, nightly)       │  + budget meta   │
                                               REM-decay               └──────────────────┘
                                           (nightly, wall-clock)                ▲
                                                                                │
@@ -38,7 +37,7 @@ no auto-injection. **8 pp** measured advantage over LLM-summary
 ```
 
 ```bash
-# 30-second install — six automatic signals, no labeling step required
+# 30-second install — six signals (five automatic + one optional label), no labeling step required
 pipx install 'weighted-compact[mcp]'
 weighted-compact bootstrap --full # extract pairs + build the full signal substrate (importance.npz)
 weighted-compact mcp-serve        # local stdio MCP for Claude Desktop / IDE clients
@@ -60,7 +59,7 @@ A 30-second product map vs the dominant adjacent tool:
 | | weighted-compact | claude-mem (77 k ★) |
 |---|---|---|
 | **Capture** | reads `~/.claude/projects/` on demand | 5 always-on lifecycle hooks |
-| **Importance ranking** | 7 inspectable signals + REM-decay | `ORDER BY recency DESC LIMIT k` |
+| **Importance ranking** | 6 inspectable signals + REM-decay | `ORDER BY recency DESC LIMIT k` |
 | **Compaction** | top-K vector selection → markdown | LLM-summary, opaque |
 | **Auto-injection** | none — client polls | every session start |
 | **Outbound network** | zero (default) | configurable LLM provider per turn |
@@ -81,25 +80,26 @@ reproducible from this repo — see [`docs/bench-vs-claude-mem.md`](docs/bench-v
 you pushed back on, every flag you restated, every constraint the model
 lost track of. weighted-compact reads those files **once**, parses them
 into per-pair objects (correction text, premise text, span tiers,
-session anchors), and decorates each pair with seven independent
-signals: misstep probability, density features, span coverage, topic
-position, label state, recency, cosine neighbourhood.
+session anchors), and decorates each pair with six signals: density
+features, span coverage (four tiers: keep / maybe / skip / think),
+and one optional human label.
 
 The decorated substrate lives at `$XDG_DATA_HOME/weighted-compact/` —
 gitignored, never uploaded. It is the artifact. Compaction is the
 first reader; other consumers read the same files.
 
-**Six of the seven signals run without any human input.** The seventh
+**Five of the six signals run without any human input.** The sixth
 — `label` — is an optional power-tier, not a requirement: the published
 ablation puts its 95 % paired CI [−0.004, +0.109] crossing zero on the
 lower bound, with 67 % of paired runs showing zero difference. The
-substrate stands on the six automatic signals; the labeler at `:18890/`
-is opt-in for users who want to add an explicit human judgement track.
+substrate stands on the five automatic signals (density + four span tiers);
+the labeler at `:18890/` is opt-in for users who want to add an explicit
+human judgement track.
 
 A nightly **REM pass** (`weighted-compact rem-pass`, default 04:00 via
 the bundled systemd-user timer) lays a wall-clock half-life multiplier
 on top: yesterday × 0.91, week ago × 0.50, month ago × 0.05. Independent
-of the seven-signal mixture — content signals stay stable, time refreshes
+of the six-signal mixture — content signals stay stable, time refreshes
 every day. See [`docs/rem-decay.md`](docs/rem-decay.md).
 
 ### Consumers reading this substrate today
@@ -140,13 +140,15 @@ direction — the more predictable a user is to the model, the better
 the model serves that user inside the vendor's product. The mechanism
 is structurally adversarial to vendor goals.
 
-**Per-user predictor.** The misstep signal is a logistic regression
-trained on **your** stumble events from **your** correction
-embeddings; AUC numbers are corpus-dependent. A vendor's foundation
-model is one model serving millions; per-user trained auxiliary
-predictors at that scale are not economic. Any cloud-side approximation
-collapses to an averaged stumble pattern — which is exactly the loss
-of per-user shape that makes the substrate yours.
+**Per-user predictor.** The substrate structure supports per-user
+predictors trained on **your** stumble events from **your** correction
+embeddings (AUC numbers are corpus-dependent and the default mixture
+currently uses density as backbone — see the pluggable table for the
+misstep slot). A vendor's foundation model is one model serving
+millions; per-user trained auxiliary predictors at that scale are not
+economic. Any cloud-side approximation collapses to an averaged stumble
+pattern — which is exactly the loss of per-user shape that makes the
+substrate yours.
 
 **Multi-consumer substrate.** misstep / session-narrative / FKMF /
 misstep-foreign-models all read the same per-pair files. A vendor
@@ -197,7 +199,7 @@ context still answers questions about it.
 | Method | Per-Q fidelity (gemma3:4b judge, N=62, k_drop=0.5) |
 |---|---:|
 | Random selection (seed 42) | **12.9 %** (8/62) |
-| 7-signal mixture (this project) | **11.3 %** (7/62) |
+| 6-signal mixture (this project) | **11.3 %** (7/62) |
 | Recency-only | 11.3 % (7/62) |
 | Cosine retrieval (e5) | 11.3 % (7/62) |
 | Density (single signal) | 9.7 % (6/62) |
@@ -252,7 +254,7 @@ output is throwaway.
 
 The bet behind this project is that **the parsed substrate is more
 valuable than any single output computed from it**. Once a session
-becomes structured per-pair objects with seven signals attached, the
+becomes structured per-pair objects with six signals attached, the
 same artifact can be queried for compaction *and* stumble prediction
 *and* narrative recall *and* knowledge-gap detection *and* foreign-model
 observability. Same data, different readers. The substrate becomes
@@ -265,10 +267,11 @@ substrate is the right primary object — is supported by the other
 consumers listed above existing as separate projects at all, not by a
 benchmark on this README.
 
-Seven signals compose into one importance score: a per-user `misstep`
-predictor as backbone, sixteen density features, four span tiers, one
-sparse human label, modulated by an unsupervised topic-decay multiplier.
-Vectors first; the classifier is a refinement layer, not a gatekeeper.
+Six signals compose into one importance score: density features as
+backbone (sixteen regex signals, rank-normalised), four span tiers (keep /
+maybe / skip / think), one sparse human label — modulated by an unsupervised
+topic-decay multiplier applied on top of the mixture.
+Vectors first; the importance mixture is a refinement layer, not a gatekeeper.
 Reconstruction fidelity — can the compacted context still answer
 questions about what was hidden from it — is the metric for the
 compaction reader. Not compression ratio.
@@ -296,14 +299,14 @@ cell has the number on line one and the reading on line two.
 | # | Test | Status | Result |
 |---|---|---|---|
 | 1 | **Ground-truth fidelity** under cross-family judge | shipped | Sonnet 4.6, 573 pairs → 3.8 % per-Q fidelity floor; failure split: ~40 % IDK / ~24 % paraphrase / ~6 % ranking error.<br>*≈96 % of pair-specific detail vanishes when that pair is hidden from context — the absolute starting point, before the mixture does any work.* |
-| 2 | **Coefficient ablation** — `label_weight ∈ {0, 0.15}` | shipped, partial sweep | Δ=+0.053, 95 % paired CI [−0.004, +0.109]; per-corpus signs 3 / 3 positive; 38 / 57 paired runs (67 %) are ties.<br>*Turning the human-label term on shifts per-Q fidelity by ≈5 percentage points but the CI crosses zero on the lower bound, and two-thirds of paired runs are unaffected either way. Read as: the six automatic signals carry the substrate by themselves; label is an optional power-tier, not a precondition.* |
+| 2 | **Coefficient ablation** — `label_weight ∈ {0, 0.15}` | shipped, partial sweep | Δ=+0.053, 95 % paired CI [−0.004, +0.109]; per-corpus signs 3 / 3 positive; 38 / 57 paired runs (67 %) are ties.<br>*Turning the human-label term on shifts per-Q fidelity by ≈5 percentage points but the CI crosses zero on the lower bound, and two-thirds of paired runs are unaffected either way. Read as: the five automatic signals (density + four span tiers) carry the substrate by themselves; label is an optional power-tier, not a precondition.* |
 | 3 | **Cross-corpus consistency** — 3 disjoint session corpora | shipped | A +0.100 / B +0.028 / C +0.021; sign breakdown 13 pos · 6 neg · 38 ties.<br>*Three independent maintainer corpora all show positive Δ — the row-2 effect is not an artefact of one session window.* |
 | 4 | **Cheap-judge calibration** — gemma3:4b vs Sonnet 4.6 | shipped | κ = 0.469, precision 0.70, recall 0.51, zero "other" verdicts.<br>*The free local judge agrees with the paid cloud judge at "moderate" Landis-Koch level — cheap enough for continuous monitoring, not strict enough for definitive scoring.* |
 | 5 | **Anti-baseline** — mixture vs naive `/compact` summary + cheap structured rankers | shipped | qwen-summarized `/compact` analog: **3.2 %** (2/62). Mixture: 11.3 % (7/62) — **8 pp gap**. Within structured (random / recency / cosine / mixture / density / bm25): all within ±1 question. Same harness, gemma3:4b judge, k_drop=0.5.<br>*Structured selection of any kind beats one-pass summarisation by a substantial margin. The mixture's edge over cheap structured baselines is not yet measurable at this N under the cheap-judge proxy — that's the open question for v0.3.* |
-| 6 | **Full coefficient grid** — all 7 signal weights | filed | `weighted-compact ablation --weights` one-shot wrapper, v0.3.<br>*Only one of the seven mixture weights has been swept so far; the other six contribute under their heuristic defaults.* |
+| 6 | **Full coefficient grid** — all 6 signal weights | filed | `weighted-compact ablation --weights` one-shot wrapper, v0.3.<br>*Only one of the six mixture weights has been swept so far; the other five contribute under their heuristic defaults.* |
 | 7 | **Compositional / long-run** — fidelity across rolling 48-pair windows | scaffold | `recon_qa/gate.py` computes buckets; downstream routing partial.<br>*Fidelity is scored per pair, not as a function of accumulated history — cannot yet answer "did the last 30 sessions improve or degrade older recall."* |
 | 8 | **Multi-user scaling** — reproduction on second corpus | open invitation | Methodology is the contribution; magnitudes are not portable.<br>*If you run on your corpus, the absolute numbers will not match — but the direction of the label-weight effect should reproduce.* |
-| 9 | **REM-decay multiplier** — wall-clock half-life ageing | shipped 2026-05-23 | `weighted-compact rem-pass [--half-life-days 7]`; nightly timer template; `--rem-decay` flag end-to-end through `qa-gate` and `run_eval`.<br>*Independent of the seven-signal mixture. Content signals are stable; time refreshes every day. Half-life sweep on the fidelity gate is filed for v0.3 — for now, 7 days is heuristic.* |
+| 9 | **REM-decay multiplier** — wall-clock half-life ageing | shipped 2026-05-23 | `weighted-compact rem-pass [--half-life-days 7]`; nightly timer template; `--rem-decay` flag end-to-end through `qa-gate` and `run_eval`.<br>*Independent of the six-signal mixture. Content signals are stable; time refreshes every day. Half-life sweep on the fidelity gate is filed for v0.3 — for now, 7 days is heuristic.* |
 | 10 | **MCP stdio server** — local-only client surface | shipped 2026-05-23 | `weighted-compact mcp-serve`; three tools (`search_pairs`, `compact_session`, `substrate_info`); optional extra `pipx install 'weighted-compact[mcp]'`.<br>*Lets MCP-speaking clients (Claude Desktop, mcp-cli, IDE plugins) query the substrate without re-parsing it. Stdio only; no network, no auto-inject, no write tools. See [`docs/mcp-integration.md`](docs/mcp-integration.md).* |
 | 11 | **Docker / Windows install path** | shipped 2026-05-23 | `Dockerfile` + `docker-compose.yml`; non-root `wc` user; substrate on named volume; `~/.claude/projects` bind-mounted read-only; labeler at `127.0.0.1:18890`; optional ollama sidecar.<br>*Path of least resistance for users without a Python toolchain — Windows in particular. The REM pass runs as an in-container sleep-loop or host cron / Task Scheduler. See [`docs/docker-install.md`](docs/docker-install.md).* |
 | 12 | **Cross-tool bench harness vs claude-mem** | shipped 2026-05-23, script + spec; partial-run numbers pending | `scripts/bench_vs_claude_mem.sh` + `docs/bench-vs-claude-mem.md`; deterministic 30-pair sample (seed 42); same `gemma3:4b` judge for every method.<br>*Methodology is honest about the asymmetry — claude-mem normally runs hook-driven; the bench drives it via its worker HTTP API on a fixed corpus. Reproduction invited via the `bench:` issue label.* |
@@ -314,9 +317,9 @@ But the 95 % paired CI [−0.004, +0.109] crosses zero on the lower bound,
 and 38 of 57 paired runs (67 %) are exact ties — flipping the human-label
 weight on or off changes nothing for two-thirds of evaluations under the
 cheap-judge κ=0.47 noise envelope. The published default treats label as
-**optional**: the six automatic signals (misstep, density, span tiers,
-topic position, recency, cosine neighbourhood) carry the substrate on
-their own, and `bootstrap` ships with no labeling step. Users who want
+**optional**: the five automatic signals (density + four span tiers)
+carry the substrate on their own, and `bootstrap` ships with no labeling
+step. Users who want
 to add the human-judgement track open the labeler at `:18890/` as a
 deliberate power-tier action, not as a precondition for installation.
 This is the adoption-wall removal that distinguishes the substrate from
@@ -346,9 +349,9 @@ will spot when this session's correction was the third time you made
 the same one across three sessions and weight it accordingly.
 
 *Action:* `pipx install` → `weighted-compact compat` → `bootstrap --full`. Done.
-No labeler, no twenty-minute sitting — the six automatic signals derive
+No labeler, no twenty-minute sitting — the five automatic signals derive
 from your session files alone. The labeler at `:18890/` is opt-in if you
-want to add the seventh (sparse human-judgement) signal; the published
+want to add the sixth (sparse human-judgement) signal; the published
 ablation says you don't have to.
 
 → [Install](#install) · [Q1 — find your own stumble](#quiz--quest)
@@ -472,7 +475,7 @@ guarantee.
 ### ⚙️ &nbsp; If you want this to run nightly without thinking about it
 
 Three commands plus a timer, and the substrate stays current on its own.
-Recent sessions outweigh distant ones every morning; six automatic
+Recent sessions outweigh distant ones every morning; five automatic
 signals refresh content importance whenever bootstrap is re-run; nothing
 talks to the cloud.
 
@@ -534,8 +537,8 @@ magnitude, not a retraction of the direction.
 
 **Graceful degradation as contract.** A pipeline that breaks when one
 piece fails is brittle. Each signal in the mixture is optional — missing
-misstep, the weights re-balance; missing spans, the four tier-terms
-collapse to zero. The system degrades to a vector baseline. A
+labels, their weight drops out; missing spans, the four tier-terms
+collapse to zero. The system degrades to a density baseline. A
 single-classifier gatekeeper design has no analog for this; we picked
 the weighted-sum mixture in part for exactly this property.
 
@@ -580,12 +583,15 @@ the weighted-sum mixture in part for exactly this property.
   the compact boundary without intervention. The substrate's job is to
   make what survives match what you marked — not to restore everything.
 
-- **Misstep AUC 0.665 on the maintainer's corpus** — useful as a backbone
-  signal, not yet calibrated cross-user.
-  *What this means for you:* if your sessions look very different from
-  the maintainer's (different language, very short, very technical), the
-  misstep signal may be weaker for you. Drop its weight or replace with
-  your own predictor.
+- **Misstep predictor removed (2026-06-07).** Held-out AUC ~0.66–0.70
+  — barely above chance — was not sufficient to honestly identify which
+  corrections matter, and the predictor required a separate substrate
+  absent on fresh installs. It is available as an extension point (see
+  the pluggable table) but is no longer part of the default mixture.
+  Density now carries the backbone weight.
+  *What this means for you:* the six-signal mixture ships and works
+  without any misstep substrate. If you have your own stumble predictor
+  with higher AUC, wire it in via the pluggable slot.
 
 - **Classifier-as-fidelity-proxy is parked.** A first attempt at training a
   Sonnet-fidelity predictor from 411-dim engineered features landed at
@@ -593,7 +599,7 @@ the weighted-sum mixture in part for exactly this property.
   features are optimised for ranking rather than fidelity prediction, or
   fidelity is emergent from retrieval+generator interaction. Not a
   current dev target.
-  *What this means for you:* the substrate runs on the seven-signal
+  *What this means for you:* the substrate runs on the six-signal
   mixture; the parked classifier you may see in logs is not weighted
   into the score. Nothing user-facing depends on it shipping.
 
@@ -630,7 +636,7 @@ the weighted-sum mixture in part for exactly this property.
 
 ## What the pipeline does
 
-Session files in. Eight modules score each turn against seven signals.
+Session files in. Eight modules score each turn against six signals.
 The most important content rebuilds the compacted context. A judge from
 a different model family checks whether the result still answers
 questions about what got cut.
@@ -638,7 +644,7 @@ questions about what got cut.
 The composer formula:
 
 ```
-importance = 0.40 × misstep + 0.25 × density + 0.15 × label
+importance = 0.25 × density + 0.15 × label
            + 0.20 × span_keep + 0.10 × span_maybe
            − 0.15 × span_skip + 0.05 × span_think
 ```
@@ -695,7 +701,7 @@ loop, watch Δfidelity — the loop tells you whether your version helped.
 | Misstep predictor | logistic regression on stumble events (per-user) | Any model returning `P(stumble)` per pair |
 | Span tier set | KEEP / MAYBE / SKIP / THINK | Locked at 4 in current schema |
 | Topic segmenter | sliding-window cosine on e5 vectors | BERTopic, supervised classifier, your own boundary detector |
-| Importance composer | weighted sum of 7 signals | Custom mixture, additional signals, GBM ensemble |
+| Importance composer | weighted sum of 6 signals | Custom mixture, additional signals, GBM ensemble |
 | Reconstruction model | `qwen2.5:7b` via Ollama | Anything behind an Ollama `/api/generate` endpoint |
 | Judge model | `gemma3:4b` (Gemma family) | Any other family — distinct-family constraint is the only rule |
 | Difficulty filter | EvoEnv-style two-`k_drop` bucketing | Your own bucketer returning the four-bucket dict |
@@ -750,12 +756,12 @@ weighted-compact bootstrap --full  # build the full substrate from ~/.claude/pro
 weighted-compact serve         # open labeler at http://127.0.0.1:18890/
 ```
 
-For ambient operation:
+For ambient operation (nightly REM-decay pass):
 
 ```bash
 weighted-compact install-units
 systemctl --user daemon-reload
-systemctl --user enable --now weighted-compact
+systemctl --user enable --now weighted-compact-rem-pass.timer
 ```
 
 Requirements: Linux (Arch, Debian, Ubuntu in CI), Python 3.11-3.13,
@@ -773,8 +779,8 @@ Platform matrix: [`docs/install.md`](docs/install.md).
 
 | Component | Status |
 |---|---|
-| Substrate builder (parse sessions, embed, decorate with 7 signals) | shipped |
-| Importance ranker (7-signal mixture — used by compaction reader) | shipped |
+| Substrate builder (parse sessions, embed, decorate with 6 signals) | shipped |
+| Importance ranker (6-signal mixture — used by compaction reader) | shipped |
 | Labeling UI (CAPTCHA-style, anti-drift) | shipped |
 | Compaction reader (`build_compacted_context()` library + `qa-gate` harness) | shipped |
 | Standalone session-start delivery CLI (W2 ambient render) | next (`v0.2.x`) |
@@ -807,7 +813,7 @@ Contributor-grade full component table (17 rows): [`docs/status.md`](docs/status
 | [`docs/concept.md`](docs/concept.md) | Longer-form take on the problem |
 | [`docs/invariants.md`](docs/invariants.md) | Three locked design invariants |
 | [`docs/architecture.md`](docs/architecture.md) | Module map and substrate pipeline |
-| [`docs/importance-mixture.md`](docs/importance-mixture.md) | Seven-signal mixture, weight by weight + ablation data |
+| [`docs/importance-mixture.md`](docs/importance-mixture.md) | Six-signal mixture, weight by weight + ablation data |
 | [`docs/reconstruction-qa.md`](docs/reconstruction-qa.md) | Compression-fidelity measurement loop |
 | [`docs/span-annotation.md`](docs/span-annotation.md) | Sub-turn char-range tier design |
 | [`docs/topic-decay.md`](docs/topic-decay.md) | Unsupervised topic segmentation |

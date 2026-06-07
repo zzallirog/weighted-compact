@@ -93,27 +93,25 @@ Neither replaces the other.
 
 ---
 
-## The vocab_canon POC status
+## The vocab_canon signal — removed
 
-As of `v0.2.0-beta.1`, vocab_canon is a POC signal. The mechanism is
-implemented; the config surface (how you populate the list) is minimal.
 The 5-corpus paired ablation in [`CHANGELOG.md`](../CHANGELOG.md) showed
-the flat-bonus variant displaced higher-signal pairs and was dropped from
-the default mixture — the per-Q canon bonus (boost only when a canon
-token appears in BOTH the pair and the question) is the direction
-queued for a future release.
+the flat-bonus variant displaced higher-signal pairs. The signal was
+**dropped** from the mixture entirely (marked DROP in the CHANGELOG) —
+`vocab_canon` and `CANON_TOKENS` do not exist in the current codebase.
+`config.py` has no such key; there is nothing to populate.
 
-Until then: populate `vocab_canon` in `config.py` manually with the
-five or ten terms most likely to appear in load-bearing pairs. Run the
-pipeline, see the importance scores shift on pairs containing those terms,
-check whether the shift is pointing in the right direction via fidelity
-eval.
+The concept (boost pairs whose correction text contains personally
+meaningful terms) remains directionally valid. The per-Q canon bonus
+variant (boost only when a canon token appears in BOTH the pair and the
+question) is queued for a future release; it will be documented here when
+it ships.
 
 ---
 
 ## See also
 
 - [`docs/03-quality-driver.md`](03-quality-driver.md) — why fidelity, not ratio
-- [`docs/importance-mixture.md`](importance-mixture.md) — where vocab_canon and density sit in the full mixture
+- [`docs/importance-mixture.md`](importance-mixture.md) — where density and span signals sit in the six-signal mixture
 - [`docs/reconstruction-qa.md`](reconstruction-qa.md) — the LLM judge in detail, failure modes, model config
 - [`docs/02-pipeline.md`](02-pipeline.md) — the full pipeline, box by box

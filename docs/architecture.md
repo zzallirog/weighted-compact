@@ -29,25 +29,19 @@ sensible default.
         ▼                         ▼                        ▼
   features_density.npz   features_spans.npz      topic_segments.npz
         │                         │                        │
-        │     misstep_score.py    │                        │
-        │     (optional)          │                        │
-        │            │            │                        │
-        │            ▼            │                        │
-        │     features_misstep.npz                         │
-        │            │            │                        │
-        └────────────┼────────────┼────────────────────────┘
-                     │            │
-                     ▼            ▼
+        └─────────────────────────┼────────────────────────┘
+                                  │
+                                  ▼
        ┌─────────────────────────────────────────────────────────────┐
        │                  LAYER 2 — Importance Mixture               │
        │                                                             │
-       │  importance.py composes seven signals:                      │
-       │    0.40 × misstep    + 0.25 × density   + 0.15 × label      │
+       │  importance.py composes six signals:                        │
+       │    0.25 × density    + 0.15 × label                         │
        │  + 0.20 × span_keep  + 0.10 × span_maybe                    │
        │  − 0.15 × span_skip  + 0.05 × span_think                    │
        │                                                             │
        │  importance.npz       (N,)  ∈ [0, 1]                        │
-       │  components           (N, 7)                                │
+       │  components           (N, 6)                                │
        └──────────────────────────┬──────────────────────────────────┘
                                   │
                                   ▼
@@ -82,7 +76,7 @@ sensible default.
 | `span_features.py` | Char-fraction matrix from inline annotations | numpy |
 | `topic_segments.py` | Unsupervised sliding-window cohesion segmentor | numpy |
 | `misstep_score.py` | Logistic regression on stumble events (optional) | sklearn, duckdb |
-| `importance.py` | Compose seven signals into continuous score | numpy |
+| `importance.py` | Compose six signals into continuous score | numpy |
 | `recon_qa/` | Reconstruction-QA package — 5 sub-modules (context / generator / judge / gate / fidelity) | requests (optional Ollama) |
 | `tool.py` | FastAPI labeler at :18890 | fastapi, uvicorn |
 | `cli.py` | `weighted-compact` entry point | click |

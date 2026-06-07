@@ -353,18 +353,20 @@ via `weighted-compact qa-gate`. If the signal earns its slot, bump the
 weight. If it does not, leave it at 0.00 — the column still accumulates
 for future ablation.
 
-The importance formula with slot 8 explicit:
+The importance formula with the new pseudo-label slot explicit (note: the
+`misstep` term shown in earlier drafts of this spec was removed from the
+shipped mixture on 2026-06-07 — near-chance AUC; the current default mixture
+is the six signals below):
 
 ```
 importance(i) =
-    0.40 × misstep_score(i)
-  + 0.25 × density_score(i)
+    0.25 × density_score(i)
   + 0.15 × label_keep(i)
   + 0.20 × span_keep_frac(i)
   + 0.10 × span_maybe_frac(i)
   − 0.15 × span_skip_frac(i)
   + 0.05 × span_think_frac(i)
-  + 0.00 × pseudo_label(i)     ← slot 8, disabled until ablated
+  + 0.00 × pseudo_label(i)     ← new slot, disabled until ablated
 ```
 
 `pseudo_label(i)` is `1` if `judge_verdict == YES` for the most recent

@@ -40,11 +40,11 @@ mixture's specific edge over cheap structured baselines is **not yet
 measurable** under the cheap-judge proxy at the κ=0.47 noise envelope.
 
 So the gate's verdict so far: selection-over-vectors beats
-summary-bypass; the *particular* seven-signal weighting needs a
+summary-bypass; the *particular* six-signal weighting needs a
 Sonnet-grade re-judge and a larger QA set to show separation from a
 random ranker. The architecture earns its slot through the gap over
 `/compact`; the mixture's coefficients earn theirs through ablation
-(the label-weight slot has been swept; the other six are filed under
+(the label-weight slot has been swept; the other five are filed under
 v0.3). Full numbers and methodology in
 [`docs/baselines.md`](baselines.md).
 
@@ -205,4 +205,4 @@ Full ablation details in [`docs/importance-mixture.md`](importance-mixture.md).
 - [`docs/02-pipeline.md`](02-pipeline.md) — where fidelity sits in the pipeline
 - [`docs/reconstruction-qa.md`](reconstruction-qa.md) — the eval loop in full detail
 - [`docs/04-grep-vs-judge.md`](04-grep-vs-judge.md) — two-tier signal economics
-- [`docs/importance-mixture.md`](importance-mixture.md) — the seven signals and the ablation data
+- [`docs/importance-mixture.md`](importance-mixture.md) — the six signals and the ablation data

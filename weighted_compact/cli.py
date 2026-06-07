@@ -162,32 +162,40 @@ def _run_feature_chain() -> None:
     extract_pairs (bootstrap) must already have produced pairs.jsonl. This runs
     the rest of the pipeline that nothing else wires together:
 
-        feature_extract(all_pairs) → density → spans → misstep* → topic → importance
+        feature_extract(all_pairs) → density → spans → topic → importance
 
     feature_extract runs in ALL-pairs mode so search_pairs / compact_session see
-    the whole corpus, not just labeled pairs. misstep is optional — it needs
-    duckdb plus an external misstep substrate; if it can't run it is skipped and
-    importance degrades gracefully (its component is zero).
+    the whole corpus, not just labeled pairs.
     """
     from weighted_compact import feature_extract
 
-    click.secho("== feature_extract (all pairs) ==", fg="cyan", bold=True)
-    feature_extract.main(all_pairs=True)
+    # e5 embeddings (feature_extract) + topic-segments are the [baselines] tier.
+    # On a [mcp]-only install sentence-transformers is absent — skip them and
+    # still build the embedding-free compaction substrate (density → spans →
+    # importance). Semantic search (search_pairs) needs [baselines].
+    e5_ok = True
+    click.secho("== feature_extract (all pairs, e5 embeddings) ==", fg="cyan", bold=True)
+    try:
+        feature_extract.main(all_pairs=True)
+    except ImportError as exc:
+        e5_ok = False
+        click.secho(f"  skipped: {exc}", fg="yellow")
+        click.secho("  for semantic search install: pipx install 'weighted-compact[baselines]'",
+                    fg="yellow")
+        click.secho("  → building the compaction substrate without embeddings.", fg="yellow")
 
     for label, module in (
         ("density", "density_features"),
         ("spans", "span_features"),
-        ("topic-segments", "topic_segments"),
     ):
         click.secho(f"== {label} ==", fg="cyan", bold=True)
         _run_module_main(module)
 
-    click.secho("== misstep (optional) ==", fg="cyan", bold=True)
-    try:
-        _run_module_main("misstep_score")
-    except Exception as exc:  # noqa: BLE001 — no duckdb / no external substrate
-        click.secho(f"  skipped: {exc}", fg="yellow")
-        click.secho("  importance degrades gracefully — misstep signal = 0", fg="yellow")
+    if e5_ok:
+        click.secho("== topic-segments ==", fg="cyan", bold=True)
+        _run_module_main("topic_segments")
+    else:
+        click.secho("== topic-segments (skipped: needs e5 embeddings) ==", fg="yellow")
 
     click.secho("== importance ==", fg="cyan", bold=True)
     _run_module_main("importance")
@@ -450,53 +458,8 @@ def mcp_serve() -> None:
 
 @main.command()
 def importance() -> None:
-    """Recompose the seven-signal importance mixture."""
+    """Recompose the six-signal importance mixture."""
     _run_module_main("importance")
-
-
-@main.command(name="com-shift")
-@click.option("--top", default=0, type=int, metavar="N",
-              help="Print top-N pairs by |com_shift|.")
-@click.option("--stats", is_flag=True,
-              help="Print substrate-COM + std summary.")
-@click.option("--history", is_flag=True,
-              help="Emit com_shift_history.csv (2-row smoke-test; see com_shift.py docstring).")
-@click.option("--save", "do_save", is_flag=True,
-              help="Save results to com_shift.npz.")
-def com_shift(top: int, stats: bool, history: bool, do_save: bool) -> None:
-    """COM-shift probe — geometric observable for the H1' anti-drift invariant.
-
-    Computes per-pair shift from intrinsic (misstep+density only) to annotated
-    (full mixture) coordinate space, plus substrate-wide centroid in 7D.
-    Prerequisite: run `weighted-compact importance` first.
-    """
-    import sys
-    from weighted_compact import com_shift as _mod
-
-    imp_path = config.importance_path()
-    if not imp_path.exists():
-        raise click.ClickException(
-            f"importance.npz not found at {imp_path}\n"
-            "Run `weighted-compact importance` first."
-        )
-
-    result = _mod.compute_com_shift()
-    no_flags = not any([top, stats, history, do_save])
-
-    if no_flags or stats:
-        _mod._print_stats(result)
-
-    effective_top = top or (10 if no_flags else 0)
-    if effective_top:
-        _mod._print_top(result, effective_top)
-
-    if no_flags or do_save:
-        p = _mod.save(result)
-        click.echo(f"\nOutput: {p}")
-
-    if history:
-        p = _mod.build_history_csv()
-        click.echo(f"History CSV: {p}")
 
 
 @main.command(name="rem-pass")

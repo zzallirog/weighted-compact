@@ -73,7 +73,7 @@ enough to triage without back-and-forth.
 
 For UI bugs, a screen recording of the labeler is worth a hundred words.
 For pipeline bugs, the bootstrap log under
-`$XDG_STATE_HOME/weighted-compact/bootstrap.log` is the right artifact.
+`$XDG_STATE_HOME/weighted-compact/bootstrap-log.jsonl` is the right artifact.
 
 ## Support expectations
 

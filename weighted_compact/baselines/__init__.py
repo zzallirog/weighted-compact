@@ -1,4 +1,4 @@
-"""Baseline rankers for fidelity comparison against the seven-signal mixture.
+"""Baseline rankers for fidelity comparison against the six-signal mixture.
 
 Two flavours:
 

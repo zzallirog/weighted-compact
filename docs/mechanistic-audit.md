@@ -1,11 +1,19 @@
 # Mechanistic audit of the importance mixture
 
+> **Outcome (2026-06-07).** This audit measured the machine-learned `misstep`
+> signal at a held-out AUC of ~0.66–0.70 — barely above chance. That near-chance
+> finding is *why* `misstep` was removed from the shipped mixture, which is now
+> six signals (density backbone + four span tiers + one optional label). This
+> document is retained as the methodology and the finding that drove the removal;
+> where it probes `misstep` below, read it as a historical audit of a signal that
+> no longer ships in the default mixture.
+
 Applied interpretability methodology, adapted from [_Beyond Behavioural
 Trade-Offs: Mechanistic Tracing of Pain-Pleasure Decisions in an
 LLM_](https://arxiv.org/pdf/2602.19159) (arXiv 2602.19159), and applied
-to weighted-compact's seven-signal importance scorer. The goal is to
-separate two empirical questions that are routinely conflated when
-people ask "is your mixture useful?":
+to weighted-compact's importance scorer (seven signals at the time of this
+audit). The goal is to separate two empirical questions that are routinely
+conflated when people ask "is your mixture useful?":
 
 - **Representation**: which subset of `importance.npz` is already
   predictable from a single signal? (Probing question.)

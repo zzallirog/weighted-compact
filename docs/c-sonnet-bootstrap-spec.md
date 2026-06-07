@@ -1,5 +1,13 @@
 # Spec C — Sonnet-first anchor bootstrap
 
+> **NOT YET IMPLEMENTED — proposed spec only.**
+> The CLI flags described here (`--sonnet-first`, `--gemma-scale`,
+> `--from-anchor` on `bootstrap`; `--calibrate`, `--anchor-labels` on
+> `qa-gate`) do **not exist** in the current codebase. `bootstrap` currently
+> accepts only `--dry-run` and `--full`; `qa-gate` has no calibration flags.
+> This document describes the design intent. Do not try to run these commands
+> against the installed package.
+
 *Adjacent spec: [b-pseudo-labels-spec.md](b-pseudo-labels-spec.md) (detector-derived
 pseudo-labels from session structure). Read that in parallel; they compose.*
 

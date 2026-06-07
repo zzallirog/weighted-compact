@@ -35,25 +35,36 @@ JSONL. It builds **(premise, correction) pairs**:
 Pairs are detected by a regex over the user turn:
 
 ```python
-RE_POS = re.compile(
-    r"\b(exactly|that's it|that's right|perfect|great|nailed it|"
-    r"nice|correct)\b", re.IGNORECASE)
-
 RE_NEG = re.compile(
-    r"\b(no|not that|not what|not right|not quite|wrong|incorrect|"
-    r"stop|wait|hold on|nope|don't|revert|undo|again)\b",
-    re.IGNORECASE)
-
+    r"(?<![A-Za-zА-Яа-яЁё])("
+    r"no|not that|not what|not right|not quite|wrong|incorrect|"
+    r"stop|wait|hold on|nope|don't|revert|undo|again|"
+    r"не то|не так|не туда|не правильно|не верно|неправильно|неверно|"
+    r"стоп|стой|погоди|постой|отмени|откати|верни|обратно|"
+    r"ошибся|ошибка|хватит|нет"
+    r")(?![A-Za-zА-Яа-яЁё])",
+    re.IGNORECASE | re.UNICODE,
+)
+RE_POS = re.compile(
+    r"(?<![A-Za-zА-Яа-яЁё])("
+    r"exactly|that's it|that's right|perfect|great|nailed it|nice|correct|"
+    r"точно|именно|то самое|вот так|в точку|идеально|отлично|молодец|супер"
+    r")(?![A-Za-zА-Яа-яЁё])",
+    re.IGNORECASE | re.UNICODE,
+)
 RE_TAG = re.compile(
-    r"\(([^)]*?(mark|think|neutral)[^)]*?)\)",
-    re.IGNORECASE)
+    r"\(([^)]*?(mark|think|neutral|маркер|подумать|пропос|правка)[^)]*?)\)",
+    re.IGNORECASE | re.UNICODE,
+)
 ```
 
-These patterns cover English correction and validation markers. The
-patterns are intentionally narrow — they err on the side of missing
-pairs rather than producing false positives, because a false positive
-pollutes the substrate while a missed pair just means you label it
-manually later.
+These patterns cover English, Russian, and Ukrainian correction and
+validation markers (EN + RU/UA). Word boundaries use Unicode-aware
+lookahead/lookbehind (`(?<![A-Za-zА-Яа-яЁё])`) rather than `\b` so that
+Cyrillic terms are delimited correctly. The patterns are intentionally
+narrow — they err on the side of missing pairs rather than producing false
+positives, because a false positive pollutes the substrate while a missed
+pair just means you label it manually later.
 
 ### Adding other languages
 

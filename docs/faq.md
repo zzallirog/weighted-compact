@@ -15,7 +15,7 @@ Different problem.
 | **Goal** | long-term agent memory across sessions | rebuilding *one* session that hit context limit |
 | **Operator model** | "the agent" | "the user co-designing how the agent gets compressed" |
 | **Distillation** | LLM-generated summaries / Mermaid graphs | top-K weighted selection of *original* spans |
-| **Tuning** | hyperparameters, zero-config defaults | continuous mixture of seven signals + human labels |
+| **Tuning** | hyperparameters, zero-config defaults | continuous mixture of six signals + human labels |
 | **Privacy** | local-first claimed; cloud-friendly | local-only by default; optional opt-in cloud judge for ground-truth calibration runs (see [privacy angle](../README.md#angle-privacy)) |
 | **Maturity** | 1.9k★, polished, multi-user | beta, personal workbench |
 
@@ -23,7 +23,7 @@ If you want "agent memory" → use one of the others. If you want "I'm
 hitting context limit, summarize feels lossy, give me a tool that lets me
 participate" → weighted-compact.
 
-## Is the seven-signal mixture actually better than picking random pairs?
+## Is the six-signal mixture actually better than picking random pairs?
 
 Honest answer: at the present scale and judge, the data does not show
 it. The 2026-05-21 baseline run (N=62, k_drop=0.5, `gemma3:4b` judge,
@@ -39,13 +39,13 @@ BM25) and a one-pass LLM summary analog (qwen-summarized `/compact` =
 
 So: at this N under this judge, the *architecture* (selecting pairs over
 summarising the dialogue) is shown to be the right call; the *specific
-weighting* of the seven signals is not yet shown to beat a uniform
+weighting* of the six signals is not yet shown to beat a uniform
 random ranker. The pre-registered narrative bar (mixture beats cheap
 baselines by ≥0.05 absolute) is not met by this measurement.
 
 The open paths to resolve are filed under `v0.3` — Sonnet re-judge on
 the same 62-entry set, a larger QA set (200–500), and a coefficient
-grid ablation across all seven weights. Methodology and harness in
+grid ablation across all six weights. Methodology and harness in
 [`docs/baselines.md`](baselines.md).
 
 ## Why doesn't it just call an LLM to summarize?
@@ -62,7 +62,7 @@ compaction itself is deterministic.)
 ## Why human-in-the-loop? Can't this be automated?
 
 It can be partially automated. The Phase 4 mixture weights already are —
-seven independent signals compose continuously, no hand-labels needed for
+six independent signals compose continuously, no hand-labels needed for
 the basic case.
 
 But: the *direction* of the weighting is a personal choice. What you

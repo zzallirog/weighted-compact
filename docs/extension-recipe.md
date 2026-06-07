@@ -148,7 +148,7 @@ compact_qwen     True         0.1.0    [-] /compact-style: local Ollama qwen2.5:
 compact_sonnet   True         0.1.0    [baselines-cloud] /compact-style: Anthropic API Sonnet summary (requires API key).
 cosine           True         0.1.0    [baselines] Phase 2 baseline: e5 dense cosine similarity to the query.
 density          False        0.1.0    [-] Legacy fallback — mean of 16 density features only.
-importance       False        0.1.0    [-] Seven-signal mixture (misstep+density+labels+spans). Default.
+importance       False        0.1.0    [-] Six-signal mixture (density+labels+spans). Default.
 length           False        0.1.0    [-] Pair score = len(correction_text) / len(premise_text).
 random           False        0.1.0    [-] Phase 1 baseline: uniform random scores per pair_idx (seeded).
 recency          False        0.1.0    [-] Phase 1 baseline: rank by within-session position (most recent wins).
@@ -205,7 +205,7 @@ class LengthRatioSignal:
 assert isinstance(LengthRatioSignal([]), Signal)  # runtime_checkable
 ```
 
-The current `importance.py` mixture composes its seven signals as raw
+The current `importance.py` mixture composes its six signals as raw
 numpy arrays for performance — it doesn't iterate `Signal` instances at
 runtime. The Protocol documents the shape *external* contributors
 should adopt when they fork the mixture or build their own. Use the
@@ -254,7 +254,7 @@ ninth costs you four lines of decorator-and-loader, not a fork.
 - [stability.md](stability.md) — the formal contract on
   `weighted_compact.ranker`, `RankerSpec`, `Signal`, and the CLI verb
   names.
-- [importance-mixture.md](importance-mixture.md) — what the seven
+- [importance-mixture.md](importance-mixture.md) — what the six
   built-in signals are and how they're weighted.
 - [reconstruction-qa.md](reconstruction-qa.md) — the gate your new
   ranker will be measured against (`weighted-compact qa-gate

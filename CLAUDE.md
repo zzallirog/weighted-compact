@@ -40,7 +40,7 @@ If you are an LLM reading this repo to answer a question or make a change:
   history using **vectors first, classifier as a refinement layer**, with a
   CAPTCHA-style labeler for human-in-the-loop tuning.
 - **Architecture:** three independent layers — substrate (`extract_pairs` +
-  `feature_extract` over `~/.claude/projects/`) → importance mixture (seven
+  `feature_extract` over `~/.claude/projects/`) → importance mixture (six
   signals composed continuously, plus a topic-decay multiplier on top) →
   reconstruction-QA (compression-fidelity gate, default local gemma3 judge
   with Sonnet 4.6 ground-truth calibration runs reported in
@@ -69,7 +69,7 @@ weighted-compact/
 │   │   ├── judge.py                 semantic verdict: question + truth + predicted → yes/no/other
 │   │   ├── gate.py                  difficulty classifier: QA entries → trivial/informative/impossible
 │   │   └── fidelity.py              eval loop: run all QA entries, return per-entry results
-│   ├── importance.py                seven-signal mixture
+│   ├── importance.py                six-signal mixture
 │   ├── extract_pairs.py             session walker (~/.claude/projects/)
 │   ├── feature_extract.py           e5 embeddings → features.npz
 │   ├── density_features.py          density signal extractor
@@ -136,7 +136,7 @@ bonus, not an assumption.
 
 ### "I want to add a new language to the marker regex"
 
-1. → `weighted_compact/extract_pairs.py` (look for `MARKER_PATTERNS`)
+1. → `weighted_compact/extract_pairs.py` (look for `RE_NEG`, `RE_POS`, `RE_TAG`)
 2. → `tests/test_extract_pairs.py` (add fixture)
 3. → `docs/claude-code-integration.md` (update language matrix)
 
@@ -149,7 +149,7 @@ bonus, not an assumption.
 
 ### "What signals feed the importance mixture?"
 
-1. → `docs/importance-mixture.md` (seven signals + weights)
+1. → `docs/importance-mixture.md` (six signals + weights)
 2. → `weighted_compact/importance.py` (the compose function)
 3. live: open `:18890/` and toggle the ranker between `importance` and
    `density` for A/B comparison.
@@ -157,7 +157,7 @@ bonus, not an assumption.
 ### "How does the bootstrap find my Claude sessions?"
 
 1. → `docs/claude-code-integration.md`
-2. → `weighted_compact/extract_pairs.py` (`SOURCE_DIRS` resolution)
+2. → `weighted_compact/extract_pairs.py` (`DIRS` resolution)
 3. CLI: `weighted-compact bootstrap --dry-run`
 
 ### "Something is wrong with the pipeline"

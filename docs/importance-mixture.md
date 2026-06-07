@@ -1,16 +1,21 @@
 # Importance mixture
 
-The continuous importance score for each pair is a weighted sum of seven
+The continuous importance score for each pair is a weighted sum of six
 independent signals, clipped to `[0, 1]`. Each signal measures something
 different about the underlying pair, so no single source can produce a
 Goodhart artifact by itself.
+
+> **Historical note:** a seventh signal — a machine-learned `misstep`
+> predictor (P(stumble)) — was removed from the mixture on 2026-06-07.
+> Its held-out AUC was ~0.66–0.70 (near chance), so it could not honestly
+> identify which corrections matter, and it required a separate substrate
+> absent on any fresh install. Density carries the backbone weight now.
 
 ## The formula
 
 ```
 importance(i) =
-    0.40 × misstep_score(i)        # vector-based backbone
-  + 0.25 × density_score(i)        # content-bearing proxy
+    0.25 × density_score(i)        # content-bearing backbone
   + 0.15 × label_keep(i)           # human signal (noisy)
   + 0.20 × span_keep_frac(i)       # explicit "keep this span"
   + 0.10 × span_maybe_frac(i)      # explicit "maybe useful"
@@ -23,30 +28,17 @@ enters with a negative coefficient and is subtracted.
 
 ## Each signal in detail
 
-### `misstep_score` — vector-based backbone (weight 0.40)
-
-A logistic regression on stumble events from a per-user **misstep**
-predictor (separate project, not yet published). Misstep is trained on
-the user's own session corpus; it predicts `P(stumble at this user turn)`
-from the embedding of the correction turn.
-
-Hypothesis (locked in `weighted_compact/misstep_score.py`):
-
-> Important pair ≈ user STOPPED stumbling on this correction.
-> Low stumble probability at correction = high load-bearing weight.
-
-`misstep_score = 1 − P(stumble)`, clipped + rescaled to `[0, 1]`. If misstep
-is not installed, this signal is absent and the mixture re-weights the
-remaining five.
-
-### `density_score` — content-bearing proxy (weight 0.25)
+### `density_score` — content-bearing backbone (weight 0.25)
 
 Sixteen features per pair: length, named-entity density, numbers/dates,
 code fences, quoted strings, line count, unique-word ratio, etc. Mean
 across the sixteen, rank-normalized to `[0, 1]`.
 
 The intuition: dense content carries more retrievable signal than
-filler. Dense turns are usually worth keeping verbatim.
+filler. Dense turns are usually worth keeping verbatim. Density is the
+backbone of the mixture — it carries the highest weight because it
+independently distinguishes content-rich turns from filler, without
+depending on sparse human annotations.
 
 ### `label_keep` — noisy human signal (weight 0.15)
 
@@ -83,8 +75,8 @@ labels on a 484-pair corpus.
 
 The labeler UI surfaces the components separately so you can see *which*
 signal is firing on a given pair. The W3 reconstruction-QA loop measures
-the downstream effect of changing weights — if you raise misstep to 0.60
-and drop density to 0.05, recon-QA will tell you whether you broke
+the downstream effect of changing weights — if you raise density to 0.40
+and drop span_keep to 0.10, recon-QA will tell you whether you broke
 content preservation.
 
 When the recon-QA gate has 50+ baseline samples, the weights should be
@@ -95,7 +87,6 @@ then, the defaults are good enough to keep working.
 
 | Missing input | Result |
 |---|---|
-| `features_misstep.npz` | misstep dropped; remaining five re-weight |
 | `features_density.npz` | density dropped; remaining five re-weight |
 | `features_spans.npz` | all four span terms collapse to zero |
 | `labels.jsonl` | label_keep dropped; remaining five re-weight |
@@ -107,14 +98,12 @@ This is the failure mode the invariant 1 was written for.
 ## How to tune
 
 ```bash
-# See current weights and provenance
-weighted-compact importance --show-defaults
-
 # Recompute importance.npz from scratch
 weighted-compact importance
 
-# A/B compare two weight sets via recon-QA
-weighted-compact eval --weights-a defaults --weights-b experimental
+# Compare rankers via the recon-QA gate
+weighted-compact qa-gate --ranker importance --hard-k 0.5 --signal judge
+weighted-compact qa-gate --ranker recency   --hard-k 0.5 --signal judge
 ```
 
 The UI also surfaces a per-component bar next to each pair so you can see

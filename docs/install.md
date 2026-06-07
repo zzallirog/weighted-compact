@@ -54,6 +54,17 @@ Nothing else is touched. No system files, no service registered, no
 substrate created. The substrate dir under
 `$XDG_DATA_HOME/weighted-compact/` is created lazily on first `bootstrap`.
 
+> **Install tiers.** `pipx install 'weighted-compact[mcp]'` builds a working
+> compaction substrate but does **not** include semantic search.
+> `feature_extract` (e5 embeddings via `sentence-transformers`) requires the
+> `[baselines]` extra. With only `[mcp]`, `bootstrap --full` degrades
+> gracefully: it skips e5 embeddings and topic-segments, but still builds
+> density → spans → importance. For semantic search (`search_pairs`), install:
+>
+> ```bash
+> pipx install 'weighted-compact[baselines]'
+> ```
+
 ### Path B — pip --user
 
 ```bash
@@ -87,13 +98,17 @@ systemctl --user daemon-reload
 systemctl --user enable --now weighted-compact
 ```
 
-Writes one file:
+Writes three unit files:
 
 ```
 ~/.config/systemd/user/weighted-compact.service
+~/.config/systemd/user/weighted-compact-rem-pass.service
+~/.config/systemd/user/weighted-compact-rem-pass.timer
 ```
 
-Marks the service for autostart at user login. Hardware actuators are
+The main service runs the labeler UI on `:18890`. The `-rem-pass` pair
+handles nightly REM-decay refresh (service + daily 04:00 timer). Marks
+the services for autostart at user login. Hardware actuators are
 **not** part of weighted-compact — it never writes to `/sys`, never asks
 for sudo, and the systemd unit has `ProtectSystem=full` plus
 `NoNewPrivileges=yes`.
@@ -188,7 +203,7 @@ sudo dnf install python3 python3-pip git
 | CLI (`weighted-compact ...`) | stderr via stdlib `logging` | `-v` / `--verbose` flag → DEBUG |
 | Labeler (`weighted-compact serve`) | stderr via stdlib `logging` + uvicorn access log | `WEIGHTED_COMPACT_LOG_LEVEL=DEBUG` env (planned v0.1) |
 | systemd user unit | `journalctl --user -u weighted-compact -f` | unit's stdout/stderr captured |
-| Bootstrap journal | `$XDG_STATE_HOME/weighted-compact/bootstrap.log` | append-only, one record per run |
+| Bootstrap journal | `$XDG_STATE_HOME/weighted-compact/bootstrap-log.jsonl` | append-only, one record per run |
 | Test failures | pytest stdout + `.pytest_cache/lastfailed` | `-v` for verbose |
 
 All logs stay on the local host. There is no remote log shipping, no

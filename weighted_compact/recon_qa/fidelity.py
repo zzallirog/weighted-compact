@@ -178,7 +178,7 @@ from weighted_compact.ranker import RANKER_REGISTRY  # noqa: E402
 
 RANKER_REGISTRY.add(
     'importance', load_importance,
-    description='Seven-signal mixture (misstep+density+labels+spans). Default.',
+    description='Six-signal mixture (density+labels+spans). Default.',
     query_aware=False,
     since_version='0.1.0',
 )

@@ -7,7 +7,7 @@ Black box:
   entry  — `build(seed)` writes the npz. `main()` is the CLI entry.
 
 Sense: this is the absolute lower bound. If random selection achieves
-comparable fidelity to the seven-signal mixture, the signals carry no
+comparable fidelity to the six-signal mixture, the signals carry no
 information beyond chance.
 """
 from __future__ import annotations

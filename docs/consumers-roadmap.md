@@ -16,7 +16,7 @@ consumers, but they are not part of the v0.2.0 ship surface.
 
 | Consumer | Surface | Status |
 |---|---|---|
-| **misstep** — stumble prediction | per-user `P(stumble)` from correction embeddings; backbone signal for the seven-signal importance mixture | separate project, currently private; held-out AUC 0.665 on the maintainer corpus. The mixture in this repo reads its output (`features_misstep.npz`); the trainer is the unshipped piece. |
+| **misstep** — stumble prediction | per-user `P(stumble)` from correction embeddings; external optional signal | separate project, currently private; held-out AUC 0.665 on the maintainer corpus. Removed from the default six-signal mixture on 2026-06-07 (AUC ~0.66–0.70, near chance; absent on fresh installs). `importance.py` no longer reads `features_misstep.npz`. The trainer remains the unshipped piece; misstep may re-enter as an optional overlay if AUC improves. |
 | **session-narrative** — Layer 1-5 long-form recall | concept extraction → semantic grep → importance → narrative; reads the same per-pair substrate to build per-session retrospectives | in development, private |
 | **FKMF** — knowledge-gap retrieval | two-layer active + background lookup for *fundamental missing fragments* — pairs the user keeps re-explaining across sessions | methodology + skill spec exists; no shipped binary |
 | **misstep-foreign-models** — refusal-drift lens | uses the substrate as a baseline to detect when 3rd-party LLM sessions exhibit refusal patterns the maintainer's local model does not | design phase, postulates frozen, pre-implementation |

@@ -1,4 +1,4 @@
-# Baselines — comparing the seven-signal mixture against alternatives
+# Baselines — comparing the six-signal mixture against alternatives
 
 The headline 3.8 % per-Q fidelity floor (Sonnet 4.6 judge, 573 pairs)
 reads as an absolute number. The question this doc answers: **how does
@@ -21,7 +21,7 @@ fidelity numbers reflects only the ranker.
 | `bm25` | sparse, query-aware | classical lexical retrieval |
 | `compact_qwen` | summarisation bypass | `/compact` analog via local qwen2.5:7b |
 | `compact_sonnet` | summarisation bypass | `/compact` analog via Sonnet 4.6 (opt-in) |
-| `importance` | static, shipped mixture | the seven-signal mixture itself |
+| `importance` | static, shipped mixture | the six-signal mixture itself |
 
 ## Architectural axis
 
@@ -42,7 +42,7 @@ Three paradigms appear in the table:
    compacted context. Closest fair analog to Claude Code's `/compact`,
    though the exact prompt is closed and version-dependent.
 
-The table will show whether the seven-signal mixture's weighting buys
+The table will show whether the six-signal mixture's weighting buys
 anything over each paradigm.
 
 ## How to run
@@ -113,7 +113,7 @@ Maintainer corpus, recon_qa_set N=62, k_drop=0.5, gemma3:4b judge.
 | Method | judge-yes | per-Q fidelity |
 |---|---:|---:|
 | Random selection (seed 42) | 8/62 | **12.9 %** |
-| 7-signal mixture | 7/62 | **11.3 %** |
+| six-signal mixture | 7/62 | **11.3 %** |
 | Recency-only | 7/62 | 11.3 % |
 | Cosine retrieval (e5) | 7/62 | 11.3 % |
 | Density (single signal) | 6/62 | 9.7 % |

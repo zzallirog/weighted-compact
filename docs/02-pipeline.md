@@ -10,9 +10,9 @@ Goodhart-resistant — no single signal source is structurally privileged.
 
 Each box below opens with a contract block (file / input / output /
 maturity), followed by prose on how it opens. Order is pipeline order;
-Box 4 (`misstep_score`) is optional and skipped if the dependency is
-missing, with the importance mixture re-weighting the remaining signals
-automatically.
+Box 4 (`misstep_score`) is optional — it produces `features_misstep.npz`
+but is not currently consumed by the importance mixture (removed 2026-06-07;
+see Box 7).
 
 Maturity vocabulary used throughout:
 
@@ -38,19 +38,22 @@ Output schema:
 
 ```json
 {
-  "pair_idx": 42,
-  "premise_text": "...",
-  "correction_text": "...",
   "session_id": "...",
-  "turn_idx": 7,
-  "marker": "(mark)"
+  "correction_uuid": "...",
+  "correction_text": "...",
+  "premise_uuid": "...",
+  "premise_text": "...",
+  "marker_type": "explicit_tag",
+  "marker_match": "(mark)",
+  "tier_hint": "keep"
 }
 ```
 
 **How it opens.** Walks JSONL session files; extracts consecutive
-(human-turn, assistant-turn) pairs. Inline markers in the correction text
-(`(mark)`, `(think)`, etc.) are detected by regex in
-`MARKER_PATTERNS` and stored in the `marker` field for the labeling queue.
+(assistant-turn, human-turn) pairs. Inline markers in the correction text
+(`(mark)`, `(think)`, etc.) are detected by three regex variables
+(`RE_NEG`, `RE_POS`, `RE_TAG`) and stored in the `marker_type` and
+`marker_match` fields for the labeling queue.
 
 **Maturity.** Schema changes between alpha releases are possible but the
 extraction logic itself has been running since Phase 1.
@@ -114,18 +117,17 @@ grow significantly.
 separate per-user model — logistic regression on stumble events trained on
 the user's own session corpus — that returns `P(stumble)` for each user
 turn from its embedding. It is not yet published as a public repo; the
-install path will land in `docs/install.md` when it ships. If misstep is
-not present, this box is skipped and the importance mixture re-weights the
-remaining signals automatically.
+install path will land in `docs/install.md` when it ships.
 
 The hypothesis: a pair is load-bearing if the user stopped stumbling at
 that correction. `misstep_score = 1 - P(stumble)`, giving high scores to
 pairs where the correction resolved a stumble pattern.
 
 **Maturity.** Functional but optional. AUC 0.665 on the maintainer's
-substrate as of the `v0.2.0-beta.1` checkpoint. On a fresh install with
-no prior sessions, this signal is absent until the misstep predictor has
-enough data.
+substrate as of the `v0.2.0-beta.1` checkpoint — held-out AUC sat at
+~0.66–0.70 (barely above chance), which is why this signal was removed
+from the importance mixture on 2026-06-07. The module and its output file
+are preserved for future experimentation.
 
 ---
 
@@ -168,7 +170,7 @@ from geometry alone; no classifier, nothing to train.
 
 ```text
   file       weighted_compact/importance.py
-  input      all features_*.npz  +  labels.jsonl
+  input      features_density.npz  +  features_spans.npz  +  labels.jsonl
   output     importance.npz   one float per pair
   maturity   stable  (weights tunable, formula locked)
 ```
@@ -177,8 +179,7 @@ The composed score:
 
 ```python
 importance = (
-    0.40 * misstep
-  + 0.25 * density
+    0.25 * density
   + 0.15 * label_keep
   + 0.20 * span_keep
   + 0.10 * span_maybe
@@ -187,7 +188,7 @@ importance = (
 )
 ```
 
-**How it opens.** Weighted sum of seven signals (see
+**How it opens.** Weighted sum of six signals (see
 [`docs/importance-mixture.md`](importance-mixture.md) for the full formula
 and the ablation data). Weights are heuristic defaults; adjust in
 `importance.py:WEIGHTS` and re-run. The reconstruction-QA loop tells you

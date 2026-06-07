@@ -40,7 +40,7 @@ Plus two sections that fall out of the above:
 ## Does it work as designed?
 
 **Yes, mechanically — end-to-end.** The pipeline parses sessions,
-decorates pairs with seven signals, composes them into an importance
+decorates pairs with six signals, composes them into an importance
 score, and the compaction reader queries that score to return a
 markdown context for any source pair. Numbers below are from the
 maintainer's substrate at `~/work/weighted-compact/` as of 2026-05-23.
@@ -50,10 +50,10 @@ What works (verified at the time of this writing):
 | Layer | Verifier | Result |
 |---|---|---|
 | Substrate builder | `wc -l ~/work/weighted-compact/pairs.jsonl` | **613 pairs** across 246 sessions |
-| Feature extractors | `du -h ~/work/weighted-compact/features*.npz` | features.npz 2.8 M (613×3×384 e5 windows), features_density.npz 44 K, features_spans.npz 24 K, features_misstep.npz 12 K |
-| Importance mixture | `weighted-compact importance` | 613 pairs ranked, mean 0.370, min 0.065, max 0.802 — top-10 are all label=1.0 + misstep>0.6 (matches design intent) |
+| Feature extractors | `du -h ~/work/weighted-compact/features*.npz` | features.npz 2.8 M (613×3×384 e5 windows), features_density.npz 44 K, features_spans.npz 24 K |
+| Importance mixture | `weighted-compact importance` | 613 pairs ranked, mean 0.370, min 0.065, max 0.802 — top-10 are all label=1.0 + density>0.6 (matches design intent) |
 | REM decay | `weighted-compact rem-pass` | 613 pairs over 246 sessions, 194 sessions aged (timestamp resolvable from `~/.claude/projects/<dashed>/<sid>.jsonl` mtime), 52 sessions missing mtime — factor 1.0 fallback |
-| Compaction reader | `build_compacted_context_with_meta` on session of 15 pairs | 14 candidates, 7 kept at k_drop=0.5, 23 425→11 991 chars (compaction ratio 0.51), signals_top3 = density / misstep / label |
+| Compaction reader | `build_compacted_context_with_meta` on session of 15 pairs | 14 candidates, 7 kept at k_drop=0.5, 23 425→11 991 chars (compaction ratio 0.51), signals_top3 = density / span_keep / label |
 | Fidelity gate | `weighted-compact qa-gate --signal judge` against `recon_qa_set_v2.jsonl` (1718 entries) | shipped — see [README headline](../README.md) table for the published 11.3 % per-Q result |
 
 What is **degraded but graceful**:
@@ -76,7 +76,7 @@ What does **not** work as designed (be honest):
   number. The mixture matches a uniform random ranker (12.9 %) within
   ±1 question under the gemma3:4b judge at N=62. The architectural
   claim ("structured selection beats summary-bypass by 8 pp") survives;
-  the narrower claim ("the seven-signal mixture beats cheap structured
+  the narrower claim ("the six-signal mixture beats cheap structured
   baselines") **does not currently survive measurement** at this N.
   See `docs/05-roadmap.md` for the v0.3 plan.
 - The label-weight ablation (`label_weight ∈ {0, 0.15}`) shipped
@@ -90,7 +90,7 @@ What does **not** work as designed (be honest):
   The inspector shows these labels but they don't differentiate yet.
 
 So: the *pipeline* works as designed end-to-end. The *quality claim*
-that the seven-signal mixture beats every cheap ranker is not yet met
+that the six-signal mixture beats every cheap ranker is not yet met
 on this N. The substrate is solid; what consumers do with it is where
 the open work lives.
 
@@ -116,12 +116,11 @@ CLI/eval harness and from the MCP `compact_session` tool.
 pairs.jsonl  ──┬── feature_extract.py     → features.npz          (e5 windows)
                ├── density_features.py    → features_density.npz  (16 signals)
                ├── span_features.py       → features_spans.npz    (char-fractions)
-               ├── misstep_score.py       → features_misstep.npz  (P(stumble))
                └── topic_segments.py      → topic_segments.npz    (segment ids)
                             │
                             │  weighted-compact importance
                             ▼
-                    importance.npz  ── (N, 7) components + (7,) weights
+                    importance.npz  ── (N, 6) components + (6,) weights
                             │
                             │  weighted-compact rem-pass (nightly, optional)
                             ▼
@@ -211,7 +210,6 @@ produced it, so you can reproduce on your own substrate.
 | `features.npz` (613×3×384 e5 windows) | 2.8 MB | `du -h ~/work/weighted-compact/features.npz` |
 | `features_density.npz` | 44 KB | same |
 | `features_spans.npz` | 24 KB | same |
-| `features_misstep.npz` | 12 KB | same |
 | `importance.npz` (current) | 28 KB | `du -h ~/work/weighted-compact/importance.npz` |
 | `recon_qa_set_v2.jsonl` (1718 QA triples) | 548 KB | `du -h ~/work/weighted-compact/recon_qa_set_v2.jsonl` |
 | `gemma3_verdicts.jsonl` (judge cache) | 356 KB | same |
@@ -273,7 +271,7 @@ server process) but it has not been done.
 ### First-run cost on a 100-session corpus (estimate)
 
 Linear extrapolation from the measured 376-session bootstrap at 6.07 s
-(no embedding pass, no misstep, no rem):
+(no embedding pass, no rem):
 
 | Step | Per-session | 100-session estimate |
 |---|---:|---:|
@@ -281,7 +279,6 @@ Linear extrapolation from the measured 376-session bootstrap at 6.07 s
 | `feature_extract` (e5, CPU) | ~3–5 s for model load + ~3–5 ms/pair | **~4 s + N pairs × 5 ms** ≈ 8–12 s for 1000 pairs |
 | `density_features` | <100 ms total | **<100 ms** |
 | `topic_segments` | <500 ms total | **<500 ms** |
-| `misstep_score` (optional) | needs misstep substrate; ~1–2 s for predict | **~1–2 s if enabled** |
 | `importance` (composer) | <30 ms total | **<30 ms** |
 | `rem-pass` | ~30 ms | **~30 ms** |
 | `qa-gate` (judge, depends on Ollama) | ~5–15 s per QA × ~50 QA | **~5–15 min** |
@@ -354,12 +351,12 @@ quarantined until you decide whether to migrate or discard.
 ### importance
 
 **How.** `weighted-compact importance` loads
-`features_misstep.npz` + `features_density.npz` + `labels.jsonl` +
+`features_density.npz` + `labels.jsonl` +
 `features_spans.npz`, normalises each signal column to [0, 1], and
 composes them by the fixed weight vector:
 
 ```
-importance = 0.40 × misstep + 0.25 × density + 0.15 × label
+importance = 0.25 × density + 0.15 × label
            + 0.20 × span_keep + 0.10 × span_maybe
            − 0.15 × span_skip + 0.05 × span_think
 ```
@@ -367,7 +364,7 @@ importance = 0.40 × misstep + 0.25 × density + 0.15 × label
 Output is written atomically to `importance.npz` (with a `.bak.<ts>`
 snapshot of the previous file).
 
-**What.** `(N, 7)` `components` array, `(7,)` `weights` vector,
+**What.** `(N, 6)` `components` array, `(6,)` `weights` vector,
 `(N,)` `importance` final score, `(N,)` `pair_indices`. The
 components array is what `build_compacted_context_with_meta` reads
 back to populate `signals_top3` for any kept set.
@@ -376,7 +373,7 @@ back to populate `signals_top3` for any kept set.
 inputs dominates; the math is one dot product. Memory peak <10 MB on
 top of the numpy import overhead.
 
-**Why.** This is the only place the seven signals come together. The
+**Why.** This is the only place the six signals come together. The
 ablation work happens here: change a weight, recompose, re-run
 `qa-gate`. The mixture being a weighted sum (not a learned model) is
 deliberate — see `docs/03-quality-driver.md` for the Goodhart
@@ -400,7 +397,7 @@ Sessions whose transcript can't be stat'd fall back to factor 1.0
 the bottleneck; on a hot disk it's noise. Memory peak <15 MB. Disk
 output: one npz, ~7 KB.
 
-**Why.** The seven-signal mixture is content-stable — it does not
+**Why.** The six-signal mixture is content-stable — it does not
 know whether a pair is from today or three months ago. REM-decay
 adds the time axis as a multiplier so the content score and the
 recency score compose without conflating axes. The metaphor is
@@ -486,15 +483,15 @@ change helped, hurt, or was a tie.
   Labeling happens in the FastAPI labeler at `:18890/` via a browser
   UI, not via MCP. This is deliberate — the CAPTCHA anti-drift sidebar
   needs the UI affordance.
-- **No multi-user.** The misstep predictor is trained on *your*
-  stumbles. There is no path to aggregate across users; AUC numbers
-  are corpus-dependent and not portable.
+- **No multi-user.** The importance mixture is calibrated against
+  *your* correction patterns. There is no path to aggregate across
+  users; any fidelity numbers are corpus-dependent and not portable.
 - **No `/compact` interception.** weighted-compact does not replace
   Claude Code's `/compact`. It runs alongside, produces markdown, and
   the user (or a downstream automation) decides what to do with that
   markdown. There is no harness hook.
 - **No ranking guarantee over cheap baselines yet.** At the current
-  N=62 under gemma3 judge, the seven-signal mixture matches random /
+  N=62 under gemma3 judge, the six-signal mixture matches random /
   recency / cosine within ±1 question. If you need a measured edge
   over uniform random over the substrate, the v0.3 ablation grid is
   where that work lives.
@@ -519,9 +516,9 @@ values from a 15-pair session at k_drop=0.5, topic_decay=0.5:
     'tokens_saved_estimate': 2858,  # chars_saved // 4
     'compaction_ratio': 0.5119, # output_chars / input_chars
     'signals_top3': [
-        ('density', 0.183),     # mean(component × weight) across kept pairs
-        ('misstep', 0.070),     # … same, for misstep column
-        ('label',   0.021),     # … etc, top-3 by mean contribution
+        ('density',   0.183),   # mean(component × weight) across kept pairs
+        ('span_keep', 0.070),   # … same, for span_keep column
+        ('label',     0.021),   # … etc, top-3 by mean contribution
     ],
     'ranker': 'static_dict',    # or 'callable_query_aware' for cosine/bm25
 }

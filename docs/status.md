@@ -8,7 +8,7 @@ user-facing summary; this file is the full 17-row inventory.
 | Component | Status |
 |---|---|
 | Substrate (extract_pairs + e5 features) | shipped |
-| Importance mixture (7 signals + topic-decay multiplier) | shipped |
+| Importance mixture (6 signals + topic-decay multiplier) | shipped |
 | Span-level annotations | shipped |
 | Drift inspector + iter chain | shipped (`v0.2.0-beta.1`) |
 | Per-pair fidelity (conflict / fidelity modes) | shipped (`v0.2.0-beta.1`) |

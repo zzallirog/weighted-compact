@@ -6,7 +6,6 @@ import sys
 import warnings
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from weighted_compact import config
 from weighted_compact.config import SKIP_PREFIXES
@@ -210,6 +209,11 @@ def main(all_pairs: bool | None = None):
         flat_texts.append("passage: " + t1 if t1 else "")
         flat_texts.append("passage: " + t2 if t2 else "")
         flat_texts.append("passage: " + t3 if t3 else "")
+
+    # Lazy import: e5 embeddings are the [baselines] tier, not core. Importing
+    # at module top would make `bootstrap --full` die on a [mcp]-only install
+    # before it can build the (embedding-free) compaction substrate.
+    from sentence_transformers import SentenceTransformer
 
     print("Loading multilingual-e5-small ...")
     model = SentenceTransformer("intfloat/multilingual-e5-small")

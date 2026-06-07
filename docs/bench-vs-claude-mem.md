@@ -20,7 +20,7 @@ economy** (how many characters does it cost to recover one question?).
 
 - **weighted-compact** ([this repo](https://github.com/zzalli/weighted-compact)) —
   substrate-based compaction. Pairs are extracted from
-  `~/.claude/projects/`, scored by an inspectable 7-signal importance
+  `~/.claude/projects/`, scored by an inspectable six-signal importance
   mixture, then a subset is kept by ranker score under a `k_drop` budget.
   Reconstruction-QA is the primary quality gate.
 - **claude-mem** ([thedotmack/claude-mem](https://github.com/thedotmack/claude-mem)) —

@@ -1,9 +1,9 @@
 # REM-decay: daily wall-clock importance refresh
 
-The seven-signal mixture in `importance.py` is **content-stable**: it
-scores misstep probability, density, span coverage, label state, and so
-on, but it does not know whether the conversation it is reading happened
-today or three months ago. REM-decay adds that axis on top.
+The six-signal mixture in `importance.py` is **content-stable**: it
+scores density, span coverage, label state, and so on, but it does not
+know whether the conversation it is reading happened today or three
+months ago. REM-decay adds that axis on top.
 
 A nightly pass — modelled, semantically, on the REM phase that
 re-weights yesterday's experience overnight — re-evaluates every pair
@@ -39,7 +39,7 @@ last-activity time. Sessions whose transcript can't be located fall back
 to `ref_ts` (today) — they get factor 1.0 and remain visible rather than
 silently dropping out.
 
-REM-decay is a **multiplier**, not a replacement for any of the seven
+REM-decay is a **multiplier**, not a replacement for any of the six
 signals. The composition is
 
 ```
@@ -55,7 +55,7 @@ and gradually demotes pairs as their session ages out.
   position-in-session — a within-session monotonic rank used as a
   cheap-baseline check in the fidelity table. REM-decay is
   cross-session wall-clock aging. They are orthogonal.
-- **Not a signal in the mixture.** The mixture weights (`WEIGHTS_BASE`
+- **Not a signal in the mixture.** The mixture weights (`WEIGHTS`
   in `importance.py`) describe content properties of a pair, not its
   age. Adding a time term to the mixture would conflate two axes and
   break the rerun-on-fresh-clock contract.
