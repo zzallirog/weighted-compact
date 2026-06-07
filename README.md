@@ -442,7 +442,31 @@ any approach requiring per-pair human labeling at install time.
 
 ## Pick your door
 
-Same substrate, five readers. The one that names you is yours.
+Same substrate, several readers. The one that names you is yours.
+
+<a id="angle-recap"></a>
+
+### 🗺️ &nbsp; If you just want to see what a session did
+
+No setup, no labeling, no model. `weighted-compact recap --all` turns every
+session into a task-by-task map — files touched (with a `+adds/−rems`
+diffstat), commands run, the verbatim outcome — and re-checks four
+faithfulness invariants in front of you.
+
+*Would make this irrelevant to you:* you never look back at past sessions,
+or they are short enough to scroll.
+
+*The claim:* it is lossy (a map, not the transcript — use `zstd -19` for a
+lossless ~3× archive) but **provably faithful** — 986/986 sessions account
+for every tool call and message with no fabricated path. The one positive,
+re-checkable result in the repo.
+
+*Action:* `pipx install --pre weighted-compact` → `weighted-compact recap --all`.
+Stdlib-only; runs on a bare install with no `[baselines]` extras.
+
+→ [Recap docs](docs/recap.md) · [Q1 — audit your own sessions](#quiz--quest)
+
+---
 
 <a id="angle-daily-user"></a>
 
@@ -467,7 +491,7 @@ from your session files alone. The labeler at `:18890/` is opt-in if you
 want to add the sixth (sparse human-judgement) signal; the published
 ablation says you don't have to.
 
-→ [Install](#install) · [Q1 — find your own stumble](#quiz--quest)
+→ [Install](#install) · [Q1 — audit your own sessions](#quiz--quest)
 
 ---
 
@@ -751,9 +775,12 @@ the weighted-sum mixture in part for exactly this property.
 
 ## What the pipeline does
 
-Session files in. Eight modules score each turn against six signals.
-The most important content rebuilds the compacted context. A judge from
-a different model family checks whether the result still answers
+Session files in, two readers out of the same source. **Recap**
+(stdlib-only, no scoring, no model) renders a task-segmented map of a
+session and re-checks four faithfulness invariants. The **compaction**
+path is heavier: independent modules score each turn against six signals,
+the most important content rebuilds the compacted context, and a judge
+from a different model family checks whether the result still answers
 questions about what got cut.
 
 The composer formula:
@@ -764,7 +791,7 @@ importance = 0.25 × density + 0.15 × label
            − 0.15 × span_skip + 0.05 × span_think
 ```
 
-The eight modules are independent black boxes — each documented at the
+These modules are independent black boxes — each documented at the
 top of its own file, replaceable individually. The quality metric
 driving development is *reconstruction fidelity*, not compression
 ratio: ratio is easy to game, fidelity is harder. See
