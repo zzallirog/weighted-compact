@@ -26,7 +26,7 @@ economy** (how many characters does it cost to recover one question?).
 
 ## What is being compared
 
-- **weighted-compact** ([this repo](https://github.com/zzalli/weighted-compact)) —
+- **weighted-compact** ([this repo](https://github.com/zzallirog/weighted-compact)) —
   substrate-based compaction. Pairs are extracted from
   `~/.claude/projects/`, scored by an inspectable six-signal importance
   mixture, then a subset is kept by ranker score under a `k_drop` budget.
@@ -350,7 +350,7 @@ own substrate and your own claude-mem observation DB, then file the
 numbers as a GitHub issue on this repo with label `bench:`:
 
 ```sh
-gh issue create --repo zzalli/weighted-compact --label bench: \
+gh issue create --repo zzallirog/weighted-compact --label bench: \
     --title "bench-vs-claude-mem on <your-corpus>" \
     --body-file bench-vs-claude-mem-results.json
 ```
