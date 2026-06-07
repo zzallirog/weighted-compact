@@ -1,7 +1,7 @@
 [project]
 name = "weighted-compact"
-version = "0.2.0b3"
-description = "Trainable context-compaction substrate for Claude Code — vector-first, classifier-secondary, human-in-the-loop"
+version = "0.3.0a1"
+description = "Local, inspectable substrate over your Claude Code sessions — with a provably-faithful recap reader (deterministic, audited, stdlib-only)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -15,7 +15,7 @@ keywords = [
     "vector-retrieval",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",

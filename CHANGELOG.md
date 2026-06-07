@@ -6,10 +6,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ---
 
-## [Unreleased]
+## [0.3.0a1] — 2026-06-07
+
+Honest re-grounding. The project carried a `beta` badge it had not earned;
+this release relabels it **alpha** and re-centers it on the one consumer with
+a positive, re-checkable result — recap — while stating plainly that the
+importance mixture has no measured fidelity edge.
 
 ### Added
 
+- **Recap reader** (`weighted-compact recap [SESSION] [--audit] [--all]`) — a
+  task-segmented, lossy navigation map of a session: per task, the files
+  touched (`+adds/−rems` diffstat), commands run, and the verbatim outcome
+  line. Deliberately not reconstructable (use `gzip`/`zstd` for that), but
+  **provably faithful**: four invariants (coverage · conservation · provenance
+  · determinism) re-checked by an independent pass, holding on **986/986** of
+  the maintainer's sessions. Stdlib-only, ~5 ms/session. See
+  [`docs/recap.md`](docs/recap.md); synthetic tests in `tests/test_recap.py`.
 - **Manifesto hard-constraint** — `keep`/`skip` labels are now honored as a
   deterministic *selection* constraint, not just a soft score signal:
   `build_compacted_context(manifesto=…)` pins keep-labeled pairs (guaranteed to
@@ -39,10 +52,40 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
   `[baselines]` adds semantic search.
 - Documentation reconciled against the live code throughout.
 
+### Fixed
+
+- **(high) recon_qa source-pair lookup** — `build_compacted_context*` and
+  `run_eval` treated `source_pair_idx` as a list index, but it is a `pair_idx`
+  field value; when `load_pairs` skipped a blank/corrupt line the index
+  diverged and the **wrong source pair** was fetched. Now resolved via a
+  `{pair_idx: pair}` map. (Found by an Opus-verified sonnet bug-hunt swarm.)
+- **recap I1 invariant was vacuous** — `n_covered == n_messages` held by
+  construction and could never fail; replaced with `sum(seg.n_msgs) ==
+  n_messages`, a real check. Re-verified 986/986.
+- `json.loads` on `pairs.jsonl` / `labels.jsonl` lines now tolerates a single
+  partial-write in `span_features`, `topic_segments`, and
+  `recon_qa.context.load_manifesto` (try/except continue), matching
+  `load_pairs`.
+- Schema extraction `NO_RULE` early-exit no longer missed on trailing
+  punctuation; `mcp_server` substrate `session_count` no longer counts a
+  `None` bucket; `config.labeler_port` errors cleanly on a non-integer
+  `$WEIGHTED_COMPACT_PORT`.
+
+### Changed
+
+- **Status relabeled `beta` → `alpha`** (README badge, `CLAUDE.md`,
+  `pyproject` classifier). The mixture-vs-baseline result is null and is now
+  marked as such everywhere; recap is the documented flagship.
+
 ### Removed
 
-- `misstep` signal dropped from the default mixture (kept as an optional
-  standalone module). `com-shift` CLI command removed.
+- `misstep` signal dropped from the default mixture (earlier); this release
+  removes the now-dead `misstep_score.py` trainer and its `config` paths —
+  the shipped pipeline no longer reads `features_misstep.npz`.
+- Mooted research modules (`beta_schedule`, `beta_search`, `cv_harness`,
+  `com_shift`, `replay_eval`, `sandbox_probe`, `ablation_axes`) are now
+  gitignored — they served the importance-mixture-beats-baseline hypothesis,
+  which came back null. `com-shift` CLI command removed.
 
 ## [0.2.0-beta.3] — 2026-05-26
 

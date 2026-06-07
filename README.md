@@ -2,24 +2,34 @@
 
 # weighted-compact
 
-**A local, inspectable memory substrate built from your own Claude Code
-corrections.**
+**A local, inspectable substrate over your own Claude Code sessions — with a
+provably faithful recap on top.**
 
-It reads `~/.claude/projects/`, scores each correction-bearing turn with six
-signals you can read as plain `numpy` columns, and assembles a compacted
-markdown context for recall. Local-first, zero outbound network, no daemon,
-no auto-injection — the substrate is an artifact you own and can inspect, not
-an opaque store.
+It reads `~/.claude/projects/` and turns it into an artifact you own: each
+correction-bearing turn scored as plain `numpy` columns, and a task-segmented
+**recap** of every session whose faithfulness is re-checkable, not asserted.
+Local-first, zero outbound network, no daemon, no auto-injection.
 
-> **Honest scope.** This is a *transparency and locality* tool, not a proven
-> better compressor. On reconstruction-fidelity it has **not** been shown to
-> beat cheap baselines (recency, bm25) — see [How it compares](#how-it-compares).
-> Reach for it if you want a local, inspectable, personal substrate; reach for
-> a convenient drop-in like claude-mem if you just want set-and-forget recall.
+> **Honest scope (alpha).** This carried a `beta` badge before it had earned
+> one; it does not anymore. Two claims, kept apart so neither borrows the
+> other's credibility:
+>
+> - **recap** — a lossy navigation map of a session — is *provably faithful*:
+>   four invariants (coverage · conservation · provenance · determinism)
+>   re-checked on **986/986** of the maintainer's sessions
+>   (`weighted-compact recap --all`). This is the consumer with a positive,
+>   checkable result.
+> - **compaction** — selecting turns so a judge can still answer questions
+>   about what was hidden — has **no measured edge** over cheap baselines
+>   (recency, bm25). We say so, with the numbers, in
+>   [How it compares](#how-it-compares).
+>
+> Reach for this if you want a local substrate you can *audit*; reach for a
+> drop-in like claude-mem if you want set-and-forget recall.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![v0.2.0-beta.3](https://img.shields.io/badge/release-v0.2.0--beta.3-yellow)](CHANGELOG.md)
+[![status: alpha](https://img.shields.io/badge/status-alpha-orange)](#status)
 [![outbound-zero](https://github.com/zzallirog/weighted-compact/actions/workflows/outbound-zero.yml/badge.svg)](https://github.com/zzallirog/weighted-compact/actions/workflows/outbound-zero.yml)
 
 </div>
@@ -44,10 +54,15 @@ an opaque store.
 ```
 
 ```bash
-# 30-second install — six signals (five automatic + one optional label), no labeling step required
+# 30-second install
 pipx install 'weighted-compact[mcp]'
-weighted-compact bootstrap --full # extract pairs + build the full signal substrate (importance.npz)
-weighted-compact mcp-serve        # local stdio MCP for Claude Desktop / IDE clients
+
+# recap — the provably-faithful consumer; stdlib-only, runs on a bare install
+weighted-compact recap --all            # task-segmented map of every session + invariant audit
+
+# compaction substrate (honest-null on fidelity; kept for the substrate-vs-summary result)
+weighted-compact bootstrap --full       # extract pairs + build the full signal substrate
+weighted-compact mcp-serve              # local stdio MCP for Claude Desktop / IDE clients
 ```
 
 → [Docker / Windows install](docs/docker-install.md) ·
@@ -882,21 +897,23 @@ Platform matrix: [`docs/install.md`](docs/install.md).
 
 | Component | Status |
 |---|---|
-| Substrate builder (parse sessions, embed, decorate with 6 signals) | shipped |
-| Importance ranker (6-signal mixture — used by compaction reader) | shipped |
-| Labeling UI (CAPTCHA-style, anti-drift) | shipped |
-| Compaction reader (`build_compacted_context()` library + `qa-gate` harness) | shipped |
-| Standalone session-start delivery CLI (W2 ambient render) | next (`v0.2.x`) |
+| **Recap reader** (`weighted-compact recap`) | **shipped — provably faithful: 4 invariants, 986/986 sessions; stdlib-only; ~5 ms/session** |
+| Substrate builder (parse sessions, embed, decorate with 5 automatic signals + optional label) | shipped |
+| Importance ranker (signal mixture — used by compaction reader) | shipped — **but no measured fidelity edge over recency/bm25; do not read it as a quality win** |
+| Compaction reader (`build_compacted_context()` library + `qa-gate` harness) | shipped — proves substrate-vs-summary (~3.5×), not mixture-vs-baseline |
+| Schema extraction (`weighted-compact schema`) | shipped — 14/20 strict MATCH = 70% (same-model judge); cross-model judge drops to 1/20 → judge-calibration is the open problem |
+| Labeling UI (CAPTCHA-style, anti-drift) | shipped — optional; the human-control→fidelity path measured null, kept for users who want a manual track |
 | Fidelity check (cross-family judge, Sonnet baseline measured 2026-05-21) | shipped |
-| Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | measured 2026-05-21 — see [Headline](#headline-compaction-consumer) |
-| Substrate consumed by external readers (misstep / narrative / FKMF / foreign-model) | substrate format stable; readers private — see [Consumers reading this substrate today](#consumers-reading-this-substrate-today) |
-| Cross-session correlation reader (corrections accumulate across sessions) | `v0.3` direction |
-| Schema extraction (third retrieval tier — `weighted-compact schema {build-bank,run,all}`) | shipped beta `v0.2.0b3` — 14/20 strict MATCH = 70% on maintainer 20-case bank with same-model judge (gate ≥60% PASS by 10pp); cross-model judge drops to 1/20, surfaces judge-calibration as the next problem to solve |
+| Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | measured 2026-05-21 — see [How it compares](#how-it-compares) |
+| Standalone session-start delivery CLI (ambient render) | next |
+| Cross-session correlation reader (corrections accumulate across sessions) | direction |
 
-Beta. Memory builder, ranker, labeler, and fidelity check work
-end-to-end on a real corpus. Architectural invariants are locked; the
-numbers around them are not. Schema may still shift between beta
-releases; migration notes in `CHANGELOG.md`.
+**Alpha.** Honest label: this wore `beta` before it had the results to back
+it. What works end-to-end on a real corpus: the recap reader (with its audit),
+the substrate builder, the compaction reader and its fidelity harness, schema
+extraction. What is *not* a win and is marked as such: the importance mixture
+beating cheap baselines. Architectural invariants are locked; the numbers
+around them are not. Migration notes in `CHANGELOG.md`.
 
 Contributor-grade full component table (17 rows): [`docs/status.md`](docs/status.md).
 
