@@ -75,15 +75,15 @@ Every figure here is re-checkable on your own corpus, and each carries its
 own asterisk in plain sight — the project's stance is that an honest number
 beats a flattering one.
 
-- **985 / 985** sessions pass all four recap faithfulness invariants —
+- **986 / 986** sessions pass all four recap faithfulness invariants —
   coverage · conservation · provenance · determinism
   (`weighted-compact recap --all`). This proves the map does not *lie*
   about the session — not that it is the optimal summary.
 - **~5 ms / session** — 646 MB of transcripts mapped in 5.0 s, standard
   library only (no numpy, no model, no judge in the recap path).
 - **0** outbound network calls · **0 MB** idle RAM — the first is enforced
-  by the [`outbound-zero`](#) CI workflow, the second because nothing runs
-  between invocations.
+  by the [`outbound-zero`](https://github.com/zzallirog/weighted-compact/actions/workflows/outbound-zero.yml)
+  CI workflow, the second because nothing runs between invocations.
 - Querying the substrate beats a one-pass LLM summary by **~3.5×** on
   reconstruction fidelity (11.3 % vs 3.2 %, N=62, gemma3 judge). That is
   the one axis with a measured edge; the importance **mixture** does *not*
@@ -162,8 +162,8 @@ every day. See [`docs/rem-decay.md`](docs/rem-decay.md).
 | Consumer | What it does with the substrate | Status |
 |---|---|---|
 | **Compaction layer** — `build_compacted_context_with_meta()` | top-K importance selection → markdown context + budget meta (chars, tokens, top-3 signals). Exercised via the `qa-gate` evaluation harness; standalone session-start delivery is the next-targeted feature. | **shipped — library + harness + MCP tool** |
-| **Schema extraction** — third retrieval tier | extracts reusable `(trigger, rule, anti-pattern, stable_since)` rules from your memory dir; sits above chunk/episode retrieval as the cheap top-tier — when a recurring pattern fires, you get the rule, not raw chunks | **shipped — v0.2.0b3, `weighted-compact schema {build-bank,run,all}`; honest first proof: 14/20 strict MATCH = 70 % (see [`docs/schema-extraction.md`](docs/schema-extraction.md))** |
-| **Recap** — task-segmented navigation map | reads the same session source and renders, per task, the files touched (with a `+adds/−rems` diffstat), the commands run, and the verbatim outcome line. A deliberately **lossy** map — not reconstructable — but the one consumer whose quality claim is *positive and provable*: four faithfulness invariants re-checked on every session. | **shipped — `weighted-compact recap [SESSION] [--audit] [--all]`; audit holds on 985/985 of the maintainer's sessions (see [`docs/recap.md`](docs/recap.md))** |
+| **Schema extraction** — third retrieval tier | extracts reusable `(trigger, rule, anti-pattern, stable_since)` rules from your memory dir; sits above chunk/episode retrieval as the cheap top-tier — when a recurring pattern fires, you get the rule, not raw chunks | **shipped — `weighted-compact schema {build-bank,run,all}`; honest first proof: 14/20 strict MATCH = 70 % same-model judge (cross-model drops to 1/20) (see [`docs/schema-extraction.md`](docs/schema-extraction.md))** |
+| **Recap** — task-segmented navigation map | reads the same session source and renders, per task, the files touched (with a `+adds/−rems` diffstat), the commands run, and the verbatim outcome line. A deliberately **lossy** map — not reconstructable — but the one consumer whose quality claim is *positive and provable*: four faithfulness invariants re-checked on every session. | **shipped — `weighted-compact recap [SESSION] [--audit] [--all]`; audit holds on 986/986 of the maintainer's sessions (see [`docs/recap.md`](docs/recap.md))** |
 
 Three consumers ship in this repo today. Four additional readers are in
 flight in adjacent projects (misstep, session-narrative, FKMF,
@@ -344,7 +344,7 @@ four invariants:
 
 Extraction is fully deterministic — no LLM, no judge. The outcome line is
 a quoted excerpt of the assistant's own final message, not a summary.
-Across the maintainer's corpus the audit holds on **985/985** sessions
+Across the maintainer's corpus the audit holds on **986/986** sessions
 (`weighted-compact recap --all`).
 
 For lossless archival of the raw logs, recap is the wrong tool — a
@@ -495,7 +495,7 @@ remaining weights are uncharted; that is the open ablation grid.
 for the full ablation table, reproduce on your own corpus, file an issue
 with the sign agreement (or disagreement) across your sessions.
 
-→ [Results](#headline-compaction-consumer) · [`docs/05-roadmap.md`](docs/05-roadmap.md)
+→ [Results](#how-it-compares) · [`docs/05-roadmap.md`](docs/05-roadmap.md)
 
 ---
 
@@ -563,7 +563,7 @@ independently-trained model families cross-checking each other. Zero
 outbound calls on either path.
 
 *Would make this irrelevant to you:* you noticed Sonnet 4.6 in the
-results table. Yes — the calibration in [Headline](#headline-compaction-consumer) is a
+results table. Yes — the calibration in [Headline](#how-it-compares) is a
 maintainer-side one-time cloud-judge run, explicitly disclosed. Users
 who want a Sonnet-grade verdict opt in to their own API key; the
 default binds nothing.
@@ -667,9 +667,11 @@ the weighted-sum mixture in part for exactly this property.
   the direction of effects should reproduce, the magnitudes likely will
   not.
 
-- **Four of five substrate consumers are not shipped here.** misstep,
-  session-narrative, FKMF, misstep-foreign-models are listed in the
-  consumer table because they exist and they read this substrate format.
+- **Most substrate consumers are not shipped here.** Three do ship —
+  compaction, schema extraction, and recap; misstep, session-narrative,
+  FKMF, and misstep-foreign-models are listed in the consumer table because
+  they exist and read this substrate format, but their code lives in
+  adjacent projects.
   They are not packaged in this repo and they are not publicly
   available. They support the architectural claim ("the substrate has
   more than one reader"); they do not give you running tools today.
@@ -811,7 +813,7 @@ loop, watch Δfidelity — the loop tells you whether your version helped.
 | Pair extractor | `extract_pairs.py` walks `~/.claude/projects/` | Any source producing `pairs.jsonl` with the documented schema |
 | Embedder | `intfloat/multilingual-e5-small` (384-dim) | bge-m3, qwen3-emb, gte-multilingual, any sentence-transformer |
 | Density features | 16 regex signals | Your own regex bag, LM-derived features, custom entropy variants |
-| Misstep predictor | logistic regression on stumble events (per-user) | Any model returning `P(stumble)` per pair |
+| Misstep predictor *(not shipped)* | removed in v0.3.0a1 — held-out AUC near chance | optional overlay: plug any model returning `P(stumble)` per pair |
 | Span tier set | KEEP / MAYBE / SKIP / THINK | Locked at 4 in current schema |
 | Topic segmenter | sliding-window cosine on e5 vectors | BERTopic, supervised classifier, your own boundary detector |
 | Importance composer | weighted sum of 6 signals | Custom mixture, additional signals, GBM ensemble |
@@ -828,12 +830,12 @@ loop, watch Δfidelity — the loop tells you whether your version helped.
 Three concrete invitations. The fastest way to understand the system is to
 run it against your own corpus and watch the numbers move.
 
-**Q1 — Find your own stumble.** Bootstrap. Open the labeler. Sort by
-`misstep_score` descending. Top five pairs should be moments where you
-corrected the model sharply and the conversation stabilised after. Were
-they? If yes, the predictor caught your stumbles. If not, your corpus is
-below the training threshold — keep using Claude Code and re-bootstrap
-in a week.
+**Q1 — Audit your own sessions.** `pipx install --pre weighted-compact`,
+then `weighted-compact recap --all`. Every session collapses to a
+task-segmented map and the four faithfulness invariants are re-checked in
+front of you — does the map account for every tool call and every message,
+with no fabricated path? That is the one positive, checkable claim the
+project makes; verify it on *your* corpus, not the maintainer's.
 
 **Q2 — Reproduce the label-weight ablation on your own corpus.** Maintainer
 corpus, gemma3-judged, N=57 paired: Δ=+0.053, sign positive in 3/3 corpora.
