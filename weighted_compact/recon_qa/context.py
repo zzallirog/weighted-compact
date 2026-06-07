@@ -199,7 +199,10 @@ def load_manifesto(labels_path: Path | None = None) -> dict[int, str]:
             line = line.strip()
             if not line:
                 continue
-            r = json.loads(line)
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
             last[int(r['pair_idx'])] = r.get('label', 'skip')
     return {pid: lab for pid, lab in last.items() if lab in ('keep', 'skip')}
 
@@ -293,7 +296,8 @@ def build_compacted_context(source_pair_idx, pairs, scoring, k_drop=0.5,
     else:
         scores = scoring
 
-    source_pair = pairs[source_pair_idx]
+    _pair_by_idx = {p['pair_idx']: p for p in pairs}
+    source_pair = _pair_by_idx[source_pair_idx]
     sess = source_pair['session_id']
     session_pairs = [
         p for p in pairs
@@ -365,7 +369,8 @@ def build_compacted_context_with_meta(
         query=query, rem_decay_map=rem_decay_map, manifesto=manifesto,
     )
 
-    source_pair = pairs[source_pair_idx]
+    _pair_by_idx = {p['pair_idx']: p for p in pairs}
+    source_pair = _pair_by_idx[source_pair_idx]
     sess = source_pair['session_id']
     session_pairs = [
         p for p in pairs

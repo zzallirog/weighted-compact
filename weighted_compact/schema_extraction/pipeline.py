@@ -49,9 +49,6 @@ def _resolve_ref(ref: str, roots: list[Path]) -> Path | None:
         nested = root / ref / "HANDOFF.md"
         if nested.exists():
             return nested
-        nested_md = root / f"{ref}.md"
-        if nested_md.exists():
-            return nested_md
     home_claude = Path.home() / "CLAUDE.md"
     if ref in ("CLAUDE.md", "~/CLAUDE.md") and home_claude.exists():
         return home_claude

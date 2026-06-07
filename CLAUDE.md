@@ -4,8 +4,11 @@
 > this checkout, read this file first and then jump to the relevant subdir.
 > Do not read every file — use the map below.
 
-**Repo version:** v0.2.0-beta.3 (cut 2026-05-26; baseline run 2026-05-21)
-**Status:** beta. Architectural invariants locked. Numbers tunable.
+**Repo version:** v0.2.0 (alpha; baseline run 2026-05-21)
+**Status:** alpha — the prior `beta` label was premature. Architectural
+invariants locked; numbers tunable. The one consumer with a positive,
+re-checkable result is `recap.py` (see README); the importance mixture has no
+measured fidelity edge and is documented as such.
 
 ---
 
@@ -60,7 +63,8 @@ weighted-compact/
 ├── CLAUDE.md                       ← you are here
 │
 ├── weighted_compact/                package
-│   ├── tool.py                      CAPTCHA labeler — FastAPI app + UI
+│   ├── recap.py                     ⭐ recap reader — task-segmented map + 4-invariant audit (stdlib-only)
+│   ├── tool.py                      CAPTCHA labeler — FastAPI app + UI (optional; control→fidelity measured null)
 │   ├── recon_qa/                    reconstruction-QA package (5 black boxes)
 │   │   ├── __init__.py
 │   │   ├── _constants.py            shared config (model names, paths, lazy imports)
@@ -69,12 +73,11 @@ weighted-compact/
 │   │   ├── judge.py                 semantic verdict: question + truth + predicted → yes/no/other
 │   │   ├── gate.py                  difficulty classifier: QA entries → trivial/informative/impossible
 │   │   └── fidelity.py              eval loop: run all QA entries, return per-entry results
-│   ├── importance.py                six-signal mixture
+│   ├── importance.py                signal mixture (no measured fidelity edge — see README)
 │   ├── extract_pairs.py             session walker (~/.claude/projects/)
 │   ├── feature_extract.py           e5 embeddings → features.npz
 │   ├── density_features.py          density signal extractor
 │   ├── span_features.py             char-fraction matrix from annotations
-│   ├── misstep_score.py             P(stumble) per pair (optional, needs misstep substrate)
 │   ├── topic_segments.py            unsupervised sliding-window cohesion
 │   ├── label_pairs.py               CLI labeler (emergency fallback)
 │   ├── auto_label.py                bootstrap labels from inline markers

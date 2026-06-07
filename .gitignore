@@ -64,3 +64,24 @@ venv/
 # Claude Code session state — never publish
 .claude/
 .claude-work/
+
+# Mooted research modules (β-schedule / CMA search / CV / COM-shift / replay /
+# sandbox / ablation). Kept on disk for the maintainer's exploration but never
+# shipped — the importance-mixture hypothesis they served came back null.
+weighted_compact/beta_schedule.py
+weighted_compact/beta_search.py
+weighted_compact/cv_harness.py
+weighted_compact/com_shift.py
+weighted_compact/replay_eval.py
+weighted_compact/sandbox_probe.py
+weighted_compact/ablation_axes.py
+tests/test_beta_schedule.py
+tests/test_beta_search.py
+tests/test_cv_harness.py
+tests/test_sandbox_probe.py
+
+# Syncthing internals + root-level research scripts (never shipped)
+.stfolder/
+.stignore
+/ablation_axes.py
+/sandbox_probe.py

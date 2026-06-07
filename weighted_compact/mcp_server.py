@@ -263,7 +263,7 @@ def _tool_substrate_info() -> dict[str, Any]:
         try:
             pairs = load_pairs()
             info["pair_count"] = len(pairs)
-            info["session_count"] = len({p.get("session_id") for p in pairs})
+            info["session_count"] = len({p.get("session_id") for p in pairs if p.get("session_id")})
         except Exception as exc:  # noqa: BLE001
             info["pairs_error"] = str(exc)
 

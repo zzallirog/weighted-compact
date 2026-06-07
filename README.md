@@ -2,52 +2,62 @@
 
 # weighted-compact
 
-**A local, inspectable memory substrate built from your own Claude Code
-corrections.**
+**A local, inspectable substrate over your own Claude Code sessions — with a
+provably faithful recap on top.**
 
-It reads `~/.claude/projects/`, scores each correction-bearing turn with six
-signals you can read as plain `numpy` columns, and assembles a compacted
-markdown context for recall. Local-first, zero outbound network, no daemon,
-no auto-injection — the substrate is an artifact you own and can inspect, not
-an opaque store.
+It reads `~/.claude/projects/` and turns it into an artifact you own: each
+correction-bearing turn scored as plain `numpy` columns, and a task-segmented
+**recap** of every session whose faithfulness is re-checkable, not asserted.
+Local-first, zero outbound network, no daemon, no auto-injection.
 
-> **Honest scope.** This is a *transparency and locality* tool, not a proven
-> better compressor. On reconstruction-fidelity it has **not** been shown to
-> beat cheap baselines (recency, bm25) — see [How it compares](#how-it-compares).
-> Reach for it if you want a local, inspectable, personal substrate; reach for
-> a convenient drop-in like claude-mem if you just want set-and-forget recall.
+> **Honest scope (alpha).** This carried a `beta` badge before it had earned
+> one; it does not anymore. Two claims, kept apart so neither borrows the
+> other's credibility:
+>
+> - **recap** — a lossy navigation map of a session — is *provably faithful*:
+>   four invariants (coverage · conservation · provenance · determinism)
+>   re-checked on **986/986** of the maintainer's sessions
+>   (`weighted-compact recap --all`). This is the consumer with a positive,
+>   checkable result.
+> - **compaction** — selecting turns so a judge can still answer questions
+>   about what was hidden — has **no measured edge** over cheap baselines
+>   (recency, bm25). We say so, with the numbers, in
+>   [How it compares](#how-it-compares).
+>
+> Reach for this if you want a local substrate you can *audit*; reach for a
+> drop-in like claude-mem if you want set-and-forget recall.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![v0.2.0-beta.3](https://img.shields.io/badge/release-v0.2.0--beta.3-yellow)](CHANGELOG.md)
+[![status: alpha](https://img.shields.io/badge/status-alpha-orange)](#status)
 [![outbound-zero](https://github.com/zzallirog/weighted-compact/actions/workflows/outbound-zero.yml/badge.svg)](https://github.com/zzallirog/weighted-compact/actions/workflows/outbound-zero.yml)
 
 </div>
 
 ```
-   ~/.claude/projects/                    6 signals (5 automatic + 1 optional label)
-   ┌──────────────────┐                  ┌────────────────────┐
-   │ session_1.jsonl  │  ──bootstrap──▶  │ density (backbone) │
-   │ session_2.jsonl  │                  │ label (optional)   │  ─importance.npz─┐
-   │     ...          │                  │ span_keep / maybe  │                  │
-   │ session_N.jsonl  │                  │ span_skip / think  │                  ▼
-   └──────────────────┘                  └────────────────────┘       ┌──────────────────┐
-                                                  │                   │  compacted       │
-                                             × topic_decay ──────────▶│  markdown        │
-                                          (multiplier, nightly)       │  + budget meta   │
-                                              REM-decay               └──────────────────┘
-                                          (nightly, wall-clock)                ▲
-                                                                               │
-                                                                          MCP / CLI
-                                                                          (you query
-                                                                           with intent)
+  ~/.claude/projects/          ┌─ recap ─────────────────────────────────┐
+  ┌──────────────────┐         │ task-segmented map: per-task files +     │  ⭐ provably faithful
+  │ session_1.jsonl  │────┬───▶│ diffstat, commands, verbatim outcome     │     4 invariants · 986/986
+  │ session_2.jsonl  │    │    │ + `--audit` (stdlib-only, ~5 ms/session) │     (lossy navigation map)
+  │     ...          │    │    └──────────────────────────────────────────┘
+  │ session_N.jsonl  │    │
+  └──────────────────┘    │    ┌─ substrate ───────────┐   ┌─ compaction ─────┐
+                          └───▶│ 5 auto signals + opt.  │──▶│ top-K markdown    │  honest-null:
+                               │ label → importance.npz │   │ + budget meta     │  no fidelity edge
+                               │ × topic-decay / REM    │   │ (MCP / CLI)       │  over recency/bm25
+                               └────────────────────────┘   └──────────────────┘
 ```
 
 ```bash
-# 30-second install — six signals (five automatic + one optional label), no labeling step required
+# 30-second install
 pipx install 'weighted-compact[mcp]'
-weighted-compact bootstrap --full # extract pairs + build the full signal substrate (importance.npz)
-weighted-compact mcp-serve        # local stdio MCP for Claude Desktop / IDE clients
+
+# recap — the provably-faithful consumer; stdlib-only, runs on a bare install
+weighted-compact recap --all            # task-segmented map of every session + invariant audit
+
+# compaction substrate (honest-null on fidelity; kept for the substrate-vs-summary result)
+weighted-compact bootstrap --full       # extract pairs + build the full signal substrate
+weighted-compact mcp-serve              # local stdio MCP for Claude Desktop / IDE clients
 ```
 
 → [Docker / Windows install](docs/docker-install.md) ·
@@ -56,6 +66,32 @@ weighted-compact mcp-serve        # local stdio MCP for Claude Desktop / IDE cli
 [Stability promise](docs/stability.md) ·
 [Extension recipe](docs/extension-recipe.md) ·
 [Pick your door](#pick-your-door)
+
+---
+
+## By the numbers
+
+Every figure here is re-checkable on your own corpus, and each carries its
+own asterisk in plain sight — the project's stance is that an honest number
+beats a flattering one.
+
+- **985 / 985** sessions pass all four recap faithfulness invariants —
+  coverage · conservation · provenance · determinism
+  (`weighted-compact recap --all`). This proves the map does not *lie*
+  about the session — not that it is the optimal summary.
+- **~5 ms / session** — 646 MB of transcripts mapped in 5.0 s, standard
+  library only (no numpy, no model, no judge in the recap path).
+- **0** outbound network calls · **0 MB** idle RAM — the first is enforced
+  by the [`outbound-zero`](#) CI workflow, the second because nothing runs
+  between invocations.
+- Querying the substrate beats a one-pass LLM summary by **~3.5×** on
+  reconstruction fidelity (11.3 % vs 3.2 %, N=62, gemma3 judge). That is
+  the one axis with a measured edge; the importance **mixture** does *not*
+  beat cheap baselines at this N, and the [comparison
+  table](#the-methodology-is-inspectable) says so.
+- recap shrinks a session **~180×** — as a **lossy** navigation map, not a
+  reconstructable archive. For lossless archival, `zstd -19` (~3×) wins and
+  this repo points you to it rather than shipping a weaker custom fold.
 
 ---
 
@@ -127,13 +163,23 @@ every day. See [`docs/rem-decay.md`](docs/rem-decay.md).
 |---|---|---|
 | **Compaction layer** — `build_compacted_context_with_meta()` | top-K importance selection → markdown context + budget meta (chars, tokens, top-3 signals). Exercised via the `qa-gate` evaluation harness; standalone session-start delivery is the next-targeted feature. | **shipped — library + harness + MCP tool** |
 | **Schema extraction** — third retrieval tier | extracts reusable `(trigger, rule, anti-pattern, stable_since)` rules from your memory dir; sits above chunk/episode retrieval as the cheap top-tier — when a recurring pattern fires, you get the rule, not raw chunks | **shipped — v0.2.0b3, `weighted-compact schema {build-bank,run,all}`; honest first proof: 14/20 strict MATCH = 70 % (see [`docs/schema-extraction.md`](docs/schema-extraction.md))** |
+| **Recap** — task-segmented navigation map | reads the same session source and renders, per task, the files touched (with a `+adds/−rems` diffstat), the commands run, and the verbatim outcome line. A deliberately **lossy** map — not reconstructable — but the one consumer whose quality claim is *positive and provable*: four faithfulness invariants re-checked on every session. | **shipped — `weighted-compact recap [SESSION] [--audit] [--all]`; audit holds on 985/985 of the maintainer's sessions (see [`docs/recap.md`](docs/recap.md))** |
 
-Both consumers ship in this repo today. Four additional readers are in
+Three consumers ship in this repo today. Four additional readers are in
 flight in adjacent projects (misstep, session-narrative, FKMF,
 misstep-foreign-models) — see
 [`docs/consumers-roadmap.md`](docs/consumers-roadmap.md) for their
 status. They are listed there, not here, because nothing about
 *this repo*'s install path depends on them.
+
+Recap earns a note the other two do not. Compaction's honest result is a
+*null* — it ties cheap baselines on reconstruction fidelity (the table in
+[The methodology is inspectable](#the-methodology-is-inspectable) states
+this plainly). Recap is the inverse case: it makes no fidelity claim at
+all — for lossless archival you would `gzip`/`zstd` the raw `.jsonl` and
+get ~3× — but for the *navigation* job it does claim, the claim is
+checkable and it checks. See [Recap: faithful, not
+lossless](#recap-faithful-not-lossless).
 
 ---
 
@@ -260,6 +306,54 @@ to-apples comparison is filed under v0.3.
 
 Numbers are this corpus; the methodology reproduces on any user's
 substrate.
+
+---
+
+## Recap: faithful, not lossless
+
+Compaction tries to *select* which turns to keep so the rest can still
+answer questions — a fidelity problem, and the table above is honest that
+the mixture has no measured edge there. Recap does not play that game. It
+asks a different question — *what happened across this session, task by
+task* — and answers it as a **lossy navigation map**: per task, the goal,
+the files touched with a `+adds/−rems` diffstat, the commands run, and the
+verbatim final outcome line.
+
+```text
+## 8. on sharp new loads it needs 5 ticks to settle, then it's near-instant…
+`11×Bash, 10×Edit, 7×Read, 5×TaskCreate, 2×Write`   net `+557/−8`
+
+  🟩🟩🟩🟩🟩 `+198 −0  ` ~/coolstep/coolstep/core/spike_detector.py        (write)
+  🟩🟩🟩🟩🟩 `+148 −4  ` ~/coolstep/tests/test_spike_detector.py           (edit+write)
+  🟩🟩🟩🟩🟩 `+94  −0  ` ~/coolstep/coolstep/daemon.py                     (edit)
+  cmd: `pytest tests/test_spike_detector.py -v` · `rg -n "WorkloadProfile"` …
+  → Done, commit 599cfcd. spike_detector.py — state machine enters at |res|≥5°C ×2 ticks…
+```
+
+A lossy map cannot be checked by reconstruction. It **can** be checked for
+faithfulness, and that is the whole point of shipping it here rather than
+as a one-off script. `recap --audit` re-derives, from an independent pass,
+four invariants:
+
+| Invariant | What it rules out |
+|---|---|
+| **I1 coverage** — every message record lands in exactly one task segment | silent drops |
+| **I2 conservation** — per-tool counts over segments equal the raw transcript | a tool call lost or double-counted |
+| **I3 provenance** — every path / command shown is a verbatim transcript member | fabrication |
+| **I4 determinism** — a second pass recomputes every diffstat to the same integers | guessed numbers |
+
+Extraction is fully deterministic — no LLM, no judge. The outcome line is
+a quoted excerpt of the assistant's own final message, not a summary.
+Across the maintainer's corpus the audit holds on **985/985** sessions
+(`weighted-compact recap --all`).
+
+For lossless archival of the raw logs, recap is the wrong tool — a
+general compressor wins: `zstd -19` gives ~3× and round-trips exactly,
+while a hand-built structural fold measured **1.8×** (it loses to the
+compressor because the redundancy a content-dedup catches is ~1.1× and
+the cross-session redundancy is better caught by zstd's large window).
+Recap's ~180× shrink is *lossy* — it is a map, not the territory, and the
+audit guarantees the map does not lie about the territory.
 
 ---
 
@@ -798,21 +892,23 @@ Platform matrix: [`docs/install.md`](docs/install.md).
 
 | Component | Status |
 |---|---|
-| Substrate builder (parse sessions, embed, decorate with 6 signals) | shipped |
-| Importance ranker (6-signal mixture — used by compaction reader) | shipped |
-| Labeling UI (CAPTCHA-style, anti-drift) | shipped |
-| Compaction reader (`build_compacted_context()` library + `qa-gate` harness) | shipped |
-| Standalone session-start delivery CLI (W2 ambient render) | next (`v0.2.x`) |
+| **Recap reader** (`weighted-compact recap`) | **shipped — provably faithful: 4 invariants, 986/986 sessions; stdlib-only; ~5 ms/session** |
+| Substrate builder (parse sessions, embed, decorate with 5 automatic signals + optional label) | shipped |
+| Importance ranker (signal mixture — used by compaction reader) | shipped — **but no measured fidelity edge over recency/bm25; do not read it as a quality win** |
+| Compaction reader (`build_compacted_context()` library + `qa-gate` harness) | shipped — proves substrate-vs-summary (~3.5×), not mixture-vs-baseline |
+| Schema extraction (`weighted-compact schema`) | shipped — 14/20 strict MATCH = 70% (same-model judge); cross-model judge drops to 1/20 → judge-calibration is the open problem |
+| Labeling UI (CAPTCHA-style, anti-drift) | shipped — optional; the human-control→fidelity path measured null, kept for users who want a manual track |
 | Fidelity check (cross-family judge, Sonnet baseline measured 2026-05-21) | shipped |
-| Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | measured 2026-05-21 — see [Headline](#headline-compaction-consumer) |
-| Substrate consumed by external readers (misstep / narrative / FKMF / foreign-model) | substrate format stable; readers private — see [Consumers reading this substrate today](#consumers-reading-this-substrate-today) |
-| Cross-session correlation reader (corrections accumulate across sessions) | `v0.3` direction |
-| Schema extraction (third retrieval tier — `weighted-compact schema {build-bank,run,all}`) | shipped beta `v0.2.0b3` — 14/20 strict MATCH = 70% on maintainer 20-case bank with same-model judge (gate ≥60% PASS by 10pp); cross-model judge drops to 1/20, surfaces judge-calibration as the next problem to solve |
+| Baseline comparison harness (6 rankers + mixture, incl. `/compact` sim) | measured 2026-05-21 — see [How it compares](#how-it-compares) |
+| Standalone session-start delivery CLI (ambient render) | next |
+| Cross-session correlation reader (corrections accumulate across sessions) | direction |
 
-Beta. Memory builder, ranker, labeler, and fidelity check work
-end-to-end on a real corpus. Architectural invariants are locked; the
-numbers around them are not. Schema may still shift between beta
-releases; migration notes in `CHANGELOG.md`.
+**Alpha.** Honest label: this wore `beta` before it had the results to back
+it. What works end-to-end on a real corpus: the recap reader (with its audit),
+the substrate builder, the compaction reader and its fidelity harness, schema
+extraction. What is *not* a win and is marked as such: the importance mixture
+beating cheap baselines. Architectural invariants are locked; the numbers
+around them are not. Migration notes in `CHANGELOG.md`.
 
 Contributor-grade full component table (17 rows): [`docs/status.md`](docs/status.md).
 

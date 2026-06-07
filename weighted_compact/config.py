@@ -80,7 +80,6 @@ SUGGEST_AUDIT = "random_suggest_audit.jsonl"
 
 FEATURES_FILE = "features.npz"
 FEATURES_DENSITY_FILE = "features_density.npz"
-FEATURES_MISSTEP_FILE = "features_misstep.npz"
 FEATURES_SPANS_FILE = "features_spans.npz"
 TOPIC_SEGMENTS_FILE = "topic_segments.npz"
 IMPORTANCE_FILE = "importance.npz"
@@ -105,7 +104,6 @@ def disagreement_queue_path() -> Path: return workdir() / DISAGREEMENT_QUEUE
 def suggest_audit_path() -> Path: return workdir() / SUGGEST_AUDIT
 def features_path() -> Path: return workdir() / FEATURES_FILE
 def features_density_path() -> Path: return workdir() / FEATURES_DENSITY_FILE
-def features_misstep_path() -> Path: return workdir() / FEATURES_MISSTEP_FILE
 def features_spans_path() -> Path: return workdir() / FEATURES_SPANS_FILE
 def topic_segments_path() -> Path: return workdir() / TOPIC_SEGMENTS_FILE
 def importance_path() -> Path: return workdir() / IMPORTANCE_FILE
@@ -119,7 +117,12 @@ def rem_decay_path() -> Path: return workdir() / REM_DECAY_FILE
 def labeler_port() -> int:
     raw = os.environ.get("WEIGHTED_COMPACT_PORT")
     if raw:
-        return int(raw)
+        try:
+            return int(raw)
+        except ValueError:
+            raise SystemExit(
+                f"WEIGHTED_COMPACT_PORT must be an integer, got {raw!r}"
+            ) from None
     return 18890
 
 
