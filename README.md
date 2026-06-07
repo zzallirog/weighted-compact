@@ -385,7 +385,7 @@ supported by these readers existing and reading it at all, not by a
 benchmark on this README.
 
 Six signals compose into one importance score: density features as
-backbone (sixteen regex signals, rank-normalised), four span tiers (keep /
+backbone (16 density columns — 8 features × premise/correction, rank-normalised), four span tiers (keep /
 maybe / skip / think), one sparse human label — modulated by an unsupervised
 topic-decay multiplier applied on top of the mixture.
 Vectors first; the importance mixture is a refinement layer, not a gatekeeper.
@@ -843,7 +843,7 @@ loop, watch Δfidelity — the loop tells you whether your version helped.
 |---|---|---|
 | Pair extractor | `extract_pairs.py` walks `~/.claude/projects/` | Any source producing `pairs.jsonl` with the documented schema |
 | Embedder | `intfloat/multilingual-e5-small` (384-dim) | bge-m3, qwen3-emb, gte-multilingual, any sentence-transformer |
-| Density features | 16 regex signals | Your own regex bag, LM-derived features, custom entropy variants |
+| Density features | 16 columns (8 features × 2 sides), 5 base regexes | Your own regex bag, LM-derived features, custom entropy variants |
 | Misstep predictor *(not shipped)* | removed in v0.3.0a1 — held-out AUC near chance | optional overlay: plug any model returning `P(stumble)` per pair |
 | Span tier set | KEEP / MAYBE / SKIP / THINK | Locked at 4 in current schema |
 | Topic segmenter | sliding-window cosine on e5 vectors | BERTopic, supervised classifier, your own boundary detector |

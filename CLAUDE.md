@@ -4,7 +4,7 @@
 > this checkout, read this file first and then jump to the relevant subdir.
 > Do not read every file — use the map below.
 
-**Repo version:** v0.2.0 (alpha; baseline run 2026-05-21)
+**Repo version:** v0.3.0a1 (alpha; baseline run 2026-05-21)
 **Status:** alpha — the prior `beta` label was premature. Architectural
 invariants locked; numbers tunable. The one consumer with a positive,
 re-checkable result is `recap.py` (see README); the importance mixture has no

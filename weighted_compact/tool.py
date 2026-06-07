@@ -1153,7 +1153,7 @@ PAGE_HTML = """<!doctype html>
     <label style="font-size:12px;color:var(--fg-dim);margin-left:14px">
       ranker
       <select id="ranker" style="background:var(--bg3);color:var(--fg);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px">
-        <option value="importance">importance (Phase 4C: misstep+span+density+label)</option>
+        <option value="importance">importance (6-signal: density+label+spans)</option>
         <option value="density">density (legacy)</option>
       </select>
     </label>
@@ -1225,7 +1225,7 @@ const I18N = {
     'cheat.recon.eval.line2': 'result: <b>% pass</b> = how much the pipeline preserved after compression.',
     'cheat.recon.controls.label': 'Controls',
     'cheat.recon.controls.line1': '<b>k_drop</b> — fraction of pairs we hide. <code>0.5</code> = half. Higher = harsher, stress test.',
-    'cheat.recon.controls.line2': '<b>ranker</b> — <code>importance</code> (4C: misstep+density+label+span) or <code>density</code> (legacy) for A/B.',
+    'cheat.recon.controls.line2': '<b>ranker</b> — <code>importance</code> (6-signal: density+label+spans) or <code>density</code> (legacy) for A/B.',
     'cheat.recon.controls.line3': '<b>topic_decay</b> (4E) — embedding-based topic-shift drop. <code>1.0</code> off, <code>0.5</code> half-weight on topic change, <code>0.0</code> cuts everything outside. No classifier, pure cohesion geometry.',
     'loading': 'Loading...',
     'build.heading': 'Build set — add Q&A',
