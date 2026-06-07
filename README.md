@@ -527,9 +527,9 @@ with the sign agreement (or disagreement) across your sessions.
 
 ### 🔧 &nbsp; If you write code and want a substrate you can extend
 
-Eight modules, eight black-box contracts (input, output, entry point,
-dependencies). Each contract is at the top of its own file. Replace any
-single box without touching the rest, as long as the I/O shape holds.
+Independent modules, each a black-box contract (input, output, entry
+point, dependencies) at the top of its own file. Replace any single box
+without touching the rest, as long as the I/O shape holds.
 
 *Would make this irrelevant to you:* you want a finished tool with a
 config UI. This is a workbench. The contract surface is named and
@@ -948,7 +948,7 @@ Contributor-grade full component table (17 rows): [`docs/status.md`](docs/status
 | File | Topic |
 |---|---|
 | [`docs/01-substrate.md`](docs/01-substrate.md) | Your sessions as a self-distillation corpus |
-| [`docs/02-pipeline.md`](docs/02-pipeline.md) | Eight modules as black boxes, box by box |
+| [`docs/02-pipeline.md`](docs/02-pipeline.md) | Pipeline modules as black boxes, box by box |
 | [`docs/03-quality-driver.md`](docs/03-quality-driver.md) | Why fidelity, not compression ratio |
 | [`docs/04-grep-vs-judge.md`](docs/04-grep-vs-judge.md) | Two-tier signal economics: cheap regex vs LLM judge |
 | [`docs/05-roadmap.md`](docs/05-roadmap.md) | Open items, honest forward look, 2026-05-21 baseline |
