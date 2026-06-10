@@ -68,18 +68,18 @@ re-parses the file and re-tallies tools, diffstats, paths, and commands
 from scratch, then compares totals. A bug in segmentation or attribution
 shows up as a mismatch.
 
-Across the maintainer's corpus the audit holds on **986/986** sessions
+Across the maintainer's corpus the audit holds on **1007/1007** sessions
 (`weighted-compact recap --all`). On any other corpus the same command
 either passes or names the session and invariant that failed.
 
 ```text
 $ weighted-compact recap --all
-all-invariants pass: 986/986
-  I1_coverage      986/986
-  I2_conservation  986/986
-  I3_provenance    986/986
-  I4_determinism   986/986
-  corpus 645.8 MB → 3.67 MB = 176× smaller
+all-invariants pass: 1007/1007
+  I1_coverage      1007/1007
+  I2_conservation  1007/1007
+  I3_provenance    1007/1007
+  I4_determinism   1007/1007
+  corpus 584.0 MB → 3.35 MB = 174× smaller
 ```
 
 ## Lossy on purpose — why recap is not an archiver

@@ -2,30 +2,28 @@
 
 # weighted-compact
 
-**A local, inspectable substrate over your own Claude Code sessions — with a
-provably faithful recap on top.**
+**A provably faithful recap and local inspectable substrate for your Claude Code sessions.**
 
-It reads `~/.claude/projects/` and turns it into an artifact you own: each
-correction-bearing turn scored as plain `numpy` columns, and a task-segmented
-**recap** of every session whose faithfulness is re-checkable, not asserted.
-Local-first, zero outbound network, no daemon, no auto-injection.
+`~/.claude/projects/` is the record of every correction you pushed back on.
+weighted-compact reads it and gives you two local artifacts: a task-segmented
+**recap** per session (stdlib-only, provably faithful, ~5 ms/session), and a
+**substrate** of every correction turn as inspectable numpy columns.
+Zero outbound. Zero idle RAM.
 
-> **Honest scope (alpha).** This carried a `beta` badge before it had earned
-> one; it does not anymore. Two claims, kept apart so neither borrows the
-> other's credibility:
+> **Three claims, kept apart so none borrows another's credibility:**
 >
-> - **recap** — a lossy navigation map of a session — is *provably faithful*:
->   four invariants (coverage · conservation · provenance · determinism)
->   re-checked on **986/986** of the maintainer's sessions
->   (`weighted-compact recap --all`). This is the consumer with a positive,
->   checkable result.
-> - **compaction** — selecting turns so a judge can still answer questions
->   about what was hidden — has **no measured edge** over cheap baselines
->   (recency, bm25). We say so, with the numbers, in
+> - **recap** — *provably faithful*: four invariants re-checked on **1007/1007**
+>   sessions (`weighted-compact recap --all`). Stdlib-only, no model, no judge.
+>   The one consumer with a positive, re-checkable result.
+> - **manifesto control** — your keep/skip labels are a *hard constraint*, not a
+>   soft boost: 100 % keep-label survival at k ≤ 0.7 (vs recency baseline 62 %).
+>   The first compaction claim that beats a cheap baseline.
+> - **mixture fidelity** — the six-signal importance mixture has **no measured
+>   edge** over recency or bm25 at current N. We say so, with the numbers, in
 >   [How it compares](#how-it-compares).
 >
-> Reach for this if you want a local substrate you can *audit*; reach for a
-> drop-in like claude-mem if you want set-and-forget recall.
+> Reach for this if you want local artifacts you can *audit* and steer; reach
+> for a drop-in like claude-mem if you want set-and-forget recall.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
@@ -37,7 +35,7 @@ Local-first, zero outbound network, no daemon, no auto-injection.
 ```
   ~/.claude/projects/          ┌─ recap ─────────────────────────────────┐
   ┌──────────────────┐         │ task-segmented map: per-task files +     │  ⭐ provably faithful
-  │ session_1.jsonl  │────┬───▶│ diffstat, commands, verbatim outcome     │     4 invariants · 986/986
+  │ session_1.jsonl  │────┬───▶│ diffstat, commands, verbatim outcome     │     4 invariants · 1007/1007
   │ session_2.jsonl  │    │    │ + `--audit` (stdlib-only, ~5 ms/session) │     (lossy navigation map)
   │     ...          │    │    └──────────────────────────────────────────┘
   │ session_N.jsonl  │    │
@@ -75,11 +73,11 @@ Every figure here is re-checkable on your own corpus, and each carries its
 own asterisk in plain sight — the project's stance is that an honest number
 beats a flattering one.
 
-- **986 / 986** sessions pass all four recap faithfulness invariants —
+- **1007 / 1007** sessions pass all four recap faithfulness invariants —
   coverage · conservation · provenance · determinism
   (`weighted-compact recap --all`). This proves the map does not *lie*
   about the session — not that it is the optimal summary.
-- **~5 ms / session** — 646 MB of transcripts mapped in 5.0 s, standard
+- **~5 ms / session** — 584 MB of transcripts mapped in 5.2 s, standard
   library only (no numpy, no model, no judge in the recap path).
 - **0** outbound network calls · **0 MB** idle RAM — the first is enforced
   by the [`outbound-zero`](https://github.com/zzallirog/weighted-compact/actions/workflows/outbound-zero.yml)
@@ -118,10 +116,12 @@ has not been shown to beat cheap baselines like recency or bm25, and neither
 does hand-curation (see [`docs/baselines.md`](docs/baselines.md)). What *is* a
 real, exclusive property is **manifesto control**: your keep/skip labels are
 honored as a hard selection constraint — a keep-labeled pair is guaranteed to
-survive compaction (up to budget), a skip-labeled pair is dropped first. That is
-a deterministic control guarantee, not a compression-quality claim (proven by
-construction in `tests/test_manifesto.py`; default-on in the `compact_session`
-MCP tool, `meta.manifesto` reports what it honored). claude-mem is
+survive compaction (up to budget), a skip-labeled pair is dropped first. Measured
+on a 16-pair labeled session: **100 % keep-label survival at k ≤ 0.7** (vs
+recency baseline 62 %). That is a deterministic control guarantee, not a
+compression-quality claim (proven by construction in `tests/test_manifesto.py`;
+default-on in the `compact_session` MCP tool, `meta.manifesto` reports what it
+honored). claude-mem is
 hook-installed in seconds and feels magic; weighted-compact is a transparent
 substrate you own, steer with a manifesto, and query with intent. Pick on
 transparency / locality / control, not on compression quality — see
@@ -163,7 +163,7 @@ every day. See [`docs/rem-decay.md`](docs/rem-decay.md).
 |---|---|---|
 | **Compaction layer** — `build_compacted_context_with_meta()` | top-K importance selection → markdown context + budget meta (chars, tokens, top-3 signals). Exercised via the `qa-gate` evaluation harness; standalone session-start delivery is the next-targeted feature. | **shipped — library + harness + MCP tool** |
 | **Schema extraction** — third retrieval tier | extracts reusable `(trigger, rule, anti-pattern, stable_since)` rules from your memory dir; sits above chunk/episode retrieval as the cheap top-tier — when a recurring pattern fires, you get the rule, not raw chunks | **shipped — `weighted-compact schema {build-bank,run,all}`; honest first proof: 14/20 strict MATCH = 70 % same-model judge (cross-model drops to 1/20) (see [`docs/schema-extraction.md`](docs/schema-extraction.md))** |
-| **Recap** — task-segmented navigation map | reads the same session source and renders, per task, the files touched (with a `+adds/−rems` diffstat), the commands run, and the verbatim outcome line. A deliberately **lossy** map — not reconstructable — but the one consumer whose quality claim is *positive and provable*: four faithfulness invariants re-checked on every session. | **shipped — `weighted-compact recap [SESSION] [--audit] [--all]`; audit holds on 986/986 of the maintainer's sessions (see [`docs/recap.md`](docs/recap.md))** |
+| **Recap** — task-segmented navigation map | reads the same session source and renders, per task, the files touched (with a `+adds/−rems` diffstat), the commands run, and the verbatim outcome line. A deliberately **lossy** map — not reconstructable — but the one consumer whose quality claim is *positive and provable*: four faithfulness invariants re-checked on every session. | **shipped — `weighted-compact recap [SESSION] [--audit] [--all]`; audit holds on 1007/1007 of the maintainer's sessions (see [`docs/recap.md`](docs/recap.md))** |
 
 Three consumers ship in this repo today. Four additional readers are in
 flight in adjacent projects (misstep, session-narrative, FKMF,
@@ -347,7 +347,7 @@ four invariants:
 
 Extraction is fully deterministic — no LLM, no judge. The outcome line is
 a quoted excerpt of the assistant's own final message, not a summary.
-Across the maintainer's corpus the audit holds on **986/986** sessions
+Across the maintainer's corpus the audit holds on **1007/1007** sessions
 (`weighted-compact recap --all`).
 
 For lossless archival of the raw logs, recap is the wrong tool — a
@@ -461,7 +461,7 @@ faithfulness invariants in front of you.
 or they are short enough to scroll.
 
 *The claim:* it is lossy (a map, not the transcript — use `zstd -19` for a
-lossless ~3× archive) but **provably faithful** — 986/986 sessions account
+lossless ~3× archive) but **provably faithful** — 1007/1007 sessions account
 for every tool call and message with no fabricated path. The one positive,
 re-checkable result in the repo.
 
@@ -925,7 +925,7 @@ Platform matrix: [`docs/install.md`](docs/install.md).
 
 | Component | Status |
 |---|---|
-| **Recap reader** (`weighted-compact recap`) | **shipped — provably faithful: 4 invariants, 986/986 sessions; stdlib-only; ~5 ms/session** |
+| **Recap reader** (`weighted-compact recap`) | **shipped — provably faithful: 4 invariants, 1007/1007 sessions; stdlib-only; ~5 ms/session** |
 | Substrate builder (parse sessions, embed, decorate with 5 automatic signals + optional label) | shipped |
 | Importance ranker (signal mixture — used by compaction reader) | shipped — **but no measured fidelity edge over recency/bm25; do not read it as a quality win** |
 | Compaction reader (`build_compacted_context()` library + `qa-gate` harness) | shipped — proves substrate-vs-summary (~3.5×), not mixture-vs-baseline |

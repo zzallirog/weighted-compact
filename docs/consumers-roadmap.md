@@ -6,7 +6,7 @@ extraction (`weighted-compact schema`), and recap
 (`weighted-compact recap`). The first two are exercised against the
 reconstruction-fidelity harness; recap is validated by a different bar —
 four faithfulness invariants re-checked per session (`recap --audit`),
-holding on 986/986 of the maintainer's corpus (see [`recap.md`](recap.md)).
+holding on 1007/1007 of the maintainer's corpus (see [`recap.md`](recap.md)).
 All three are available as soon as you `pipx install` the package.
 
 Recap is a consumer of the raw session source rather than of the computed
